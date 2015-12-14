@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Extended Timesheet</title>
+    <!--  (c) 2015 Rally Software Development Corp.  All Rights Reserved. -->
+    <!--  Build Date: Mon Dec 14 2015 07:38:27 GMT-0800 (PST) -->
+    
+    <script type="text/javascript">
+        var APP_BUILD_DATE = "Mon Dec 14 2015 07:38:27 GMT-0800 (PST)";
+        var CHECKSUM = 2669625313;
+    </script>
+    
+    <script type="text/javascript" src="/apps/2.0/sdk.js"></script>
+
+    <script type="text/javascript">
+        Rally.onReady(function() {
+             
+/**
+ * A link that pops up a version dialog box
+ */
+
+Ext.define('Rally.technicalservices.InfoLink',{
+    extend: 'Rally.ui.dialog.Dialog',
+    alias: 'widget.tsinfolink',
+    
+    /**
+     * @cfg {String} informationHtml
+     * Additional text to be displayed on the popup dialog (for exmaple,
+     * to add a description of the app's use or functionality)
+     */
+    informationHtml: null,
+    
+    /**
+     * 
+     * cfg {String} title
+     * The title for the dialog box
+     */
+    title: "Build Information",
+    
+    defaults: { padding: 5, margin: 5 },
+
+    closable: true,
+     
+    draggable: true,
+
+    autoShow: true,
+   
+    width: 350, 
+    
+    initComponent: function() {
+        var id = Ext.id(this);
+        this.title =  "<span class='icon-help'> </span>" + this.title;
+        this.callParent(arguments);
+    },
+    
+    _generateChecksum: function(string){
+        var chk = 0x12345678,
+            i;
+        string = string.replace(/var CHECKSUM = .*;/,"");
+        string = string.replace(/\s/g,"");  //Remove all whitespace from the string.
+        
+        for (i = 0; i < string.length; i++) {
+            chk += (string.charCodeAt(i) * i);
+        }
+    
+        return chk;
+    },
+    
+    _checkChecksum: function(container) {
+        var deferred = Ext.create('Deft.Deferred');
+        console.log("_checkChecksum", container);
+        var me = this;
+        
+        Ext.Ajax.request({
+            url: document.URL,
+            params: {
+                id: 1
+            },
+            success: function (response) {
+                text = response.responseText;
+                if ( CHECKSUM ) {
+                    if ( CHECKSUM !== me._generateChecksum(text) ) {
+                        console.log("Checksums don't match!");
+                        deferred.resolve(false);
+                        return;
+                    }
+                }
+                deferred.resolve(true);
+            }
+        });
+        
+        return deferred.promise;
+    },
+    
+    afterRender: function() {
+        var app = Rally.getApp();
+        
+        if (! app.isExternal() ) {
+                
+            this._checkChecksum(app).then({
+                scope: this,
+                success: function(result){
+                    if ( !result ) {
+                        this.addDocked({
+                            xtype:'container',
+                            cls: 'build-info',
+                            padding: 2,
+                            html:'<span class="icon-warning"> </span>Checksums do not match'
+                        });
+                    }
+                },
+                failure: function(msg){
+                    console.log("oops:",msg);
+                }
+            });
+        } else {
+            this.addDocked({
+                xtype:'container',
+                cls: 'build-info',
+                padding: 2,
+                html:'... Running externally'
+            });
+        }
+        this.callParent(arguments);
+    },
+    
+    beforeRender: function() {
+        var me = this;
+        this.callParent(arguments);
+
+        if (this.informationHtml) {
+            this.addDocked({
+                xtype: 'component',
+                componentCls: 'intro-panel',
+                padding: 2,
+                html: this.informationHtml
+            });
+        }
+        
+        this.addDocked({
+            xtype:'container',
+            cls: 'build-info',
+            padding: 2,
+            html:"This app was created by the Rally Technical Services Team."
+        });
+        
+        if ( APP_BUILD_DATE ) {
+            this.addDocked({
+                xtype:'container',
+                cls: 'build-info',
+                padding: 2,
+                html:'Build date/time: ' + APP_BUILD_DATE
+            });
+        }
+    }
+});
+
+/*
+ */
+Ext.define('Rally.technicalservices.Logger',{
+    constructor: function(config){
+        Ext.apply(this,config);
+    },
+    log: function(args){
+        var timestamp = "[ " + Ext.util.Format.date(new Date(), "Y-m-d H:i:s.u") + " ]";
+        //var output_args = arguments;
+        //output_args.unshift( [ "[ " + timestamp + " ]" ] );
+        //output_args = Ext.Array.push(output_args,arguments);
+        
+        var output_args = [];
+        output_args = Ext.Array.push(output_args,[timestamp]);
+        output_args = Ext.Array.push(output_args, Ext.Array.slice(arguments,0));
+
+        window.console && console.log.apply(console,output_args);
+    }
+
+});
+
+Ext.define('Rally.technicalservices.TimeModelBuilder',{
+    singleton: true,
+
+    build: function(modelType, newModelName) {
+        var deferred = Ext.create('Deft.Deferred');
+
+        Rally.data.ModelFactory.getModel({
+            type: modelType,
+            scope: this,
+            success: function(model) {
+
+                var day_fields = this._getDayFields();
+                
+                var additional_fields = Ext.Array.merge([], day_fields);
+
+                var new_model = Ext.define(newModelName, {
+                    extend: model,
+                    fields: additional_fields
+                });
+                deferred.resolve(new_model);
+            }
+        });
+        return deferred;
+    },
+
+    _getDayFields: function() {
+        return Ext.Array.map(['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'], function(day) {
+            return {
+                name: Ext.String.format('__{0}', day),
+                type: 'integer',
+                defaultValue: null
+            }
+        });
+    },
+    
+    // sometimes, dates are provided as beginning of day, but we 
+    // want to go to the end of the day
+    shiftToEndOfDay: function(js_date) {
+        return Rally.util.DateTime.add(Rally.util.DateTime.add(js_date,'day',1),'second',-1);
+    }
+});
+/**
+ */
+ 
+ Ext.define('Rally.technicalservices.TimeTable', {
+    extend: 'Ext.Container',
+    alias: 'widget.tstimetable',
+    
+    logger: new Rally.technicalservices.Logger(),
+
+    /**
+     * @property {String} cls The base class applied to this object's element
+     */
+    cls: "tstimetable",
+
+    config: {
+
+    },
+    
+    constructor: function (config) {
+        this.mergeConfig(config);
+        
+        this.callParent([this.config]);
+    },
+
+    initComponent: function () {
+        var me = this;
+        this.callParent(arguments);
+        
+        this.addEvents(
+            /**
+             * @event
+             * Fires when the grid has been rendered
+             * @param {Rally.technicalservices.TimeTable} this
+             * @param {Rally.ui.grid.Grid} grid
+             */
+            'gridReady'
+        );
+        
+        Rally.technicalservices.TimeModelBuilder.build('TimeEntryItem','TSTableRow').then({
+            scope: this,
+            success: function(model) {
+                this.logger.log('new model', model.getFields());
+                var table_store = Ext.create('Rally.data.custom.Store',{
+                    model: 'TSTableRow'
+                });
+                
+                this._makeGrid(table_store);
+            },
+            failure: function(msg) {
+                Ext.Msg.alert('Problem creating model', msg);
+            }
+        });
+
+                
+    },
+    
+    _makeGrid: function(table_store) {
+        this.removeAll();
+        
+        var me = this;
+        var columns = this._getColumns();
+                
+        this.grid = this.add({ 
+            xtype:'rallygrid', 
+            store: table_store,
+            columnCfgs: columns,
+            showPagingToolbar : false,
+            showRowActionsColumn : false,
+            sortableColumns: false,
+            disableSelection: true,
+            enableColumnMove: false,
+            viewConfig: {
+                listeners: {
+                    scope: this,
+                    itemupdate: function(row) {
+                        me.logger.log('itemupdate', row);
+                    }
+                }
+            }
+        });
+        
+    },
+    
+    _getColumns: function(task_states) {
+        var me = this;
+                
+        var columns = [{
+            dataIndex: 'Project',
+            text: 'Project',
+            flex: 1
+        }];
+        
+        columns.push({dataIndex:'__Sunday',   text:'Sun'});
+        columns.push({dataIndex:'__Monday',   text:'Mon'});
+        columns.push({dataIndex:'__Tuesday',  text:'Tue'});
+        columns.push({dataIndex:'__Wednesday',text:'Wed'});
+        columns.push({dataIndex:'__Thursday', text:'Thur'});
+        columns.push({dataIndex:'__Friday',   text:'Fri'});
+        columns.push({dataIndex:'__Saturday', text:'Sat'});
+
+        
+        return columns;
+    }
+
+});
+
+Ext.define("TSExtendedTimesheet", {
+    extend: 'Rally.app.App',
+    componentCls: 'app',
+    logger: new Rally.technicalservices.Logger(),
+    defaults: { margin: 10 },
+
+    layout: { type: 'border' },
+    
+    items: [
+        {xtype:'container', itemId:'selector_box', region: 'north',  layout: { type:'hbox' }, minHeight: 25},
+        {xtype:'container', itemId:'display_box' , region: 'center', layout: { type: 'border'} }
+    ],
+
+    integrationHeaders : {
+        name : "TSExtendedTimesheet"
+    },
+                        
+    launch: function() {
+        this.updateData();
+    },
+    
+    updateData: function()  { 
+        var me = this;
+        
+        var display_box = this.down('#display_box');
+        
+        display_box.removeAll();
+        
+        this.time_table = display_box.add({ 
+            xtype: 'tstimetable',
+            region: 'center',
+            layout: 'fit',
+            listeners: {
+                gridReady: function() {
+                    // to do
+                }
+            }
+        });
+    },
+    
+    getOptions: function() {
+        return [
+            {
+                text: 'About...',
+                handler: this._launchInfo,
+                scope: this
+            }
+        ];
+    },
+    
+    _launchInfo: function() {
+        if ( this.about_dialog ) { this.about_dialog.destroy(); }
+        this.about_dialog = Ext.create('Rally.technicalservices.InfoLink',{});
+    },
+    
+    isExternal: function(){
+        return typeof(this.getAppId()) == 'undefined';
+    },
+    
+    //onSettingsUpdate:  Override
+    onSettingsUpdate: function (settings){
+        this.logger.log('onSettingsUpdate',settings);
+        // Ext.apply(this, settings);
+        this.launch();
+    }
+});
+
+            
+               Rally.launchApp('TSExtendedTimesheet', {
+                   name: 'Extended Timesheet'
+               });
+        });
+    </script>
+    
+    <style type="text/css">
+
+.app {
+}
+.tsinfolink {
+    position:absolute;
+    right:0px;
+    width: 14px;
+    height: 14px;
+    border-radius: 7px;
+    text-align: center;
+    color: white;
+    background: #C0C0C0;
+    border-style: solid;
+    border-width: 1px;
+    margin-top: 25px;
+    margin-right: 5px;
+    cursor: pointer;
+}
+    </style>
+
+</head>
+<body></body>
+</html>
