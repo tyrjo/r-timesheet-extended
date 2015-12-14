@@ -1,6 +1,8 @@
 Ext.define('Rally.technicalservices.TimeModelBuilder',{
     singleton: true,
 
+    days: ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'],
+    
     build: function(modelType, newModelName) {
         var deferred = Ext.create('Deft.Deferred');
 
@@ -9,13 +11,17 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
             scope: this,
             success: function(model) {
 
+                var default_fields = [
+                    { name: '__TimeEntryItem', type:'object' }
+                ];
                 var day_fields = this._getDayFields();
                 
-                var additional_fields = Ext.Array.merge([], day_fields);
+                var additional_fields = Ext.Array.merge(default_fields, day_fields);
 
                 var new_model = Ext.define(newModelName, {
                     extend: model,
-                    fields: additional_fields
+                    fields: additional_fields,
+                    addTimeEntryValue: this._addTimeEntryValue
                 });
                 deferred.resolve(new_model);
             }
@@ -23,14 +29,48 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
         return deferred;
     },
 
+    _addTimeEntryValue: function(value_item) {
+        var value_day = value_item.get('DateVal').getUTCDay();
+        var value_hours = value_item.get('Hours');
+        
+        var value_day_name = Rally.technicalservices.TimeModelBuilder.days[value_day];
+        
+        var day_number_field_name = Rally.technicalservices.TimeModelBuilder._getDayNumberFieldName(value_day_name);
+        var day_record_field_name = Rally.technicalservices.TimeModelBuilder._getDayRecordFieldName(value_day_name);
+        
+        this.set(day_number_field_name, value_hours);
+        this.set(day_record_field_name, value_item);
+    },
+    
+    _getDayNumberFieldName: function(day_name) {
+        return Ext.String.format('__{0}',day_name);
+    },
+    
+    _getDayRecordFieldName: function(day_name) {
+        return Ext.String.format('__{0}_record',day_name);
+    },
+    
     _getDayFields: function() {
-        return Ext.Array.map(['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'], function(day) {
+        var me = this;
+        
+        var day_number_fields =  Ext.Array.map(this.days, function(day) {
             return {
-                name: Ext.String.format('__{0}', day),
-                type: 'integer',
+                name: me._getDayNumberFieldName(day),
+                type: 'auto',
+                defaultValue: 0
+            }
+        });
+        
+        var day_record_fields =  Ext.Array.map(this.days, function(day) {
+            return {
+                name: me._getDayRecordFieldName(day),
+                type: 'object',
                 defaultValue: null
             }
         });
+        
+        return Ext.Array.merge(day_number_fields, day_record_fields);
+        
     },
     
     // sometimes, dates are provided as beginning of day, but we 
