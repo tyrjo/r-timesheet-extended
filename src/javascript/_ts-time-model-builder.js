@@ -16,7 +16,8 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
                     { name: '__TimeEntryItem', type:'object' },
                     { name: '__Feature', type: 'object' },
                     { name: '__Release', type: 'object' },
-                    { name: '__Product', type: 'object' }
+                    { name: '__Product', type: 'object' },
+                    { name: '__Total',   type: 'float', defaultValue: 0 }
                 ];
                 
                 var day_fields = this._getDayFields();
@@ -27,7 +28,10 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
                     extend: 'Ext.data.Model',
                     fields: all_fields,
                     addTimeEntryValue: this._addTimeEntryValue,
+                    _updateTotal: this._updateTotal,
+                    _days: this.days,
                     save: function(v) { 
+                        var me = this;
                         var changes = this.getChanges();
                         Ext.Object.each(changes, function(field_name, value) {
                             var row = this;
@@ -43,7 +47,7 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
                                     // TODO: check for errors on return 
                                     // TODO: check for over 24 hours total
                                     src.save();
-                                    
+                                    me._updateTotal();
                                 } else {
                                     // need to create a new record
                                     var time_entry_item = this.get('__TimeEntryItem');
@@ -72,6 +76,7 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
                                                 callback: function(result, operation) {
                                                     if(operation.wasSuccessful()) {
                                                         row.set(src_field_name, result);
+                                                        me._updateTotal();
                                                     }
                                                 }
                                             });
@@ -104,6 +109,16 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
         return field;
     },
     
+    _updateTotal: function() {
+        console.log('_updateTotal');
+        var total = 0;
+        Ext.Array.each(this._days, function(day){
+            var value = this.get(Ext.String.format('__{0}',day)) || 0;
+            total += value;
+        },this);
+        this.set('__Total', total);
+    },
+    
     _addTimeEntryValue: function(value_item) {
         var value_day = value_item.get('DateVal').getUTCDay();
         var value_hours = value_item.get('Hours');
@@ -115,6 +130,8 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
         
         this.set(day_number_field_name, value_hours);
         this.set(day_record_field_name, value_item);
+        
+        this._updateTotal();
         
         // don't try to write these back when we're first getting them out of the system
         this.dirty = false;

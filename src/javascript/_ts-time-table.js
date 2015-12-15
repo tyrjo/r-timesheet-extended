@@ -361,13 +361,14 @@
             maxValue: 24
         };
         
-        columns.push({dataIndex:'__Sunday',   width: day_width, text:'Sun', editor: editor_config });
-        columns.push({dataIndex:'__Monday',   width: day_width, text:'Mon', editor: editor_config });
-        columns.push({dataIndex:'__Tuesday',  width: day_width, text:'Tue', editor: editor_config});
-        columns.push({dataIndex:'__Wednesday',width: day_width, text:'Wed', editor: editor_config});
-        columns.push({dataIndex:'__Thursday', width: day_width, text:'Thur', editor: editor_config});
-        columns.push({dataIndex:'__Friday',   width: day_width, text:'Fri', editor: editor_config});
-        columns.push({dataIndex:'__Saturday', width: day_width, text:'Sat', editor: editor_config});
+        columns.push({dataIndex:'__Sunday',   width: day_width, text:'Sun',   align: 'center', editor: editor_config });
+        columns.push({dataIndex:'__Monday',   width: day_width, text:'Mon',   align: 'center',editor: editor_config });
+        columns.push({dataIndex:'__Tuesday',  width: day_width, text:'Tue',   align: 'center',editor: editor_config});
+        columns.push({dataIndex:'__Wednesday',width: day_width, text:'Wed',   align: 'center',editor: editor_config});
+        columns.push({dataIndex:'__Thursday', width: day_width, text:'Thur',  align: 'center',editor: editor_config});
+        columns.push({dataIndex:'__Friday',   width: day_width, text:'Fri',   align: 'center',editor: editor_config});
+        columns.push({dataIndex:'__Saturday', width: day_width, text:'Sat',   align: 'center',editor: editor_config});
+        columns.push({dataIndex:'__Total',    width: day_width, text:'Total', align: 'center',editor: null});
 
         
         return columns;
