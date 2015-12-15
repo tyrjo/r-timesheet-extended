@@ -21,6 +21,15 @@ Ext.define("TSExtendedTimesheet", {
     },
     
     _addSelectors: function(container) {
+//        container.add({
+//            xtype:'rallybutton',
+//            text: 'Add My Tasks',
+//            listeners: {
+//                scope: this,
+//                click: this._addCurrentTasks
+//            }
+//        });
+        
         container.add({xtype:'container',flex: 1});
         
         container.add({

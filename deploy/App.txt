@@ -3,11 +3,11 @@
 <head>
     <title>Extended Timesheet</title>
     <!--  (c) 2015 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Tue Dec 15 2015 07:58:05 GMT-0800 (PST) -->
+    <!--  Build Date: Tue Dec 15 2015 08:07:01 GMT-0800 (PST) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Tue Dec 15 2015 07:58:05 GMT-0800 (PST)";
-        var CHECKSUM = 10435730859;
+        var APP_BUILD_DATE = "Tue Dec 15 2015 08:07:01 GMT-0800 (PST)";
+        var CHECKSUM = 10836935391;
     </script>
     
     <script type="text/javascript" src="/apps/2.0/sdk.js"></script>
@@ -397,7 +397,6 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
                 Ext.Msg.alert('Problem creating model', msg);
             }
         });
-
     },
     
     _updateData: function() {
@@ -405,7 +404,6 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
         var store = this.down('rallygrid').getStore();
         
         store.removeAll(true);
-
 
         Deft.Chain.sequence([
             this._loadTimeEntryItems,
@@ -482,7 +480,10 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
             },
             fetch: ['WeekStartDate','WorkProductDisplayString','TaskDisplayString','WorkProduct',
                 'Feature','Project', 'ObjectID', 'Name', 'Release'],
-            filters: [{property:'WeekStartDate',value:week_start}]
+            filters: [
+                {property:'WeekStartDate',value:week_start},
+                {property:'User.ObjectID',value:Rally.getApp().getContext().getUser().ObjectID}
+            ]
         };
         
         return this._loadWsapiRecords(config);
@@ -498,7 +499,10 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
                 project: null
             },
             fetch: ['DateVal','Hours','TimeEntryItem','ObjectID'],
-            filters: [{property:'TimeEntryItem.WeekStartDate',value:week_start}]
+            filters: [
+                {property:'TimeEntryItem.WeekStartDate',value:week_start},
+                {property:'TimeEntryItem.User.ObjectID',value:Rally.getApp().getContext().getUser().ObjectID}
+            ]
         };
         
         return this._loadWsapiRecords(config);
@@ -667,6 +671,15 @@ Ext.define("TSExtendedTimesheet", {
     },
     
     _addSelectors: function(container) {
+//        container.add({
+//            xtype:'rallybutton',
+//            text: 'Add My Tasks',
+//            listeners: {
+//                scope: this,
+//                click: this._addCurrentTasks
+//            }
+//        });
+        
         container.add({xtype:'container',flex: 1});
         
         container.add({

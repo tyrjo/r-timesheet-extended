@@ -57,7 +57,6 @@
                 Ext.Msg.alert('Problem creating model', msg);
             }
         });
-
     },
     
     _updateData: function() {
@@ -65,7 +64,6 @@
         var store = this.down('rallygrid').getStore();
         
         store.removeAll(true);
-
 
         Deft.Chain.sequence([
             this._loadTimeEntryItems,
@@ -142,7 +140,10 @@
             },
             fetch: ['WeekStartDate','WorkProductDisplayString','TaskDisplayString','WorkProduct',
                 'Feature','Project', 'ObjectID', 'Name', 'Release'],
-            filters: [{property:'WeekStartDate',value:week_start}]
+            filters: [
+                {property:'WeekStartDate',value:week_start},
+                {property:'User.ObjectID',value:Rally.getApp().getContext().getUser().ObjectID}
+            ]
         };
         
         return this._loadWsapiRecords(config);
@@ -158,7 +159,10 @@
                 project: null
             },
             fetch: ['DateVal','Hours','TimeEntryItem','ObjectID'],
-            filters: [{property:'TimeEntryItem.WeekStartDate',value:week_start}]
+            filters: [
+                {property:'TimeEntryItem.WeekStartDate',value:week_start},
+                {property:'TimeEntryItem.User.ObjectID',value:Rally.getApp().getContext().getUser().ObjectID}
+            ]
         };
         
         return this._loadWsapiRecords(config);
