@@ -76,9 +76,21 @@
                 var time_entry_items  = results[0];
                 var time_entry_values = results[1];
                 
+                console.log('Time Entry Items', time_entry_items);
+                
                 var rows = Ext.Array.map(time_entry_items, function(item){
+                    var product = item.get('Project');
+                    var workproduct = item.get('WorkProduct');
+                    var feature = null;
+                    if ( !Ext.isEmpty(workproduct) && workproduct.Feature ) {
+                        feature = workproduct.Feature;
+                        product = feature.Project;
+                    }
+                    
                     var data = {
-                        __TimeEntryItem:item
+                        __TimeEntryItem:item,
+                        __Feature: feature,
+                        __Product: product
                     };
                     
                     return Ext.create('TSTableRow',Ext.Object.merge(data, item.getData()));
@@ -121,7 +133,8 @@
             context: {
                 project: null
             },
-            fetch: ['Project','WeekStartDate','WorkProductDisplayString','TaskDisplayString'],
+            fetch: ['WeekStartDate','WorkProductDisplayString','TaskDisplayString','WorkProduct',
+                'Feature','Project', 'ObjectID', 'Name'],
             filters: [{property:'WeekStartDate',value:week_start}]
         };
         
@@ -201,11 +214,21 @@
                 
         var columns = [
             {
-                dataIndex: 'Project',
-                text: 'Project',
+                dataIndex: '__Product',
+                text: 'Product',
                 flex: 1,
                 editor: null,
                 renderer: function(v) {
+                    return v._refObjectName;
+                }
+            },
+            {
+                dataIndex: '__Feature',
+                text:  'Feature',
+                flex: 1,
+                editor: null,
+                renderer: function(v) {
+                    if ( Ext.isEmpty(v) ) { return ""; }
                     return v._refObjectName;
                 }
             },

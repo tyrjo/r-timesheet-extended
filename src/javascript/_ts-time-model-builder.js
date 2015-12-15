@@ -12,11 +12,15 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
             success: function(model) {
                 var base_fields = model.getFields();
                 
-                base_fields.push({ name: '__TimeEntryItem', type:'object' });
+                var related_fields = [
+                    { name: '__TimeEntryItem', type:'object' },
+                    { name: '__Feature', type: 'object' },
+                    { name: '__Product', type: 'object' }
+                ];
                 
                 var day_fields = this._getDayFields();
                 
-                var all_fields = Ext.Array.merge(base_fields, day_fields);
+                var all_fields = Ext.Array.merge(base_fields, day_fields, related_fields);
                 
                 var new_model = Ext.define(newModelName, {
                     extend: 'Ext.data.Model',

@@ -5,6 +5,8 @@ An app to replace the Rally timesheet.
 
 ## Development Notes
 
+* Caution: "Feature"
+
 ### First Load
 
 If you've just downloaded this from github and you want to do development, 
