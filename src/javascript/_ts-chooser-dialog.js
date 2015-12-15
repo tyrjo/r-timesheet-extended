@@ -78,6 +78,7 @@ Ext.define('Rally.technicalservices.ChooserDialog', {
                 dataIndex: 'FormattedID'
             },
             'Name',
+            'ScheduleState',
             'State',
             'Owner',
             'WorkProduct'

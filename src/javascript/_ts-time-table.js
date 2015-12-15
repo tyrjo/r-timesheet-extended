@@ -200,22 +200,32 @@
         
     },
     
-    addRowForTask: function(task) {
+    addRowForItem: function(item) {
         var me = this;
         var week_start_date = this.weekStart;
         
-        if ( !this._hasRowForTask(task)) {
+        var item_type = item.get('_type');
+        
+        if ( !this._hasRowForItem(item)) {
             Rally.data.ModelFactory.getModel({
                 type: 'TimeEntryItem',
                 scope: this,
                 success: function(model) {
                     var fields = model.getFields();
 
-                    var time_entry_item = Ext.create(model,{
-                        Task: { _ref: task.get('_ref') },
-                        WeekStartDate: week_start_date,
-                        WorkProduct: { _ref: task.get('WorkProduct')._ref }
-                    });
+                    var _ref = item.get('_ref');
+                    
+                    var config = {
+                        WorkProduct: { _ref: _ref },
+                        WeekStartDate: week_start_date
+                    };
+                    
+                    if ( item_type == "task" ) {
+                        config.Task = { _ref: _ref };
+                        config.WorkProduct = { _ref: item.get('WorkProduct')._ref };
+                    }
+                    
+                    var time_entry_item = Ext.create(model,config);
                     
                     time_entry_item.save({
                         fetch: me.time_entry_item_fetch,
@@ -253,14 +263,22 @@
         }
     },
     
-    _hasRowForTask: function(task) {
-        var hasRowForTask = false;
+    _hasRowForItem: function(item) {
+        var item_type = item.get('_type');
+        
+        var hasRow = false;
         Ext.Array.each(this.rows, function(row) {
-            if ( row.get('Task') && row.get('Task')._ref == task.get('_ref') ) {
-                hasRowForTask = true;
+            if ( item_type == "task" ) {
+                if ( row.get('Task') && row.get('Task')._ref == item.get('_ref') ) {
+                    hasRow = true;
+                }
+            } else {
+                if ( Ext.isEmpty(row.get('Task')) && row.get('WorkProduct') && row.get('WorkProduct')._ref == item.get('_ref') ) {
+                    hasRow = true;
+                }
             }
         });
-        return hasRowForTask;
+        return hasRow;
     },
     
     _loadWsapiRecords: function(config){

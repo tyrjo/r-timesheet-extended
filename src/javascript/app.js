@@ -42,6 +42,16 @@ Ext.define("TSExtendedTimesheet", {
             }
         });
         
+        container.add({
+            xtype:'rallybutton',
+            text: '+<span class="icon-story"> </span>',
+            disabled: true,
+            listeners: {
+                scope: this,
+                click: this._findAndAddStory
+            }
+        });
+        
         container.add({xtype:'container',flex: 1});
         
         container.add({
@@ -119,7 +129,7 @@ Ext.define("TSExtendedTimesheet", {
                 success: function(tasks) {
                     this.logger.log("Found", tasks);
                     Ext.Array.each(tasks, function(task){
-                        timetable.addRowForTask(task);
+                        timetable.addRowForItem(task);
                     });
                     
                     this.setLoading(false);
@@ -138,10 +148,64 @@ Ext.define("TSExtendedTimesheet", {
                 artifactTypes: ['task'],
                 autoShow: true,
                 title: 'Choose a Task',
+                filterableFields: [
+                    {
+                        displayName: 'Formatted ID',
+                        attributeName: 'FormattedID'
+                    },
+                    {
+                        displayName: 'Name',
+                        attributeName: 'Name'
+                    },
+                    {
+                        displayName: 'State',
+                        attributeName: 'State'
+                    },
+                    {
+                        displayName:'WorkProduct',
+                        attributeName: 'WorkProduct.Name'
+                    }
+                ],
                 fetchFields: ['WorkProduct','Feature','Project', 'ObjectID', 'Name', 'Release'],
                 listeners: {
                     artifactchosen: function(dialog, selectedRecord){
-                        timetable.addRowForTask(selectedRecord);
+                        timetable.addRowForItem(selectedRecord);
+                    },
+                    scope: this
+                }
+             });
+        }
+    },
+    
+    _findAndAddStory: function() {
+        var timetable = this.down('tstimetable');
+        if (timetable) {
+            Ext.create('Rally.technicalservices.ChooserDialog', {
+                artifactTypes: ['hierarchicalrequirement'],
+                autoShow: true,
+                title: 'Choose a Story',
+                filterableFields: [
+                    {
+                        displayName: 'Formatted ID',
+                        attributeName: 'FormattedID'
+                    },
+                    {
+                        displayName: 'Name',
+                        attributeName: 'Name'
+                    },
+                    {
+                        displayName: 'Schedule State',
+                        attributeName: 'ScheduleState'
+                    },
+                    {
+                        displayName:'Feature',
+                        attributeName: 'Feature.Name'
+                    }
+                ],
+                fetchFields: ['Feature','Project', 'ObjectID', 'Name', 'Release'],
+                listeners: {
+                    artifactchosen: function(dialog, selectedRecord){
+                        timetable.addRowForItem(selectedRecord);
                     },
                     scope: this
                 }

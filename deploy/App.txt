@@ -3,11 +3,11 @@
 <head>
     <title>Extended Timesheet</title>
     <!--  (c) 2015 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Tue Dec 15 2015 13:43:07 GMT-0800 (PST) -->
+    <!--  Build Date: Tue Dec 15 2015 14:03:35 GMT-0800 (PST) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Tue Dec 15 2015 13:43:07 GMT-0800 (PST)";
-        var CHECKSUM = 29170261557;
+        var APP_BUILD_DATE = "Tue Dec 15 2015 14:03:35 GMT-0800 (PST)";
+        var CHECKSUM = 32220741309;
     </script>
     
     <script type="text/javascript" src="/apps/2.0/sdk.js"></script>
@@ -256,6 +256,7 @@ Ext.define('Rally.technicalservices.ChooserDialog', {
                 dataIndex: 'FormattedID'
             },
             'Name',
+            'ScheduleState',
             'State',
             'Owner',
             'WorkProduct'
@@ -932,22 +933,32 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
         
     },
     
-    addRowForTask: function(task) {
+    addRowForItem: function(item) {
         var me = this;
         var week_start_date = this.weekStart;
         
-        if ( !this._hasRowForTask(task)) {
+        var item_type = item.get('_type');
+        
+        if ( !this._hasRowForItem(item)) {
             Rally.data.ModelFactory.getModel({
                 type: 'TimeEntryItem',
                 scope: this,
                 success: function(model) {
                     var fields = model.getFields();
 
-                    var time_entry_item = Ext.create(model,{
-                        Task: { _ref: task.get('_ref') },
-                        WeekStartDate: week_start_date,
-                        WorkProduct: { _ref: task.get('WorkProduct')._ref }
-                    });
+                    var _ref = item.get('_ref');
+                    
+                    var config = {
+                        WorkProduct: { _ref: _ref },
+                        WeekStartDate: week_start_date
+                    };
+                    
+                    if ( item_type == "task" ) {
+                        config.Task = { _ref: _ref };
+                        config.WorkProduct = { _ref: item.get('WorkProduct')._ref };
+                    }
+                    
+                    var time_entry_item = Ext.create(model,config);
                     
                     time_entry_item.save({
                         fetch: me.time_entry_item_fetch,
@@ -985,14 +996,22 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
         }
     },
     
-    _hasRowForTask: function(task) {
-        var hasRowForTask = false;
+    _hasRowForItem: function(item) {
+        var item_type = item.get('_type');
+        
+        var hasRow = false;
         Ext.Array.each(this.rows, function(row) {
-            if ( row.get('Task') && row.get('Task')._ref == task.get('_ref') ) {
-                hasRowForTask = true;
+            if ( item_type == "task" ) {
+                if ( row.get('Task') && row.get('Task')._ref == item.get('_ref') ) {
+                    hasRow = true;
+                }
+            } else {
+                if ( Ext.isEmpty(row.get('Task')) && row.get('WorkProduct') && row.get('WorkProduct')._ref == item.get('_ref') ) {
+                    hasRow = true;
+                }
             }
         });
-        return hasRowForTask;
+        return hasRow;
     },
     
     _loadWsapiRecords: function(config){
@@ -1152,6 +1171,16 @@ Ext.define("TSExtendedTimesheet", {
             }
         });
         
+        container.add({
+            xtype:'rallybutton',
+            text: '+<span class="icon-story"> </span>',
+            disabled: true,
+            listeners: {
+                scope: this,
+                click: this._findAndAddStory
+            }
+        });
+        
         container.add({xtype:'container',flex: 1});
         
         container.add({
@@ -1229,7 +1258,7 @@ Ext.define("TSExtendedTimesheet", {
                 success: function(tasks) {
                     this.logger.log("Found", tasks);
                     Ext.Array.each(tasks, function(task){
-                        timetable.addRowForTask(task);
+                        timetable.addRowForItem(task);
                     });
                     
                     this.setLoading(false);
@@ -1248,10 +1277,64 @@ Ext.define("TSExtendedTimesheet", {
                 artifactTypes: ['task'],
                 autoShow: true,
                 title: 'Choose a Task',
+                filterableFields: [
+                    {
+                        displayName: 'Formatted ID',
+                        attributeName: 'FormattedID'
+                    },
+                    {
+                        displayName: 'Name',
+                        attributeName: 'Name'
+                    },
+                    {
+                        displayName: 'State',
+                        attributeName: 'State'
+                    },
+                    {
+                        displayName:'WorkProduct',
+                        attributeName: 'WorkProduct.Name'
+                    }
+                ],
                 fetchFields: ['WorkProduct','Feature','Project', 'ObjectID', 'Name', 'Release'],
                 listeners: {
                     artifactchosen: function(dialog, selectedRecord){
-                        timetable.addRowForTask(selectedRecord);
+                        timetable.addRowForItem(selectedRecord);
+                    },
+                    scope: this
+                }
+             });
+        }
+    },
+    
+    _findAndAddStory: function() {
+        var timetable = this.down('tstimetable');
+        if (timetable) {
+            Ext.create('Rally.technicalservices.ChooserDialog', {
+                artifactTypes: ['hierarchicalrequirement'],
+                autoShow: true,
+                title: 'Choose a Story',
+                filterableFields: [
+                    {
+                        displayName: 'Formatted ID',
+                        attributeName: 'FormattedID'
+                    },
+                    {
+                        displayName: 'Name',
+                        attributeName: 'Name'
+                    },
+                    {
+                        displayName: 'Schedule State',
+                        attributeName: 'ScheduleState'
+                    },
+                    {
+                        displayName:'Feature',
+                        attributeName: 'Feature.Name'
+                    }
+                ],
+                fetchFields: ['Feature','Project', 'ObjectID', 'Name', 'Release'],
+                listeners: {
+                    artifactchosen: function(dialog, selectedRecord){
+                        timetable.addRowForItem(selectedRecord);
                     },
                     scope: this
                 }
