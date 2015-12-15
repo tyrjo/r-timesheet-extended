@@ -121,7 +121,7 @@
             context: {
                 project: null
             },
-            fetch: ['Project','WeekStartDate'],
+            fetch: ['Project','WeekStartDate','WorkProductDisplayString','TaskDisplayString'],
             filters: [{property:'WeekStartDate',value:week_start}]
         };
         
@@ -199,24 +199,45 @@
     _getColumns: function(task_states) {
         var me = this;
                 
-        var columns = [{
-            dataIndex: 'Project',
-            text: 'Project',
-            flex: 1,
-            editor: null,
-            renderer: function(v) {
-                return v._refObjectName;
+        var columns = [
+            {
+                dataIndex: 'Project',
+                text: 'Project',
+                flex: 1,
+                editor: null,
+                renderer: function(v) {
+                    return v._refObjectName;
+                }
+            },
+            {
+                dataIndex: 'WorkProductDisplayString',
+                text:  'Work Product',
+                flex: 1,
+                editor: null
+            },
+            {
+                dataIndex: 'TaskDisplayString',
+                text:  'Task',
+                flex: 1,
+                editor: null
             }
-        }];
+        ];
         
         var day_width = 50;
-        columns.push({dataIndex:'__Sunday',   width: day_width, text:'Sun', editor: 'rallynumberfield'});
-        columns.push({dataIndex:'__Monday',   width: day_width, text:'Mon', editor: 'rallynumberfield'});
-        columns.push({dataIndex:'__Tuesday',  width: day_width, text:'Tue', editor: 'rallynumberfield'});
-        columns.push({dataIndex:'__Wednesday',width: day_width, text:'Wed', editor: 'rallynumberfield'});
-        columns.push({dataIndex:'__Thursday', width: day_width, text:'Thur', editor: 'rallynumberfield'});
-        columns.push({dataIndex:'__Friday',   width: day_width, text:'Fri', editor: 'rallynumberfield'});
-        columns.push({dataIndex:'__Saturday', width: day_width, text:'Sat', editor: 'rallynumberfield'});
+        
+        var editor_config = {
+            xtype:'rallynumberfield',
+            minValue: 0,
+            maxValue: 24
+        };
+        
+        columns.push({dataIndex:'__Sunday',   width: day_width, text:'Sun', editor: editor_config });
+        columns.push({dataIndex:'__Monday',   width: day_width, text:'Mon', editor: editor_config });
+        columns.push({dataIndex:'__Tuesday',  width: day_width, text:'Tue', editor: editor_config});
+        columns.push({dataIndex:'__Wednesday',width: day_width, text:'Wed', editor: editor_config});
+        columns.push({dataIndex:'__Thursday', width: day_width, text:'Thur', editor: editor_config});
+        columns.push({dataIndex:'__Friday',   width: day_width, text:'Fri', editor: editor_config});
+        columns.push({dataIndex:'__Saturday', width: day_width, text:'Sat', editor: editor_config});
 
         
         return columns;

@@ -3,11 +3,11 @@
 <head>
     <title>Extended Timesheet</title>
     <!--  (c) 2015 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Mon Dec 14 2015 19:56:15 GMT-0800 (PST) -->
+    <!--  Build Date: Mon Dec 14 2015 20:05:01 GMT-0800 (PST) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Mon Dec 14 2015 19:56:15 GMT-0800 (PST)";
-        var CHECKSUM = 8347112038;
+        var APP_BUILD_DATE = "Mon Dec 14 2015 20:05:01 GMT-0800 (PST)";
+        var CHECKSUM = 8579390469;
     </script>
     
     <script type="text/javascript" src="/apps/2.0/sdk.js"></script>
@@ -195,8 +195,6 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
                 var day_fields = this._getDayFields();
                 
                 var all_fields = Ext.Array.merge(base_fields, day_fields);
-
-                console.log('all_fields', all_fields);
                 
                 var new_model = Ext.define(newModelName, {
                     extend: 'Ext.data.Model',
@@ -458,7 +456,7 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
             context: {
                 project: null
             },
-            fetch: ['Project','WeekStartDate'],
+            fetch: ['Project','WeekStartDate','WorkProductDisplayString','TaskDisplayString'],
             filters: [{property:'WeekStartDate',value:week_start}]
         };
         
@@ -536,24 +534,45 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
     _getColumns: function(task_states) {
         var me = this;
                 
-        var columns = [{
-            dataIndex: 'Project',
-            text: 'Project',
-            flex: 1,
-            editor: null,
-            renderer: function(v) {
-                return v._refObjectName;
+        var columns = [
+            {
+                dataIndex: 'Project',
+                text: 'Project',
+                flex: 1,
+                editor: null,
+                renderer: function(v) {
+                    return v._refObjectName;
+                }
+            },
+            {
+                dataIndex: 'WorkProductDisplayString',
+                text:  'Work Product',
+                flex: 1,
+                editor: null
+            },
+            {
+                dataIndex: 'TaskDisplayString',
+                text:  'Task',
+                flex: 1,
+                editor: null
             }
-        }];
+        ];
         
         var day_width = 50;
-        columns.push({dataIndex:'__Sunday',   width: day_width, text:'Sun', editor: 'rallynumberfield'});
-        columns.push({dataIndex:'__Monday',   width: day_width, text:'Mon', editor: 'rallynumberfield'});
-        columns.push({dataIndex:'__Tuesday',  width: day_width, text:'Tue', editor: 'rallynumberfield'});
-        columns.push({dataIndex:'__Wednesday',width: day_width, text:'Wed', editor: 'rallynumberfield'});
-        columns.push({dataIndex:'__Thursday', width: day_width, text:'Thur', editor: 'rallynumberfield'});
-        columns.push({dataIndex:'__Friday',   width: day_width, text:'Fri', editor: 'rallynumberfield'});
-        columns.push({dataIndex:'__Saturday', width: day_width, text:'Sat', editor: 'rallynumberfield'});
+        
+        var editor_config = {
+            xtype:'rallynumberfield',
+            minValue: 0,
+            maxValue: 24
+        };
+        
+        columns.push({dataIndex:'__Sunday',   width: day_width, text:'Sun', editor: editor_config });
+        columns.push({dataIndex:'__Monday',   width: day_width, text:'Mon', editor: editor_config });
+        columns.push({dataIndex:'__Tuesday',  width: day_width, text:'Tue', editor: editor_config});
+        columns.push({dataIndex:'__Wednesday',width: day_width, text:'Wed', editor: editor_config});
+        columns.push({dataIndex:'__Thursday', width: day_width, text:'Thur', editor: editor_config});
+        columns.push({dataIndex:'__Friday',   width: day_width, text:'Fri', editor: editor_config});
+        columns.push({dataIndex:'__Saturday', width: day_width, text:'Sat', editor: editor_config});
 
         
         return columns;
