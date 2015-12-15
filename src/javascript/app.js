@@ -24,10 +24,21 @@ Ext.define("TSExtendedTimesheet", {
         container.add({
             xtype:'rallybutton',
             text: 'Add My Tasks',
+            padding: 2,
             disabled: true,
             listeners: {
                 scope: this,
                 click: this._addCurrentTasks
+            }
+        });
+        
+        container.add({
+            xtype:'rallybutton',
+            text: '+<span class="icon-task"> </span>',
+            disabled: true,
+            listeners: {
+                scope: this,
+                click: this._findAndAddTask
             }
         });
         
@@ -117,6 +128,24 @@ Ext.define("TSExtendedTimesheet", {
                     Ext.Msg.alert("Problem loading current tasks", msg);
                 }
             });
+        }
+    },
+    
+    _findAndAddTask: function() {
+        var timetable = this.down('tstimetable');
+        if (timetable) {
+            Ext.create('Rally.technicalservices.ChooserDialog', {
+                artifactTypes: ['task'],
+                autoShow: true,
+                title: 'Choose a Task',
+                fetchFields: ['WorkProduct','Feature','Project', 'ObjectID', 'Name', 'Release'],
+                listeners: {
+                    artifactchosen: function(dialog, selectedRecord){
+                        timetable.addRowForTask(selectedRecord);
+                    },
+                    scope: this
+                }
+             });
         }
     },
     
