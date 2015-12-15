@@ -82,15 +82,22 @@
                     var product = item.get('Project');
                     var workproduct = item.get('WorkProduct');
                     var feature = null;
+                    var release = null;
+                    
                     if ( !Ext.isEmpty(workproduct) && workproduct.Feature ) {
                         feature = workproduct.Feature;
                         product = feature.Project;
                     }
                     
+                    if ( !Ext.isEmpty(workproduct) && workproduct.Release ) {
+                        release = workproduct.Release;
+                    }
+                    
                     var data = {
                         __TimeEntryItem:item,
                         __Feature: feature,
-                        __Product: product
+                        __Product: product,
+                        __Release: release
                     };
                     
                     return Ext.create('TSTableRow',Ext.Object.merge(data, item.getData()));
@@ -134,7 +141,7 @@
                 project: null
             },
             fetch: ['WeekStartDate','WorkProductDisplayString','TaskDisplayString','WorkProduct',
-                'Feature','Project', 'ObjectID', 'Name'],
+                'Feature','Project', 'ObjectID', 'Name', 'Release'],
             filters: [{property:'WeekStartDate',value:week_start}]
         };
         
@@ -237,6 +244,16 @@
                 text:  'Work Product',
                 flex: 1,
                 editor: null
+            },
+            {
+                dataIndex: '__Release',
+                text: 'Release',
+                flext: 1,
+                editor: null,
+                renderer: function(v) {
+                    if ( Ext.isEmpty(v) ) { return ""; }
+                    return v._refObjectName;
+                }
             },
             {
                 dataIndex: 'TaskDisplayString',

@@ -15,6 +15,7 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
                 var related_fields = [
                     { name: '__TimeEntryItem', type:'object' },
                     { name: '__Feature', type: 'object' },
+                    { name: '__Release', type: 'object' },
                     { name: '__Product', type: 'object' }
                 ];
                 
