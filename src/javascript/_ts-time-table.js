@@ -133,7 +133,7 @@
     _loadTimeEntryItems: function() {
         this.setLoading('Loading time entry items...');
 
-        var week_start = Rally.util.DateTime.toIsoString(this.weekStart,false).replace(/T.*$/,'T00:00:00.000Z');
+        var week_start = this.weekStart;
         
         var config = {
             model: 'TimeEntryItem',
@@ -150,7 +150,7 @@
     
     _loadTimeEntryValues: function() {
         this.setLoading('Loading time entry values...');
-        var week_start = Rally.util.DateTime.toIsoString(this.weekStart,false).replace(/T.*$/,'T00:00:00.000Z');
+        var week_start = this.weekStart;
 
         var config = {
             model: 'TimeEntryValue',
@@ -284,9 +284,9 @@
     },
     
     /*
-     * Given a date, return the beginning of the week
+     * Given a date, return the beginning of the week (iso, utc)
      */
-    _getStartOfWeek: function(date_in_week,asIso){
+    _getStartOfWeek: function(date_in_week){
         if ( typeof(date_in_week) == 'undefined' ) {
             date_in_week = new Date();
         }
@@ -298,14 +298,8 @@
         var start_of_week_js = date_in_week;
         start_of_week_js.setDate( day_of_month - day_of_week );
         
-        // push to midnight
-        start_of_week_js.setUTCHours(0,0,0,0);
-        
-        if ( asIso ) { 
-            return Rally.util.DateTime.toIsoString(start_of_week_js,true);
-        }
-
-        return start_of_week_js;
+        return Rally.util.DateTime.toIsoString(start_of_week_js,true).replace(/T.*$/,'T00:00:00.000Z');
+       
     }
 
 });

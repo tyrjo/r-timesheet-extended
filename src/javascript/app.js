@@ -16,7 +16,34 @@ Ext.define("TSExtendedTimesheet", {
     },
                         
     launch: function() {
-        this.updateData();
+        this._addSelectors(this.down('#selector_box'));
+        //this.updateData();
+    },
+    
+    _addSelectors: function(container) {
+        container.add({xtype:'container',flex: 1});
+        
+        container.add({
+            xtype:'rallydatefield',
+            itemId:'date_selector',
+            fieldLabel: 'Week Starting',
+            listeners: {
+                scope: this,
+                change: function(dp, new_value) {
+                    var week_start = this._getBeginningOfWeek(new_value);
+                    if ( week_start !== new_value ) {
+                        dp.setValue(week_start);
+                    }
+                    if ( new_value.getDay() === 0 ) {
+                        this.updateData();
+                    }
+                }
+            }
+        }).setValue(new Date());
+        
+        if ( this.isExternal() ) {
+            container.add({type:'container', html: '......'});
+        }
     },
     
     updateData: function()  { 
@@ -26,16 +53,25 @@ Ext.define("TSExtendedTimesheet", {
         
         display_box.removeAll();
         
+        this.startDate = this.down('#date_selector').getValue();
+        this.logger.log("Date changed to:", this.startDate);
+        
         this.time_table = display_box.add({ 
             xtype: 'tstimetable',
             region: 'center',
             layout: 'fit',
+            weekStart: this.startDate,
             listeners: {
                 gridReady: function() {
                     // to do
                 }
             }
         });
+    },
+    
+    _getBeginningOfWeek: function(js_date){
+        var start_of_week_here = Ext.Date.add(js_date, Ext.Date.DAY, -1 * js_date.getDay());
+        return start_of_week_here;
     },
     
     getOptions: function() {
