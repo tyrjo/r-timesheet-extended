@@ -3,11 +3,11 @@
 <head>
     <title>Extended Timesheet</title>
     <!--  (c) 2015 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Mon Dec 14 2015 15:43:38 GMT-0800 (PST) -->
+    <!--  Build Date: Mon Dec 14 2015 16:20:58 GMT-0800 (PST) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Mon Dec 14 2015 15:43:38 GMT-0800 (PST)";
-        var CHECKSUM = 6220920370;
+        var APP_BUILD_DATE = "Mon Dec 14 2015 16:20:58 GMT-0800 (PST)";
+        var CHECKSUM = 6577534899;
     </script>
     
     <script type="text/javascript" src="/apps/2.0/sdk.js"></script>
@@ -189,16 +189,19 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
             scope: this,
             success: function(model) {
 
-                var default_fields = [
-                    { name: '__TimeEntryItem', type:'object' }
-                ];
+                var base_fields = model.getFields();
+                
+                base_fields.push({ name: '__TimeEntryItem', type:'object' });
+                
                 var day_fields = this._getDayFields();
                 
-                var additional_fields = Ext.Array.merge(default_fields, day_fields);
+                var all_fields = Ext.Array.merge(base_fields, day_fields);
 
+                console.log('all_fields', all_fields);
+                
                 var new_model = Ext.define(newModelName, {
-                    extend: model,
-                    fields: additional_fields,
+                    extend: 'Ext.data.Model',
+                    fields: all_fields,
                     addTimeEntryValue: this._addTimeEntryValue
                 });
                 deferred.resolve(new_model);
@@ -345,7 +348,9 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
                 
                 var rows = this._addTimeEntryValues(rows, time_entry_values);
                 
+                this.logger.log('TEIs:', time_entry_items);
                 this.logger.log('Rows:', rows);
+
                 store.loadRecords(rows);
                 this.setLoading(false);
             }
@@ -371,13 +376,15 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
     _loadTimeEntryItems: function() {
         this.setLoading('Loading time entry items...');
 
+        var week_start = Rally.util.DateTime.toIsoString(this.weekStart,false).replace(/T.*$/,'T00:00:00.000Z');
+        
         var config = {
             model: 'TimeEntryItem',
             context: {
                 project: null
             },
             fetch: ['Project'],
-            filters: [{property:'WeekStartDate',value:this.weekStart}]
+            filters: [{property:'WeekStartDate',value:week_start}]
         };
         
         return this._loadWsapiRecords(config);
@@ -385,6 +392,7 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
     
     _loadTimeEntryValues: function() {
         this.setLoading('Loading time entry values...');
+        var week_start = Rally.util.DateTime.toIsoString(this.weekStart,false).replace(/T.*$/,'T00:00:00.000Z');
 
         var config = {
             model: 'TimeEntryValue',
@@ -392,7 +400,7 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
                 project: null
             },
             fetch: ['DateVal','Hours','TimeEntryItem','ObjectID'],
-            filters: [{property:'TimeEntryItem.WeekStartDate',value:this.weekStart}]
+            filters: [{property:'TimeEntryItem.WeekStartDate',value:week_start}]
         };
         
         return this._loadWsapiRecords(config);
@@ -457,7 +465,10 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
             dataIndex: 'Project',
             text: 'Project',
             flex: 1,
-            editor: null
+            editor: null,
+            renderer: function(v) {
+                return v._refObjectName;
+            }
         }];
         
         var day_width = 50;

@@ -86,7 +86,9 @@
                 
                 var rows = this._addTimeEntryValues(rows, time_entry_values);
                 
+                this.logger.log('TEIs:', time_entry_items);
                 this.logger.log('Rows:', rows);
+
                 store.loadRecords(rows);
                 this.setLoading(false);
             }
@@ -112,13 +114,15 @@
     _loadTimeEntryItems: function() {
         this.setLoading('Loading time entry items...');
 
+        var week_start = Rally.util.DateTime.toIsoString(this.weekStart,false).replace(/T.*$/,'T00:00:00.000Z');
+        
         var config = {
             model: 'TimeEntryItem',
             context: {
                 project: null
             },
             fetch: ['Project'],
-            filters: [{property:'WeekStartDate',value:this.weekStart}]
+            filters: [{property:'WeekStartDate',value:week_start}]
         };
         
         return this._loadWsapiRecords(config);
@@ -126,6 +130,7 @@
     
     _loadTimeEntryValues: function() {
         this.setLoading('Loading time entry values...');
+        var week_start = Rally.util.DateTime.toIsoString(this.weekStart,false).replace(/T.*$/,'T00:00:00.000Z');
 
         var config = {
             model: 'TimeEntryValue',
@@ -133,7 +138,7 @@
                 project: null
             },
             fetch: ['DateVal','Hours','TimeEntryItem','ObjectID'],
-            filters: [{property:'TimeEntryItem.WeekStartDate',value:this.weekStart}]
+            filters: [{property:'TimeEntryItem.WeekStartDate',value:week_start}]
         };
         
         return this._loadWsapiRecords(config);
@@ -198,7 +203,10 @@
             dataIndex: 'Project',
             text: 'Project',
             flex: 1,
-            editor: null
+            editor: null,
+            renderer: function(v) {
+                return v._refObjectName;
+            }
         }];
         
         var day_width = 50;
