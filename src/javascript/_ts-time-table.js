@@ -121,7 +121,7 @@
             context: {
                 project: null
             },
-            fetch: ['Project'],
+            fetch: ['Project','WeekStartDate'],
             filters: [{property:'WeekStartDate',value:week_start}]
         };
         
@@ -163,7 +163,7 @@
                 listeners: {
                     scope: this,
                     itemupdate: function(row, row_index) {
-                        me.logger.log('itemupdate', row, row.modified);
+                        me.logger.log('itemupdate', row);
                     }
                 }
             }
