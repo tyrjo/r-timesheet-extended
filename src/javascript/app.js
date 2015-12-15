@@ -2,7 +2,7 @@ Ext.define("TSExtendedTimesheet", {
     extend: 'Rally.app.App',
     componentCls: 'app',
     logger: new Rally.technicalservices.Logger(),
-    defaults: { margin: 10 },
+    defaults: { margin: 5 },
 
     layout: { type: 'border' },
     
@@ -21,14 +21,15 @@ Ext.define("TSExtendedTimesheet", {
     },
     
     _addSelectors: function(container) {
-//        container.add({
-//            xtype:'rallybutton',
-//            text: 'Add My Tasks',
-//            listeners: {
-//                scope: this,
-//                click: this._addCurrentTasks
-//            }
-//        });
+        container.add({
+            xtype:'rallybutton',
+            text: 'Add My Tasks',
+            disabled: true,
+            listeners: {
+                scope: this,
+                click: this._addCurrentTasks
+            }
+        });
         
         container.add({xtype:'container',flex: 1});
         
@@ -59,8 +60,11 @@ Ext.define("TSExtendedTimesheet", {
         var me = this;
         
         var display_box = this.down('#display_box');
-        
         display_box.removeAll();
+        
+        Ext.Array.each( this.query('rallybutton'), function(button) {
+            button.setDisabled(true);
+        });
         
         this.startDate = this.down('#date_selector').getValue();
         this.logger.log("Date changed to:", this.startDate);
@@ -71,16 +75,79 @@ Ext.define("TSExtendedTimesheet", {
             layout: 'fit',
             weekStart: this.startDate,
             listeners: {
+                scope: this,
                 gridReady: function() {
-                    // to do
+                    this.logger.log("Grid is ready");
+                    Ext.Array.each( this.query('rallybutton'), function(button) {
+                        button.setDisabled(false);
+                    });
                 }
             }
         });
     },
     
+    _addCurrentTasks: function() {
+        var timetable = this.down('tstimetable');
+        if (timetable) {
+            this.setLoading("Finding current tasks...");
+            var config = {
+                model: 'Task',
+                context: {
+                    project: null
+                },
+                fetch: ['ObjectID','Name','FormattedID','WorkProduct'],
+                filters: [
+                    {property:'Owner.ObjectID',value:this.getContext().getUser().ObjectID},
+                    {property:'Iteration.StartDate',operator: '<=', value:Rally.util.DateTime.toIsoString(new Date())},
+                    {property:'Iteration.EndDate',  operator: '>=', value:Rally.util.DateTime.toIsoString(new Date())}
+                ]
+            };
+            
+            this._loadWsapiRecords(config).then({
+                scope: this,
+                success: function(tasks) {
+                    this.logger.log("Found", tasks);
+                    Ext.Array.each(tasks, function(task){
+                        timetable.addRowForTask(task);
+                    });
+                    
+                    this.setLoading(false);
+                },
+                failure: function(msg) {
+                    Ext.Msg.alert("Problem loading current tasks", msg);
+                }
+            });
+        }
+    },
+    
     _getBeginningOfWeek: function(js_date){
         var start_of_week_here = Ext.Date.add(js_date, Ext.Date.DAY, -1 * js_date.getDay());
         return start_of_week_here;
+    },
+    
+    _loadWsapiRecords: function(config){
+        var deferred = Ext.create('Deft.Deferred');
+        var me = this;
+        
+        var default_config = {
+            model: 'Defect',
+            fetch: ['ObjectID']
+        };
+        
+        var final_config = Ext.Object.merge(default_config,config);
+        this.logger.log("Starting load:",final_config.model);
+          
+        Ext.create('Rally.data.wsapi.Store', final_config).load({
+            callback : function(records, operation, successful) {
+                if (successful){
+                    deferred.resolve(records);
+                } else {
+                    me.logger.log("Failed: ", operation);
+                    deferred.reject('Problem loading: ' + operation.error.errors.join('. '));
+                }
+            }
+        });
+        return deferred.promise;
     },
     
     getOptions: function() {

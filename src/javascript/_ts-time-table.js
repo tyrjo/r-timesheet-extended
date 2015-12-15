@@ -7,11 +7,16 @@
     
     logger: new Rally.technicalservices.Logger(),
 
+    rows: [],
+    
     /**
      * @property {String} cls The base class applied to this object's element
      */
     cls: "tstimetable",
 
+    time_entry_item_fetch: ['WeekStartDate','WorkProductDisplayString','WorkProduct','Task',
+        'TaskDisplayString','Feature','Project', 'ObjectID', 'Name', 'Release'],
+        
     config: {
         weekStart: new Date()
     },
@@ -74,8 +79,6 @@
                 var time_entry_items  = results[0];
                 var time_entry_values = results[1];
                 
-                console.log('Time Entry Items', time_entry_items);
-                
                 var rows = Ext.Array.map(time_entry_items, function(item){
                     var product = item.get('Project');
                     var workproduct = item.get('WorkProduct');
@@ -107,6 +110,7 @@
                 this.logger.log('Rows:', rows);
 
                 store.loadRecords(rows);
+                this.rows = rows;
                 this.setLoading(false);
             }
         });
@@ -138,8 +142,7 @@
             context: {
                 project: null
             },
-            fetch: ['WeekStartDate','WorkProductDisplayString','TaskDisplayString','WorkProduct',
-                'Feature','Project', 'ObjectID', 'Name', 'Release'],
+            fetch: this.time_entry_item_fetch,
             filters: [
                 {property:'WeekStartDate',value:week_start},
                 {property:'User.ObjectID',value:Rally.getApp().getContext().getUser().ObjectID}
@@ -193,6 +196,71 @@
             }
         });
         
+        this.fireEvent('gridReady', this, this.grid);
+        
+    },
+    
+    addRowForTask: function(task) {
+        var me = this;
+        var week_start_date = this.weekStart;
+        
+        if ( !this._hasRowForTask(task)) {
+            Rally.data.ModelFactory.getModel({
+                type: 'TimeEntryItem',
+                scope: this,
+                success: function(model) {
+                    var fields = model.getFields();
+
+                    var time_entry_item = Ext.create(model,{
+                        Task: { _ref: task.get('_ref') },
+                        WeekStartDate: week_start_date,
+                        WorkProduct: { _ref: task.get('WorkProduct')._ref }
+                    });
+                    
+                    time_entry_item.save({
+                        fetch: me.time_entry_item_fetch,
+                        callback: function(result, operation) {
+                            if(operation.wasSuccessful()) {
+                                var product = result.get('Project');
+                                var workproduct = result.get('WorkProduct');
+                                var feature = null;
+                                var release = null;
+                                
+                                if ( !Ext.isEmpty(workproduct) && workproduct.Feature ) {
+                                    feature = workproduct.Feature;
+                                    product = feature.Project;
+                                }
+                                
+                                if ( !Ext.isEmpty(workproduct) && workproduct.Release ) {
+                                    release = workproduct.Release;
+                                }
+                                
+                                var data = {
+                                    __TimeEntryItem:result,
+                                    __Feature: feature,
+                                    __Product: product,
+                                    __Release: release
+                                };
+                                
+                                var row = Ext.create('TSTableRow',Ext.Object.merge(data, time_entry_item.getData()));
+                                me.grid.getStore().loadRecords([row], { addRecords: true });
+                                me.rows.push(row);
+                            }
+                        }
+                    });
+                }
+            });
+        }
+    },
+    
+    _hasRowForTask: function(task) {
+        var hasRowForTask = false;
+        Ext.Array.each(this.rows, function(row) {
+            if ( row.get('Task') && row.get('Task')._ref == task.get('_ref') ) {
+                hasRowForTask = true;
+            }
+        });
+        return hasRowForTask;
     },
     
     _loadWsapiRecords: function(config){
