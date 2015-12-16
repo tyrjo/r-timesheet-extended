@@ -60,8 +60,6 @@ Ext.define("TSTimeSheetApproval", {
                     
                 },this);
                 
-                console.log(timesheets);
-                
                 deferred.resolve(Ext.Object.getValues(timesheets));
                 
             },
@@ -108,7 +106,52 @@ Ext.define("TSTimeSheetApproval", {
             features: [{
                 ftype: 'groupingsummary',
                 groupHeaderTpl: '{name} ({rows.length})'
-            }]
+            }],
+            listeners: {
+                scope: this,
+                itemclick: function(grid, record, item, index, evt) {
+                    var user_name = record.get('User')._refObjectName;
+
+                    var start_date = record.get('WeekStartDate');
+                    start_date = new Date(start_date.getUTCFullYear(), 
+                        start_date.getUTCMonth(), 
+                        start_date.getUTCDate(),  
+                        start_date.getUTCHours(), 
+                        start_date.getUTCMinutes(), 
+                        start_date.getUTCSeconds());
+
+                    Ext.create('Rally.ui.dialog.Dialog', {
+                        id       : 'popup',
+                        width    : Ext.getBody().getWidth() - 20,
+                        height   : Ext.getBody().getHeight() - 50,
+                        title    : Ext.String.format("{0}: {1}", user_name, Ext.Date.format(start_date,'j F Y')),
+                        autoShow : true,
+                        closable : true,
+                        layout   : 'border',
+                        items    : [{ 
+                            xtype:  'tstimetable',
+                            region: 'center',
+                            layout: 'fit',
+                            weekStart: start_date,
+                            editable: false,
+                            listeners: {
+                                scope: this,
+                                gridReady: function() {
+                                    console.log('here');
+//                                    Ext.Array.each( this.query('rallybutton'), function(button) {
+//                                        button.setDisabled(false);
+//                                    });
+                                }
+                            }
+                        },
+                        {
+                            xtype: 'container',
+                            region: 'south',
+                            html: 'hi'
+                        }]
+                    });
+                }
+            }
         });
     },
     

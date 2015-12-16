@@ -18,7 +18,8 @@
         'TaskDisplayString','Feature','Project', 'ObjectID', 'Name', 'Release'],
         
     config: {
-        weekStart: new Date()
+        weekStart: new Date(),
+        editable: true
     },
     
     constructor: function (config) {
@@ -360,6 +361,10 @@
             minValue: 0,
             maxValue: 24
         };
+        
+        if ( ! this.editable ) {
+            editor_config = null;
+        }
         
         columns.push({dataIndex:'__Sunday',   width: day_width, text:'Sun',   align: 'center', editor: editor_config });
         columns.push({dataIndex:'__Monday',   width: day_width, text:'Mon',   align: 'center',editor: editor_config });
