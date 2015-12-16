@@ -1,0 +1,898 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Time Sheet Approval</title>
+    <!--  (c) 2015 Rally Software Development Corp.  All Rights Reserved. -->
+    <!--  Build Date: Tue Dec 15 2015 15:00:10 GMT-0800 (PST) -->
+    
+    <script type="text/javascript">
+        var APP_BUILD_DATE = "Tue Dec 15 2015 15:00:10 GMT-0800 (PST)";
+        var CHECKSUM = 14550995349;
+    </script>
+    
+    <script type="text/javascript" src="/apps/2.0/sdk.js"></script>
+
+    <script type="text/javascript">
+        Rally.onReady(function() {
+             
+/**
+ * A link that pops up a version dialog box
+ */
+
+Ext.define('Rally.technicalservices.InfoLink',{
+    extend: 'Rally.ui.dialog.Dialog',
+    alias: 'widget.tsinfolink',
+    
+    /**
+     * @cfg {String} informationHtml
+     * Additional text to be displayed on the popup dialog (for exmaple,
+     * to add a description of the app's use or functionality)
+     */
+    informationHtml: null,
+    
+    /**
+     * 
+     * cfg {String} title
+     * The title for the dialog box
+     */
+    title: "Build Information",
+    
+    defaults: { padding: 5, margin: 5 },
+
+    closable: true,
+     
+    draggable: true,
+
+    autoShow: true,
+   
+    width: 350, 
+    
+    initComponent: function() {
+        var id = Ext.id(this);
+        this.title =  "<span class='icon-help'> </span>" + this.title;
+        this.callParent(arguments);
+    },
+    
+    _generateChecksum: function(string){
+        var chk = 0x12345678,
+            i;
+        string = string.replace(/var CHECKSUM = .*;/,"");
+        string = string.replace(/\s/g,"");  //Remove all whitespace from the string.
+        
+        for (i = 0; i < string.length; i++) {
+            chk += (string.charCodeAt(i) * i);
+        }
+    
+        return chk;
+    },
+    
+    _checkChecksum: function(container) {
+        var deferred = Ext.create('Deft.Deferred');
+        console.log("_checkChecksum", container);
+        var me = this;
+        
+        Ext.Ajax.request({
+            url: document.URL,
+            params: {
+                id: 1
+            },
+            success: function (response) {
+                text = response.responseText;
+                if ( CHECKSUM ) {
+                    if ( CHECKSUM !== me._generateChecksum(text) ) {
+                        console.log("Checksums don't match!");
+                        deferred.resolve(false);
+                        return;
+                    }
+                }
+                deferred.resolve(true);
+            }
+        });
+        
+        return deferred.promise;
+    },
+    
+    afterRender: function() {
+        var app = Rally.getApp();
+        
+        if (! app.isExternal() ) {
+                
+            this._checkChecksum(app).then({
+                scope: this,
+                success: function(result){
+                    if ( !result ) {
+                        this.addDocked({
+                            xtype:'container',
+                            cls: 'build-info',
+                            padding: 2,
+                            html:'<span class="icon-warning"> </span>Checksums do not match'
+                        });
+                    }
+                },
+                failure: function(msg){
+                    console.log("oops:",msg);
+                }
+            });
+        } else {
+            this.addDocked({
+                xtype:'container',
+                cls: 'build-info',
+                padding: 2,
+                html:'... Running externally'
+            });
+        }
+        this.callParent(arguments);
+    },
+    
+    beforeRender: function() {
+        var me = this;
+        this.callParent(arguments);
+
+        if (this.informationHtml) {
+            this.addDocked({
+                xtype: 'component',
+                componentCls: 'intro-panel',
+                padding: 2,
+                html: this.informationHtml
+            });
+        }
+        
+        this.addDocked({
+            xtype:'container',
+            cls: 'build-info',
+            padding: 2,
+            html:"This app was created by the Rally Technical Services Team."
+        });
+        
+        if ( APP_BUILD_DATE ) {
+            this.addDocked({
+                xtype:'container',
+                cls: 'build-info',
+                padding: 2,
+                html:'Build date/time: ' + APP_BUILD_DATE
+            });
+        }
+    }
+});
+
+/*
+ */
+Ext.define('Rally.technicalservices.Logger',{
+    constructor: function(config){
+        Ext.apply(this,config);
+    },
+    log: function(args){
+        var timestamp = "[ " + Ext.util.Format.date(new Date(), "Y-m-d H:i:s.u") + " ]";
+        //var output_args = arguments;
+        //output_args.unshift( [ "[ " + timestamp + " ]" ] );
+        //output_args = Ext.Array.push(output_args,arguments);
+        
+        var output_args = [];
+        output_args = Ext.Array.push(output_args,[timestamp]);
+        output_args = Ext.Array.push(output_args, Ext.Array.slice(arguments,0));
+
+        window.console && console.log.apply(console,output_args);
+    }
+
+});
+
+Ext.define('Rally.technicalservices.TimeModelBuilder',{
+    singleton: true,
+
+    days: ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'],
+    
+    build: function(modelType, newModelName) {
+        var deferred = Ext.create('Deft.Deferred');
+
+        Rally.data.ModelFactory.getModel({
+            type: modelType,
+            scope: this,
+            success: function(model) {
+                var base_fields = model.getFields();
+                
+                var related_fields = [
+                    { name: '__TimeEntryItem', type:'object' },
+                    { name: '__Feature', type: 'object' },
+                    { name: '__Release', type: 'object' },
+                    { name: '__Product', type: 'object' },
+                    { name: '__Total',   type: 'float', defaultValue: 0 }
+                ];
+                
+                var day_fields = this._getDayFields();
+                
+                var all_fields = Ext.Array.merge(base_fields, day_fields, related_fields);
+                
+                var new_model = Ext.define(newModelName, {
+                    extend: 'Ext.data.Model',
+                    fields: all_fields,
+                    addTimeEntryValue: this._addTimeEntryValue,
+                    _updateTotal: this._updateTotal,
+                    _days: this.days,
+                    save: function(v) { 
+                        var me = this;
+                        var changes = this.getChanges();
+                        Ext.Object.each(changes, function(field_name, value) {
+                            var row = this;
+                            var field = row.getField(field_name);
+                            var src_field_name = field.__src;
+                            
+                            if ( ! Ext.isEmpty(src_field_name) ) {
+                                // this is a field that belongs to another record
+                                var src = this.get(src_field_name);
+                                if ( !Ext.isEmpty(src) ) {
+                                    // the other record exists
+                                    src.set('Hours', value);
+                                    // TODO: check for errors on return 
+                                    // TODO: check for over 24 hours total
+                                    src.save();
+                                    me._updateTotal();
+                                } else {
+                                    // need to create a new record
+                                    var time_entry_item = this.get('__TimeEntryItem');
+                                    var index = field.__index;
+                                    var week_start = time_entry_item.get('WeekStartDate');
+                                    var date_val = Rally.util.DateTime.add(week_start, 'day', index);
+                                    
+                                    Rally.data.ModelFactory.getModel({
+                                        type: 'TimeEntryValue',
+                                        scope: this,
+                                        success: function(tev_model) {
+                                            var fields = tev_model.getFields();
+                                            Ext.Array.each(fields, function(field) {
+                                                if ( field.name == "TimeEntryItem" || field.name == "DateVal") {
+                                                    field.readOnly = false;
+                                                    field.persist = true;
+                                                }
+                                            });
+                                            src = Ext.create(tev_model,{
+                                                Hours: value,
+                                                TimeEntryItem: { _ref: time_entry_item.get('_ref') },
+                                                DateVal: date_val
+                                            });
+                                            
+                                            src.save({
+                                                callback: function(result, operation) {
+                                                    if(operation.wasSuccessful()) {
+                                                        row.set(src_field_name, result);
+                                                        me._updateTotal();
+                                                    }
+                                                }
+                                            });
+                                        }
+                                    });
+                                }
+                            }
+                        },this);
+                    },
+                    getField: this.getField
+                });
+                
+                this.model = new_model;
+                
+                deferred.resolve(new_model);
+            }
+        });
+        return deferred;
+    },
+    
+    getField: function(field_name) {
+        var fields = this.fields.items;
+        var field = null;
+        
+        Ext.Array.each(fields, function(f) {
+            if ( f.name == field_name || f.displayName == field_name ) {
+                field = f;
+            }
+        });
+        return field;
+    },
+    
+    _updateTotal: function() {
+        console.log('_updateTotal');
+        var total = 0;
+        Ext.Array.each(this._days, function(day){
+            var value = this.get(Ext.String.format('__{0}',day)) || 0;
+            total += value;
+        },this);
+        this.set('__Total', total);
+    },
+    
+    _addTimeEntryValue: function(value_item) {
+        var value_day = value_item.get('DateVal').getUTCDay();
+        var value_hours = value_item.get('Hours');
+        
+        var value_day_name = Rally.technicalservices.TimeModelBuilder.days[value_day];
+        
+        var day_number_field_name = Rally.technicalservices.TimeModelBuilder._getDayNumberFieldName(value_day_name);
+        var day_record_field_name = Rally.technicalservices.TimeModelBuilder._getDayRecordFieldName(value_day_name);
+        
+        this.set(day_number_field_name, value_hours);
+        this.set(day_record_field_name, value_item);
+        
+        this._updateTotal();
+        
+        // don't try to write these back when we're first getting them out of the system
+        this.dirty = false;
+        this.modified = [];
+    },
+    
+    _getDayNumberFieldName: function(day_name) {
+        return Ext.String.format('__{0}',day_name);
+    },
+    
+    _getDayRecordFieldName: function(day_name) {
+        return Ext.String.format('__{0}_record',day_name);
+    },
+    
+    _getDayFields: function() {
+        var me = this;
+        
+        var day_number_fields =  Ext.Array.map(this.days, function(day,idx) {
+            return {
+                name: me._getDayNumberFieldName(day),
+                type: 'auto',
+                defaultValue: 0,
+                __src: me._getDayRecordFieldName(day),
+                __index: idx
+            }
+        });
+        
+        var day_record_fields =  Ext.Array.map(this.days, function(day) {
+            return {
+                name: me._getDayRecordFieldName(day),
+                type: 'object',
+                defaultValue: null
+            }
+        });
+        
+        return Ext.Array.merge(day_number_fields, day_record_fields);
+        
+    },
+    
+    // sometimes, dates are provided as beginning of day, but we 
+    // want to go to the end of the day
+    shiftToEndOfDay: function(js_date) {
+        return Rally.util.DateTime.add(Rally.util.DateTime.add(js_date,'day',1),'second',-1);
+    }
+});
+/**
+ */
+ 
+ Ext.define('Rally.technicalservices.TimeTable', {
+    extend: 'Ext.Container',
+    alias: 'widget.tstimetable',
+    
+    logger: new Rally.technicalservices.Logger(),
+
+    rows: [],
+    
+    /**
+     * @property {String} cls The base class applied to this object's element
+     */
+    cls: "tstimetable",
+
+    time_entry_item_fetch: ['WeekStartDate','WorkProductDisplayString','WorkProduct','Task',
+        'TaskDisplayString','Feature','Project', 'ObjectID', 'Name', 'Release'],
+        
+    config: {
+        weekStart: new Date()
+    },
+    
+    constructor: function (config) {
+        this.mergeConfig(config);
+        
+        this.callParent([this.config]);
+    },
+
+    initComponent: function () {
+        var me = this;
+        this.callParent(arguments);
+        
+        this.addEvents(
+            /**
+             * @event
+             * Fires when the grid has been rendered
+             * @param {Rally.technicalservices.TimeTable} this
+             * @param {Rally.ui.grid.Grid} grid
+             */
+            'gridReady'
+        );
+        
+        this.weekStart = this._getStartOfWeek(this.weekStart);
+        this.logger.log("Week Start: ", this.weekStart);
+        
+        Rally.technicalservices.TimeModelBuilder.build('TimeEntryItem','TSTableRow').then({
+            scope: this,
+            success: function(model) {
+//                Ext.Array.each(model.getFields(), function(field){
+//                    console.log(' - ', field.name, field.type );
+//                });
+                
+                var table_store = Ext.create('Rally.data.custom.Store',{
+                    model: 'TSTableRow'
+                });
+                
+                this._makeGrid(table_store);
+                this._updateData();
+            },
+            failure: function(msg) {
+                Ext.Msg.alert('Problem creating model', msg);
+            }
+        });
+    },
+    
+    _updateData: function() {
+        this.setLoading('Loading time...');
+        var store = this.down('rallygrid').getStore();
+        
+        store.removeAll(true);
+
+        Deft.Chain.sequence([
+            this._loadTimeEntryItems,
+            this._loadTimeEntryValues
+        ],this).then({
+            scope: this,
+            success: function(results) {
+                var time_entry_items  = results[0];
+                var time_entry_values = results[1];
+                
+                var rows = Ext.Array.map(time_entry_items, function(item){
+                    var product = item.get('Project');
+                    var workproduct = item.get('WorkProduct');
+                    var feature = null;
+                    var release = null;
+                    
+                    if ( !Ext.isEmpty(workproduct) && workproduct.Feature ) {
+                        feature = workproduct.Feature;
+                        product = feature.Project;
+                    }
+                    
+                    if ( !Ext.isEmpty(workproduct) && workproduct.Release ) {
+                        release = workproduct.Release;
+                    }
+                    
+                    var data = {
+                        __TimeEntryItem:item,
+                        __Feature: feature,
+                        __Product: product,
+                        __Release: release
+                    };
+                    
+                    return Ext.create('TSTableRow',Ext.Object.merge(data, item.getData()));
+                });
+                
+                var rows = this._addTimeEntryValues(rows, time_entry_values);
+                
+                this.logger.log('TEIs:', time_entry_items);
+                this.logger.log('Rows:', rows);
+
+                store.loadRecords(rows);
+                this.rows = rows;
+                this.setLoading(false);
+            }
+        });
+        
+    },
+    
+    _addTimeEntryValues: function(rows, time_entry_values) {
+        var rows_by_oid = {};
+        
+        Ext.Array.each(rows, function(row) { rows_by_oid[row.get('ObjectID')] = row; });
+        
+        Ext.Array.each(time_entry_values, function(value){
+            var parent_oid = value.get('TimeEntryItem').ObjectID;
+
+            var row = rows_by_oid[parent_oid];
+            row.addTimeEntryValue(value);
+        });
+        
+        return rows;
+    },
+    
+    _loadTimeEntryItems: function() {
+        this.setLoading('Loading time entry items...');
+
+        var week_start = this.weekStart;
+        
+        var config = {
+            model: 'TimeEntryItem',
+            context: {
+                project: null
+            },
+            fetch: this.time_entry_item_fetch,
+            filters: [
+                {property:'WeekStartDate',value:week_start},
+                {property:'User.ObjectID',value:Rally.getApp().getContext().getUser().ObjectID}
+            ]
+        };
+        
+        return this._loadWsapiRecords(config);
+    },
+    
+    _loadTimeEntryValues: function() {
+        this.setLoading('Loading time entry values...');
+        var week_start = this.weekStart;
+
+        var config = {
+            model: 'TimeEntryValue',
+            context: {
+                project: null
+            },
+            fetch: ['DateVal','Hours','TimeEntryItem','ObjectID'],
+            filters: [
+                {property:'TimeEntryItem.WeekStartDate',value:week_start},
+                {property:'TimeEntryItem.User.ObjectID',value:Rally.getApp().getContext().getUser().ObjectID}
+            ]
+        };
+        
+        return this._loadWsapiRecords(config);
+    },
+    
+    _makeGrid: function(table_store) {
+        this.removeAll();
+        
+        var me = this;
+        var columns = this._getColumns();
+                
+        this.grid = this.add({ 
+            xtype:'rallygrid', 
+            store: table_store,
+            columnCfgs: columns,
+            showPagingToolbar : false,
+            showRowActionsColumn : false,
+            sortableColumns: false,
+            disableSelection: true,
+            enableColumnMove: false,
+            viewConfig: {
+                listeners: {
+                    scope: this,
+                    itemupdate: function(row, row_index) {
+                        me.logger.log('itemupdate', row);
+                    }
+                }
+            }
+        });
+        
+        this.fireEvent('gridReady', this, this.grid);
+        
+    },
+    
+    addRowForItem: function(item) {
+        var me = this;
+        var week_start_date = this.weekStart;
+        
+        var item_type = item.get('_type');
+        
+        if ( !this._hasRowForItem(item)) {
+            Rally.data.ModelFactory.getModel({
+                type: 'TimeEntryItem',
+                scope: this,
+                success: function(model) {
+                    var fields = model.getFields();
+
+                    var _ref = item.get('_ref');
+                    
+                    var config = {
+                        WorkProduct: { _ref: _ref },
+                        WeekStartDate: week_start_date
+                    };
+                    
+                    if ( item_type == "task" ) {
+                        config.Task = { _ref: _ref };
+                        config.WorkProduct = { _ref: item.get('WorkProduct')._ref };
+                    }
+                    
+                    var time_entry_item = Ext.create(model,config);
+                    
+                    time_entry_item.save({
+                        fetch: me.time_entry_item_fetch,
+                        callback: function(result, operation) {
+                            if(operation.wasSuccessful()) {
+                                var product = result.get('Project');
+                                var workproduct = result.get('WorkProduct');
+                                var feature = null;
+                                var release = null;
+                                
+                                if ( !Ext.isEmpty(workproduct) && workproduct.Feature ) {
+                                    feature = workproduct.Feature;
+                                    product = feature.Project;
+                                }
+                                
+                                if ( !Ext.isEmpty(workproduct) && workproduct.Release ) {
+                                    release = workproduct.Release;
+                                }
+                                
+                                var data = {
+                                    __TimeEntryItem:result,
+                                    __Feature: feature,
+                                    __Product: product,
+                                    __Release: release
+                                };
+                                
+                                var row = Ext.create('TSTableRow',Ext.Object.merge(data, time_entry_item.getData()));
+                                me.grid.getStore().loadRecords([row], { addRecords: true });
+                                me.rows.push(row);
+                            }
+                        }
+                    });
+                }
+            });
+        }
+    },
+    
+    _hasRowForItem: function(item) {
+        var item_type = item.get('_type');
+        
+        var hasRow = false;
+        Ext.Array.each(this.rows, function(row) {
+            if ( item_type == "task" ) {
+                if ( row.get('Task') && row.get('Task')._ref == item.get('_ref') ) {
+                    hasRow = true;
+                }
+            } else {
+                if ( Ext.isEmpty(row.get('Task')) && row.get('WorkProduct') && row.get('WorkProduct')._ref == item.get('_ref') ) {
+                    hasRow = true;
+                }
+            }
+        });
+        return hasRow;
+    },
+    
+    _loadWsapiRecords: function(config){
+        var deferred = Ext.create('Deft.Deferred');
+        var me = this;
+        
+        var default_config = {
+            model: 'Defect',
+            fetch: ['ObjectID']
+        };
+        
+        var final_config = Ext.Object.merge(default_config,config);
+        this.logger.log("Starting load:",final_config.model);
+          
+        Ext.create('Rally.data.wsapi.Store', final_config).load({
+            callback : function(records, operation, successful) {
+                if (successful){
+                    deferred.resolve(records);
+                } else {
+                    me.logger.log("Failed: ", operation);
+                    deferred.reject('Problem loading: ' + operation.error.errors.join('. '));
+                }
+            }
+        });
+        return deferred.promise;
+    },
+    
+    _getColumns: function(task_states) {
+        var me = this;
+                
+        var columns = [
+            {
+                dataIndex: '__Product',
+                text: 'Product',
+                flex: 1,
+                editor: null,
+                renderer: function(v) {
+                    return v._refObjectName;
+                }
+            },
+            {
+                dataIndex: '__Feature',
+                text:  'Feature',
+                flex: 1,
+                editor: null,
+                renderer: function(v) {
+                    if ( Ext.isEmpty(v) ) { return ""; }
+                    return v._refObjectName;
+                }
+            },
+            {
+                dataIndex: 'WorkProductDisplayString',
+                text:  'Work Product',
+                flex: 1,
+                editor: null
+            },
+            {
+                dataIndex: '__Release',
+                text: 'Release',
+                flext: 1,
+                editor: null,
+                renderer: function(v) {
+                    if ( Ext.isEmpty(v) ) { return ""; }
+                    return v._refObjectName;
+                }
+            },
+            {
+                dataIndex: 'TaskDisplayString',
+                text:  'Task',
+                flex: 1,
+                editor: null
+            }
+        ];
+        
+        var day_width = 50;
+        
+        var editor_config = {
+            xtype:'rallynumberfield',
+            minValue: 0,
+            maxValue: 24
+        };
+        
+        columns.push({dataIndex:'__Sunday',   width: day_width, text:'Sun',   align: 'center', editor: editor_config });
+        columns.push({dataIndex:'__Monday',   width: day_width, text:'Mon',   align: 'center',editor: editor_config });
+        columns.push({dataIndex:'__Tuesday',  width: day_width, text:'Tue',   align: 'center',editor: editor_config});
+        columns.push({dataIndex:'__Wednesday',width: day_width, text:'Wed',   align: 'center',editor: editor_config});
+        columns.push({dataIndex:'__Thursday', width: day_width, text:'Thur',  align: 'center',editor: editor_config});
+        columns.push({dataIndex:'__Friday',   width: day_width, text:'Fri',   align: 'center',editor: editor_config});
+        columns.push({dataIndex:'__Saturday', width: day_width, text:'Sat',   align: 'center',editor: editor_config});
+        columns.push({dataIndex:'__Total',    width: day_width, text:'Total', align: 'center',editor: null});
+
+        
+        return columns;
+    },
+    
+    /*
+     * Given a date, return the beginning of the week (iso, utc)
+     */
+    _getStartOfWeek: function(date_in_week){
+        if ( typeof(date_in_week) == 'undefined' ) {
+            date_in_week = new Date();
+        }
+
+        var day_of_week = date_in_week.getDay();
+        var day_of_month = date_in_week.getDate();
+        
+        // determine what beginning of week is
+        var start_of_week_js = date_in_week;
+        start_of_week_js.setDate( day_of_month - day_of_week );
+        
+        return Rally.util.DateTime.toIsoString(start_of_week_js,true).replace(/T.*$/,'T00:00:00.000Z');
+       
+    }
+
+});
+
+Ext.define("TSTimeSheetApproval", {
+    extend: 'Rally.app.App',
+    componentCls: 'app',
+    logger: new Rally.technicalservices.Logger(),
+    defaults: { margin: 10 },
+    items: [
+        {xtype:'container',itemId:'message_box',tpl:'Hello, <tpl>{_refObjectName}</tpl>'},
+        {xtype:'container',itemId:'display_box'}
+    ],
+
+    integrationHeaders : {
+        name : "TSTimeSheetApproval"
+    },
+                        
+    launch: function() {
+        var me = this;
+        this.setLoading("Loading stuff...");
+
+        this.down('#message_box').update(this.getContext().getUser());
+        
+        var model_name = 'Defect',
+            field_names = ['Name','State'];
+        
+        this._loadAStoreWithAPromise(model_name, field_names).then({
+            scope: this,
+            success: function(store) {
+                this._displayGrid(store,field_names);
+            },
+            failure: function(error_message){
+                alert(error_message);
+            }
+        }).always(function() {
+            me.setLoading(false);
+        });
+    },
+      
+    _loadWsapiRecords: function(config){
+        var deferred = Ext.create('Deft.Deferred');
+        var me = this;
+        var default_config = {
+            model: 'Defect',
+            fetch: ['ObjectID']
+        };
+        this.logger.log("Starting load:",config.model);
+        Ext.create('Rally.data.wsapi.Store', Ext.Object.merge(default_config,config)).load({
+            callback : function(records, operation, successful) {
+                if (successful){
+                    deferred.resolve(records);
+                } else {
+                    me.logger.log("Failed: ", operation);
+                    deferred.reject('Problem loading: ' + operation.error.errors.join('. '));
+                }
+            }
+        });
+        return deferred.promise;
+    },
+
+    _loadAStoreWithAPromise: function(model_name, model_fields){
+        var deferred = Ext.create('Deft.Deferred');
+        var me = this;
+        this.logger.log("Starting load:",model_name,model_fields);
+          
+        Ext.create('Rally.data.wsapi.Store', {
+            model: model_name,
+            fetch: model_fields
+        }).load({
+            callback : function(records, operation, successful) {
+                if (successful){
+                    deferred.resolve(this);
+                } else {
+                    me.logger.log("Failed: ", operation);
+                    deferred.reject('Problem loading: ' + operation.error.errors.join('. '));
+                }
+            }
+        });
+        return deferred.promise;
+    },
+    
+    _displayGrid: function(store,field_names){
+        this.down('#display_box').add({
+            xtype: 'rallygrid',
+            store: store,
+            columnCfgs: field_names
+        });
+    },
+    
+    getOptions: function() {
+        return [
+            {
+                text: 'About...',
+                handler: this._launchInfo,
+                scope: this
+            }
+        ];
+    },
+    
+    _launchInfo: function() {
+        if ( this.about_dialog ) { this.about_dialog.destroy(); }
+        this.about_dialog = Ext.create('Rally.technicalservices.InfoLink',{});
+    },
+    
+    isExternal: function(){
+        return typeof(this.getAppId()) == 'undefined';
+    },
+    
+    //onSettingsUpdate:  Override
+    onSettingsUpdate: function (settings){
+        this.logger.log('onSettingsUpdate',settings);
+        // Ext.apply(this, settings);
+        this.launch();
+    }
+});
+
+            
+               Rally.launchApp('TSTimeSheetApproval', {
+                   name: 'Time Sheet Approval'
+               });
+        });
+    </script>
+    
+    <style type="text/css">
+
+.app {
+}
+.tsinfolink {
+    position:absolute;
+    right:0px;
+    width: 14px;
+    height: 14px;
+    border-radius: 7px;
+    text-align: center;
+    color: white;
+    background: #C0C0C0;
+    border-style: solid;
+    border-width: 1px;
+    margin-top: 25px;
+    margin-right: 5px;
+    cursor: pointer;
+}
+    </style>
+
+</head>
+<body></body>
+</html>
