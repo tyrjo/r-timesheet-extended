@@ -15,6 +15,11 @@ Ext.define("TSTimeSheetApproval", {
     },
                         
     launch: function() {
+        console.log(this.getContext().getUser());
+        console.log(this.getContext());
+        
+        console.log(this.getContext().getPermissions());
+        
         Deft.Chain.pipeline([
             this._loadTimesheets,
             this._loadPreferences
@@ -29,6 +34,31 @@ Ext.define("TSTimeSheetApproval", {
         });
     },
     
+    _currentUserCanUnlock: function() {
+        if ( this.getContext().getUser().SubscriptionAdmin ) {
+            return true;
+        }
+        
+        var permissions = this.getContext().getPermissions();
+        
+        var workspace_admin_list = Ext.Array.map(permissions, function(p) {
+            return p.Role == "Workspace Admin";
+        });
+        
+        var current_workspace_ref = this.getContext().getWorkspace()._ref;
+        var can_unlock = false;
+        
+        if ( workspace_admin_list.length > 0 ) {
+            Ext.Array.each(workspace_admin_list, function(p){
+                if (current_workspace_ref == p._ref) {
+                    can_unlock = true;
+                }
+            });
+        }
+        
+        return can_unlock;
+    },
+    
     _loadTimesheets: function() {
         var deferred = Ext.create('Deft.Deferred');
         this.setLoading("Loading timesheets...");
@@ -36,6 +66,9 @@ Ext.define("TSTimeSheetApproval", {
         var config = {
             model:'TimeEntryItem',
             limit: 'Infinity',
+            context: {
+                project: null
+            },
             fetch: ['User','WeekStartDate','ObjectID', 'UserName','Values:summary[Hours]']
         };
         
@@ -140,7 +173,7 @@ Ext.define("TSTimeSheetApproval", {
             groupField: 'User',
             groupDir: 'ASC',
             model: 'TSTimesheet',
-            sorters: [{property:'WeekStartDate'}],
+            sorters: [{property:'__UserName'}, {property:'WeekStartDate'}],
             getGroupString: function(record) {
                 var owner = record.get('User');
                 return (owner && owner._refObjectName) || 'No Owner';
@@ -228,7 +261,7 @@ Ext.define("TSTimeSheetApproval", {
                 boxready: function(popup) {
                     popup.down('#popup_selector_box').add({
                         xtype:'rallybutton', 
-                        text:'Reopen',
+                        text:'Unlock',
                         disabled: (status != "Approved"),
                         listeners: {
                             scope: this,
@@ -242,7 +275,7 @@ Ext.define("TSTimeSheetApproval", {
                     popup.down('#popup_selector_box').add({
                         xtype:'rallybutton', 
                         text:'Approve',
-                        disabled: (status == "Approved"),
+                        disabled: (status == "Approved" && this._currentUserCanUnlock()),
                         listeners: {
                             scope: this,
                             click: function() {
