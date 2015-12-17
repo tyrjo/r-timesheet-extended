@@ -39,10 +39,10 @@ Ext.define("TSTimeSheetApproval", {
             return true;
         }
         
-        var permissions = this.getContext().getPermissions();
-        
-        var workspace_admin_list = Ext.Array.map(permissions, function(p) {
-            return p.Role == "Workspace Admin";
+        var permissions = this.getContext().getPermissions().userPermissions;
+        this.logger.log('permissions', permissions);
+        var workspace_admin_list = Ext.Array.filter(permissions, function(p) {
+            return ( p.Role == "Workspace Admin" );
         });
         
         var current_workspace_ref = this.getContext().getWorkspace()._ref;
@@ -56,6 +56,7 @@ Ext.define("TSTimeSheetApproval", {
             });
         }
         
+        this.logger.log("Can unlock?", can_unlock);
         return can_unlock;
     },
     
@@ -262,7 +263,7 @@ Ext.define("TSTimeSheetApproval", {
                     popup.down('#popup_selector_box').add({
                         xtype:'rallybutton', 
                         text:'Unlock',
-                        disabled: (status != "Approved"),
+                        disabled: (status != "Approved" || !this._currentUserCanUnlock()),
                         listeners: {
                             scope: this,
                             click: function() {
@@ -275,7 +276,7 @@ Ext.define("TSTimeSheetApproval", {
                     popup.down('#popup_selector_box').add({
                         xtype:'rallybutton', 
                         text:'Approve',
-                        disabled: (status == "Approved" && this._currentUserCanUnlock()),
+                        disabled: (status == "Approved"),
                         listeners: {
                             scope: this,
                             click: function() {
