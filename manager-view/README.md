@@ -2,6 +2,9 @@
 
 ## Development Notes
 
+* Approval status (and who/when) is saved in a preference where the key is
+the week start and the user OID.  
+
 ### First Load
 
 If you've just downloaded this from github and you want to do development, 

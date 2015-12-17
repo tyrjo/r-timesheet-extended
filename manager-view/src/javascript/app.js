@@ -3,6 +3,9 @@ Ext.define("TSTimeSheetApproval", {
     componentCls: 'app',
     logger: new Rally.technicalservices.Logger(),
     defaults: { margin: 10 },
+    
+    layout: 'border', 
+    
     items: [
         {xtype:'container', itemId:'selector_box', region: 'north',  layout: { type:'hbox' }},
         {xtype:'container', itemId:'display_box' , region: 'center', layout: { type: 'fit'} }

@@ -3,11 +3,11 @@
 <head>
     <title>Time Sheet Approval</title>
     <!--  (c) 2015 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Thu Dec 17 2015 08:05:39 GMT-0800 (PST) -->
+    <!--  Build Date: Thu Dec 17 2015 11:43:22 GMT-0800 (PST) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Thu Dec 17 2015 08:05:39 GMT-0800 (PST)";
-        var CHECKSUM = 31555005200;
+        var APP_BUILD_DATE = "Thu Dec 17 2015 11:43:22 GMT-0800 (PST)";
+        var CHECKSUM = 31593311632;
     </script>
     
     <script type="text/javascript" src="/apps/2.0/sdk.js"></script>
@@ -955,6 +955,9 @@ Ext.define("TSTimeSheetApproval", {
     componentCls: 'app',
     logger: new Rally.technicalservices.Logger(),
     defaults: { margin: 10 },
+    
+    layout: 'border', 
+    
     items: [
         {xtype:'container', itemId:'selector_box', region: 'north',  layout: { type:'hbox' }},
         {xtype:'container', itemId:'display_box' , region: 'center', layout: { type: 'fit'} }
