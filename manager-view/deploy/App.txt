@@ -3,11 +3,11 @@
 <head>
     <title>Time Sheet Approval</title>
     <!--  (c) 2015 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Thu Dec 17 2015 07:11:18 GMT-0800 (PST) -->
+    <!--  Build Date: Thu Dec 17 2015 07:20:26 GMT-0800 (PST) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Thu Dec 17 2015 07:11:18 GMT-0800 (PST)";
-        var CHECKSUM = 27486443100;
+        var APP_BUILD_DATE = "Thu Dec 17 2015 07:20:26 GMT-0800 (PST)";
+        var CHECKSUM = 29646443628;
     </script>
     
     <script type="text/javascript" src="/apps/2.0/sdk.js"></script>
@@ -853,6 +853,43 @@ Ext.define('TSTimesheet',{
         
     },
     
+    unlock: function() {
+        this.set('__Status', "Open");
+        
+        var pref_key = this.getPreferenceKey();
+        
+        this._findOrCreatePreference(pref_key).then({
+            scope: this,
+            success: function(results) {
+                console.log('results:', results);
+                if ( results.length > 0 ) {
+                    var pref = results[0];
+                    var current_user = Rally.getApp().getContext().getUser();
+                    
+                    var status_object = {
+                        status: "Open",
+                        status_date: new Date(),
+                        status_owner: { _type: 'User', '_ref': current_user._ref, '_refObjectName': current_user._refObjectName }
+                    };
+                    
+                    pref.set('Value', Ext.JSON.encode(status_object));
+                    pref.save({
+                        callback: function(result, operation) {
+                            if(!operation.wasSuccessful()) {
+                                console.log(operation);
+                                Ext.Msg.alert("Problem saving status");
+                            }
+                        }
+                    });
+                }
+            },
+            failure: function(msg) {
+                Ext.Msg.alert("Failed to save approval state to " + pref_key, msg);
+            }
+        });
+        
+    },
+    
     _findOrCreatePreference: function(key) {
         var deferred = Ext.create('Deft.Deferred');
         
@@ -1143,6 +1180,19 @@ Ext.define("TSTimeSheetApproval", {
                 boxready: function(popup) {
                     popup.down('#popup_selector_box').add({
                         xtype:'rallybutton', 
+                        text:'Reopen',
+                        disabled: (status != "Approved"),
+                        listeners: {
+                            scope: this,
+                            click: function() {
+                                this._unlockTimesheet(record);
+                                popup.close();
+                            }
+                        }
+                    });
+                    
+                    popup.down('#popup_selector_box').add({
+                        xtype:'rallybutton', 
                         text:'Approve',
                         disabled: (status == "Approved"),
                         listeners: {
@@ -1159,8 +1209,11 @@ Ext.define("TSTimeSheetApproval", {
     },
     
     _approveTimesheet: function(record) {
-        console.log('approve the record:', record);
         record.approve();
+    },
+    
+    _unlockTimesheet: function(record) {
+        record.unlock();
     },
     
     getOptions: function() {

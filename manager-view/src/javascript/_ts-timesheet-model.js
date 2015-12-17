@@ -72,6 +72,43 @@ Ext.define('TSTimesheet',{
         
     },
     
+    unlock: function() {
+        this.set('__Status', "Open");
+        
+        var pref_key = this.getPreferenceKey();
+        
+        this._findOrCreatePreference(pref_key).then({
+            scope: this,
+            success: function(results) {
+                console.log('results:', results);
+                if ( results.length > 0 ) {
+                    var pref = results[0];
+                    var current_user = Rally.getApp().getContext().getUser();
+                    
+                    var status_object = {
+                        status: "Open",
+                        status_date: new Date(),
+                        status_owner: { _type: 'User', '_ref': current_user._ref, '_refObjectName': current_user._refObjectName }
+                    };
+                    
+                    pref.set('Value', Ext.JSON.encode(status_object));
+                    pref.save({
+                        callback: function(result, operation) {
+                            if(!operation.wasSuccessful()) {
+                                console.log(operation);
+                                Ext.Msg.alert("Problem saving status");
+                            }
+                        }
+                    });
+                }
+            },
+            failure: function(msg) {
+                Ext.Msg.alert("Failed to save approval state to " + pref_key, msg);
+            }
+        });
+        
+    },
+    
     _findOrCreatePreference: function(key) {
         var deferred = Ext.create('Deft.Deferred');
         

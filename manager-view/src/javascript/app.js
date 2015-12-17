@@ -228,6 +228,19 @@ Ext.define("TSTimeSheetApproval", {
                 boxready: function(popup) {
                     popup.down('#popup_selector_box').add({
                         xtype:'rallybutton', 
+                        text:'Reopen',
+                        disabled: (status != "Approved"),
+                        listeners: {
+                            scope: this,
+                            click: function() {
+                                this._unlockTimesheet(record);
+                                popup.close();
+                            }
+                        }
+                    });
+                    
+                    popup.down('#popup_selector_box').add({
+                        xtype:'rallybutton', 
                         text:'Approve',
                         disabled: (status == "Approved"),
                         listeners: {
@@ -244,8 +257,11 @@ Ext.define("TSTimeSheetApproval", {
     },
     
     _approveTimesheet: function(record) {
-        console.log('approve the record:', record);
         record.approve();
+    },
+    
+    _unlockTimesheet: function(record) {
+        record.unlock();
     },
     
     getOptions: function() {
