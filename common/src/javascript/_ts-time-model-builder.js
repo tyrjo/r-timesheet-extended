@@ -110,7 +110,6 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
     },
     
     _updateTotal: function() {
-        console.log('_updateTotal');
         var total = 0;
         Ext.Array.each(this._days, function(day){
             var value = this.get(Ext.String.format('__{0}',day)) || 0;

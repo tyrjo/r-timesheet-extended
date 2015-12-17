@@ -14,7 +14,10 @@ Ext.define("TSExtendedTimesheet", {
     integrationHeaders : {
         name : "TSExtendedTimesheet"
     },
-                        
+   
+    _approvalKeyPrefix: 'rally.technicalservices.timesheet.status',
+
+    
     launch: function() {
         this._addSelectors(this.down('#selector_box'));
         //this.updateData();
@@ -80,31 +83,78 @@ Ext.define("TSExtendedTimesheet", {
     updateData: function()  { 
         var me = this;
         
-        var display_box = this.down('#display_box');
-        display_box.removeAll();
-        
         Ext.Array.each( this.query('rallybutton'), function(button) {
             button.setDisabled(true);
         });
+                                
+        var display_box = this.down('#display_box');
+        display_box.removeAll();
         
         this.startDate = this.down('#date_selector').getValue();
         this.logger.log("Date changed to:", this.startDate);
         
-        this.time_table = display_box.add({ 
-            xtype: 'tstimetable',
-            region: 'center',
-            layout: 'fit',
-            weekStart: this.startDate,
-            listeners: {
-                scope: this,
-                gridReady: function() {
-                    this.logger.log("Grid is ready");
-                    Ext.Array.each( this.query('rallybutton'), function(button) {
-                        button.setDisabled(false);
-                    });
+        this._loadWeekPreference().then({
+            scope: this,
+            success: function(prefs) {
+                var editable = true;
+                if ( prefs.length > 0 ) {
+                    var value = prefs[0].get('Value');
+                    var status_object = Ext.JSON.decode(value);
+                    if ( status_object.status == "Approved" ) { editable = false; }
                 }
+                this.time_table = display_box.add({ 
+                    xtype: 'tstimetable',
+                    region: 'center',
+                    layout: 'fit',
+                    weekStart: this.startDate,
+                    editable: editable,
+                    listeners: {
+                        scope: this,
+                        gridReady: function() {
+                            this.logger.log("Grid is ready");
+                            if ( editable ) {
+                                Ext.Array.each( this.query('rallybutton'), function(button) {
+                                    button.setDisabled(false);
+                                });
+                            }
+                        }
+                    }
+                });
+            },
+            failure: function(msg) {
+                Ext.Msg.alert("Problem loaing approval information", msg);
             }
         });
+    },
+    
+    _loadWeekPreference: function() {
+        var start_date = this.startDate;
+        start_date = Rally.util.DateTime.toIsoString(
+            new Date(start_date.getUTCFullYear(), 
+                start_date.getUTCMonth(), 
+                start_date.getUTCDate(),  
+                start_date.getUTCHours(), 
+                start_date.getUTCMinutes(), 
+                start_date.getUTCSeconds()
+            )
+        ).replace(/T.*$/,'');
+        
+        var key = Ext.String.format("{0}.{1}.{2}", 
+            this._approvalKeyPrefix,
+            start_date,
+            this.getContext().getUser().ObjectID
+        );
+        this.logger.log('finding by key',key);
+        
+        var config = {
+            model:'Preference',
+            limit: 1,
+            pageSize: 1,
+            filters: [{property:'Name',value:key}],
+            fetch: ['Name','Value']
+        };
+        
+        return TSUtilities._loadWsapiRecords(config);
     },
     
     _addCurrentTasks: function() {
@@ -124,7 +174,7 @@ Ext.define("TSExtendedTimesheet", {
                 ]
             };
             
-            this._loadWsapiRecords(config).then({
+            TSUtilities._loadWsapiRecords(config).then({
                 scope: this,
                 success: function(tasks) {
                     this.logger.log("Found", tasks);
@@ -216,31 +266,6 @@ Ext.define("TSExtendedTimesheet", {
     _getBeginningOfWeek: function(js_date){
         var start_of_week_here = Ext.Date.add(js_date, Ext.Date.DAY, -1 * js_date.getDay());
         return start_of_week_here;
-    },
-    
-    _loadWsapiRecords: function(config){
-        var deferred = Ext.create('Deft.Deferred');
-        var me = this;
-        
-        var default_config = {
-            model: 'Defect',
-            fetch: ['ObjectID']
-        };
-        
-        var final_config = Ext.Object.merge(default_config,config);
-        this.logger.log("Starting load:",final_config.model);
-          
-        Ext.create('Rally.data.wsapi.Store', final_config).load({
-            callback : function(records, operation, successful) {
-                if (successful){
-                    deferred.resolve(records);
-                } else {
-                    me.logger.log("Failed: ", operation);
-                    deferred.reject('Problem loading: ' + operation.error.errors.join('. '));
-                }
-            }
-        });
-        return deferred.promise;
     },
     
     getOptions: function() {
