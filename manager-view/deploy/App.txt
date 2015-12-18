@@ -3,11 +3,11 @@
 <head>
     <title>Time Sheet Approval</title>
     <!--  (c) 2015 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Thu Dec 17 2015 11:43:22 GMT-0800 (PST) -->
+    <!--  Build Date: Fri Dec 18 2015 07:01:00 GMT-0800 (PST) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Thu Dec 17 2015 11:43:22 GMT-0800 (PST)";
-        var CHECKSUM = 31593311632;
+        var APP_BUILD_DATE = "Fri Dec 18 2015 07:01:00 GMT-0800 (PST)";
+        var CHECKSUM = 32000546442;
     </script>
     
     <script type="text/javascript" src="/apps/2.0/sdk.js"></script>
@@ -793,6 +793,10 @@ Ext.define('TSTimesheet',{
         { name: '__LastUpdateBy', type: 'object' }
     ],
     
+    isSelectable: function() {
+        return true;
+    },
+    
     getWeekStart: function() {
         var start_date = this.get('WeekStartDate');
         start_date = Rally.util.DateTime.toIsoString(
@@ -817,7 +821,11 @@ Ext.define('TSTimesheet',{
     },
     
     approve: function() {
+        var current_user = Rally.getApp().getContext().getUser();
+        var status_owner = { _type: 'User', '_ref': current_user._ref, '_refObjectName': current_user._refObjectName }
+        
         this.set('__Status', "Approved");
+        this.set('__LastUpdateBy', status_owner._refObjectName);
         
         var pref_key = this.getPreferenceKey();
         
@@ -827,12 +835,11 @@ Ext.define('TSTimesheet',{
                 console.log('results:', results);
                 if ( results.length > 0 ) {
                     var pref = results[0];
-                    var current_user = Rally.getApp().getContext().getUser();
                     
                     var status_object = {
                         status: "Approved",
                         status_date: new Date(),
-                        status_owner: { _type: 'User', '_ref': current_user._ref, '_refObjectName': current_user._refObjectName }
+                        status_owner: status_owner
                     };
                     
                     pref.set('Value', Ext.JSON.encode(status_object));
@@ -970,11 +977,11 @@ Ext.define("TSTimeSheetApproval", {
     },
                         
     launch: function() {
-        console.log(this.getContext().getUser());
-        console.log(this.getContext());
-        
-        console.log(this.getContext().getPermissions());
-        
+//        console.log(this.getContext().getUser());
+//        console.log(this.getContext());
+//        
+//        console.log(this.getContext().getPermissions());
+//        
         Deft.Chain.pipeline([
             this._loadTimesheets,
             this._loadPreferences
@@ -1129,7 +1136,7 @@ Ext.define("TSTimeSheetApproval", {
             groupField: 'User',
             groupDir: 'ASC',
             model: 'TSTimesheet',
-            sorters: [{property:'__UserName'}, {property:'WeekStartDate'}],
+            sorters: [{property:'__UserName'}, {property:'WeekStartDate', direction: 'DESC'}],
             getGroupString: function(record) {
                 var owner = record.get('User');
                 return (owner && owner._refObjectName) || 'No Owner';
@@ -1144,6 +1151,7 @@ Ext.define("TSTimeSheetApproval", {
             columnCfgs: columns,
             enableEditing: false,
             showRowActionsColumn: false,
+            enableBulkEdit: false,
             features: [{
                 ftype: 'groupingsummary',
                 groupHeaderTpl: '{name} ({rows.length})'

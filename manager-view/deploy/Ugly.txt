@@ -3,10 +3,10 @@
 <head>
     <title>Time Sheet Approval</title>
     <!--  (c) 2015 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Thu Dec 17 2015 11:43:23 GMT-0800 (PST) -->
+    <!--  Build Date: Fri Dec 18 2015 07:01:00 GMT-0800 (PST) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Thu Dec 17 2015 11:43:23 GMT-0800 (PST)";
+        var APP_BUILD_DATE = "Fri Dec 18 2015 07:01:00 GMT-0800 (PST)";
         var CHECKSUM = [%= checksum %];
     </script>
     

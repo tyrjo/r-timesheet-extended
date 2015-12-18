@@ -18,11 +18,11 @@ Ext.define("TSTimeSheetApproval", {
     },
                         
     launch: function() {
-        console.log(this.getContext().getUser());
-        console.log(this.getContext());
-        
-        console.log(this.getContext().getPermissions());
-        
+//        console.log(this.getContext().getUser());
+//        console.log(this.getContext());
+//        
+//        console.log(this.getContext().getPermissions());
+//        
         Deft.Chain.pipeline([
             this._loadTimesheets,
             this._loadPreferences
@@ -177,7 +177,7 @@ Ext.define("TSTimeSheetApproval", {
             groupField: 'User',
             groupDir: 'ASC',
             model: 'TSTimesheet',
-            sorters: [{property:'__UserName'}, {property:'WeekStartDate'}],
+            sorters: [{property:'__UserName'}, {property:'WeekStartDate', direction: 'DESC'}],
             getGroupString: function(record) {
                 var owner = record.get('User');
                 return (owner && owner._refObjectName) || 'No Owner';
@@ -192,6 +192,7 @@ Ext.define("TSTimeSheetApproval", {
             columnCfgs: columns,
             enableEditing: false,
             showRowActionsColumn: false,
+            enableBulkEdit: false,
             features: [{
                 ftype: 'groupingsummary',
                 groupHeaderTpl: '{name} ({rows.length})'

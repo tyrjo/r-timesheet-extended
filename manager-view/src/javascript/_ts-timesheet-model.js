@@ -12,6 +12,10 @@ Ext.define('TSTimesheet',{
         { name: '__LastUpdateBy', type: 'object' }
     ],
     
+    isSelectable: function() {
+        return true;
+    },
+    
     getWeekStart: function() {
         var start_date = this.get('WeekStartDate');
         start_date = Rally.util.DateTime.toIsoString(
@@ -36,7 +40,11 @@ Ext.define('TSTimesheet',{
     },
     
     approve: function() {
+        var current_user = Rally.getApp().getContext().getUser();
+        var status_owner = { _type: 'User', '_ref': current_user._ref, '_refObjectName': current_user._refObjectName }
+        
         this.set('__Status', "Approved");
+        this.set('__LastUpdateBy', status_owner._refObjectName);
         
         var pref_key = this.getPreferenceKey();
         
@@ -46,12 +54,11 @@ Ext.define('TSTimesheet',{
                 console.log('results:', results);
                 if ( results.length > 0 ) {
                     var pref = results[0];
-                    var current_user = Rally.getApp().getContext().getUser();
                     
                     var status_object = {
                         status: "Approved",
                         status_date: new Date(),
-                        status_owner: { _type: 'User', '_ref': current_user._ref, '_refObjectName': current_user._refObjectName }
+                        status_owner: status_owner
                     };
                     
                     pref.set('Value', Ext.JSON.encode(status_object));
