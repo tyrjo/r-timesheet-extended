@@ -3,11 +3,11 @@
 <head>
     <title>Time Sheet Approval</title>
     <!--  (c) 2015 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Fri Dec 18 2015 07:01:00 GMT-0800 (PST) -->
+    <!--  Build Date: Sat Dec 19 2015 11:25:53 GMT-0800 (PST) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Fri Dec 18 2015 07:01:00 GMT-0800 (PST)";
-        var CHECKSUM = 32000546442;
+        var APP_BUILD_DATE = "Sat Dec 19 2015 11:25:53 GMT-0800 (PST)";
+        var CHECKSUM = 45329622181;
     </script>
     
     <script type="text/javascript" src="/apps/2.0/sdk.js"></script>
@@ -779,6 +779,243 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
 
 });
 
+Ext.define('Rally.technicalservices.ApproveMenuItem', {
+    extend: 'Rally.ui.menu.item.RecordMenuItem',
+    alias: 'widget.tsapprovemenuitem',
+
+
+    config: {
+        text: 'Approve',
+        cls : 'icon-check'
+    },
+
+    constructor: function(config) {
+        config = config || {};
+
+        config.predicate = config.predicate || this._isApprovable;
+        config.handler   = config.handler || this._approveRecord;
+        
+        this.initConfig(config);
+        this.callParent([config]);
+    },
+    
+    _isApprovable: function(record) {
+        return ( record.get('__Status') && record.get('__Status') != "Approved" );
+    },
+    
+    _approveRecord: function() {
+        var record = this.record;
+        if ( !record ) {
+            Ext.Msg.alert("Problem approving record", "Can't find record");
+            return;
+        }
+        
+        record.approve();
+    }
+});
+
+Ext.define('Rally.technicalservices.TimeApprovalRecordMenu', {
+    extend: 'Rally.ui.menu.RecordMenu',
+    alias: 'widget.tstimeapprovalrecordmenu',
+
+    config: {
+
+        /**
+         * @cfg {Rally.data.Model} record (required)
+         * The record to build the menu for
+         */
+        record: null,
+
+        /**
+         * @cfg {Ext.Element|HTMLElement} (optional) owningEl
+         * The element this menu item is being invoked against.
+         */
+        owningEl: undefined
+
+    },
+
+    initComponent: function() {
+        this.items = this._getMenuItems();
+        
+        this.callParent(arguments);
+    },
+
+    _getMenuItems: function() {
+        var record = this.getRecord(),
+            items = [],
+            popoverPlacement = this.popoverPlacement || Rally.ui.popover.Popover.DEFAULT_PLACEMENT;
+
+        items.push({
+            xtype: 'tsapprovemenuitem',
+            view: this.view,
+            record: record
+        });
+
+        return items;
+    }
+});
+Ext.define('Rally.technicalservices.grid.RowActionColumn', {
+    extend: 'Ext.grid.column.Column',
+    alias: 'widget.tsrowactioncolumn',
+
+    inheritableStatics: {
+        getRequiredFetchFields: function(grid) {
+            return (grid.enableBulkEdit && ['Project', 'Tags']) || [];
+        }
+    },
+    
+    /**
+     * @property {Boolean} sortable False to disable sorting of this column
+     *
+     */
+    sortable: false,
+    /**
+     * @property {Boolean} hideable False to disable hiding of column
+     *
+     */
+    hideable: false,
+    /**
+     * @property {Boolean} resizable False to disable resizing of column
+     *
+     */
+    resizable: false,
+    /**
+     * @property {Boolean} draggable False to disable reordering of a column
+     *
+     */
+    draggable: false,
+    /**
+     * @property {Boolean} menuDisabled True to disable the column header menu containing sort/hide options
+     *
+     */
+    menuDisabled: true,
+    /**
+     * @property {Number}
+     *
+     */
+    flex: -1,
+    minWidth: Ext.isIE9 ? 22 : 26,
+    maxWidth: Ext.isIE9 ? 22 : 26,
+
+    /**
+     * @property {Boolean}
+     * This column should not show up on print pages that include a printable grid
+     */
+    printable: false,
+
+    tdCls: 'rally-cell-row-action',
+    cls: 'row-action-column-header',
+
+    config: {
+        /**
+         * @cfg {Function} rowActionsFn
+         * @params record {Ext.data.Record} The record to be assigned to record menu items
+         * A list of Rally.ui.menu.Menu#items objects that will be used as the row action options
+         * Each row action can contain a predicate property which will be evaluated to see if the row action should be included
+         * Usage:
+         *      [
+         *          {text: 'Move...', record: record, handler: function(){  // move this.record  }}
+         *      ]
+         */
+        rowActionsFn: null,
+
+        /**
+         * @cfg {Object} scope The scope that the rowActionsFn is called with
+         */
+        scope: null
+    },
+
+    constructor: function() {
+        this.callParent(arguments);
+        this.renderer = this._renderGearIcon;
+    },
+
+    initComponent: function() {
+        this.callParent(arguments);
+        this.on('click', this._showMenu, this);
+    },
+
+    onDestroy: function() {
+        if (this.menu) {
+            this.menu.destroy();
+            delete this.menu;
+        }
+
+        this.callParent(arguments);
+    },
+
+    /**
+     * @private
+     * @param value
+     * @param metaData
+     * @param record
+     */
+    _renderGearIcon: function(value, metaData, record) {
+        metaData.tdCls = Rally.util.Test.toBrowserTestCssClass('row-action', Rally.util.Ref.getOidFromRef(record.get('_ref')));
+        return '<div class="row-action-icon icon-gear"/>';
+    },
+
+    /**
+     * @private
+     * @param view
+     * @param el
+     */
+    _showMenu: function(view, el) {
+        var selectedRecord = view.getRecord(Ext.fly(el).parent("tr")),
+            checkedRecords = view.getSelectionModel().getSelection(),
+            grid = view.panel,
+            defaultOptions;
+
+        defaultOptions = {
+            view: view,
+            record: selectedRecord,
+            owningEl: el.parentElement,
+            popoverPlacement: ['bottom', 'top']
+        };
+
+        if (grid.enableBulkEdit && _.contains(checkedRecords, selectedRecord)) {
+            this.menu = Ext.create('Rally.ui.menu.bulk.RecordMenu', Ext.apply({
+                context: grid.getContext(),
+                records: checkedRecords,
+                store: grid.store,
+                onBeforeAction: function() {
+                    if (view.loadMask && _.isFunction(view.loadMask.disable)) {
+                        view.loadMask.disable();
+                    }
+                    grid.setLoading('Updating...');
+                },
+                onActionComplete: function(successfulRecords, unsuccessfulRecords, changes) {
+                    grid.refreshAfterBulkAction(successfulRecords, changes).then({
+                        success: function() {
+                            grid.setLoading(false);
+                            if (view.loadMask && _.isFunction(view.loadMask.enable)) {
+                                view.loadMask.enable();
+                            }
+                            grid.getSelectionModel().deselect(successfulRecords);
+                            grid.getSelectionModel().select(unsuccessfulRecords);
+                            _.each(successfulRecords, grid.highlightRowForRecord, grid);
+                            grid.publish(Rally.Message.bulkUpdate, successfulRecords, changes, grid);
+                        }
+                    });
+                }
+            }, grid.bulkEditConfig));
+        } else if (this.rowActionsFn) {
+            this.menu = Ext.create('Rally.technicalservices.TimeApprovalRecordMenu', Ext.apply({
+                items: this.rowActionsFn.call(this.scope || this, selectedRecord)
+            }, defaultOptions));
+        } else {
+            this.menu = this._getDefaultRecordMenu(selectedRecord, defaultOptions);
+        }
+
+        this.menu.showBy(Ext.fly(el).down(".row-action-icon"));
+    },
+
+    _getDefaultRecordMenu: function(selectedRecord, defaultOptions) {
+        var menu;
+        var menuOptions = Ext.merge(defaultOptions, this.menuOptions || {});
+        return Ext.create('Rally.technicalservices.TimeApprovalRecordMenu', menuOptions);
+    }
+});
 Ext.define('TSTimesheet',{
     extend: 'Ext.data.Model',
     
@@ -792,6 +1029,10 @@ Ext.define('TSTimesheet',{
         { name: 'WeekStartDate', type: 'date' },
         { name: '__LastUpdateBy', type: 'object' }
     ],
+    
+    isUpdatable: function() {
+        return false;
+    },
     
     isSelectable: function() {
         return true;
@@ -977,11 +1218,6 @@ Ext.define("TSTimeSheetApproval", {
     },
                         
     launch: function() {
-//        console.log(this.getContext().getUser());
-//        console.log(this.getContext());
-//        
-//        console.log(this.getContext().getPermissions());
-//        
         Deft.Chain.pipeline([
             this._loadTimesheets,
             this._loadPreferences
@@ -1159,14 +1395,17 @@ Ext.define("TSTimeSheetApproval", {
             listeners: {
                 scope: this,
                 itemclick: function(grid, record, item, index, evt) {
-                    this._popup(record);
+                    var column = grid.getPositionByEvent(evt).column;
+                    if ( column > 0 ) {
+                        this._popup(record);
+                    }
                 }
             }
         });
     },
     
     _getColumns: function() {
-        var columns = [];
+        var columns = [{xtype: 'tsrowactioncolumn'}];
         
         columns.push({dataIndex:'User',text:'User', renderer: function(v) { return v._refObjectName; }});
         columns.push({dataIndex:'WeekStartDate',text:'Week Starting', align: 'center', renderer: function(v) { return Ext.util.Format.date(v,'m/d/y'); }});

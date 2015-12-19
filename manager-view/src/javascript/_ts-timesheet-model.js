@@ -12,6 +12,10 @@ Ext.define('TSTimesheet',{
         { name: '__LastUpdateBy', type: 'object' }
     ],
     
+    isUpdatable: function() {
+        return false;
+    },
+    
     isSelectable: function() {
         return true;
     },

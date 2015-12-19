@@ -14,6 +14,7 @@ module.exports = function(grunt) {
             '../common/src/javascript/utils/*.js',
             '../common/src/javascript/*.js',
             'src/javascript/utils/*.js',
+            'src/javascript/menu/*.js',
             'src/javascript/*.js'
         ]);
 

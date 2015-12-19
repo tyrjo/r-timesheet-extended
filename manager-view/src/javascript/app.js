@@ -18,11 +18,6 @@ Ext.define("TSTimeSheetApproval", {
     },
                         
     launch: function() {
-//        console.log(this.getContext().getUser());
-//        console.log(this.getContext());
-//        
-//        console.log(this.getContext().getPermissions());
-//        
         Deft.Chain.pipeline([
             this._loadTimesheets,
             this._loadPreferences
@@ -200,14 +195,17 @@ Ext.define("TSTimeSheetApproval", {
             listeners: {
                 scope: this,
                 itemclick: function(grid, record, item, index, evt) {
-                    this._popup(record);
+                    var column = grid.getPositionByEvent(evt).column;
+                    if ( column > 0 ) {
+                        this._popup(record);
+                    }
                 }
             }
         });
     },
     
     _getColumns: function() {
-        var columns = [];
+        var columns = [{xtype: 'tsrowactioncolumn'}];
         
         columns.push({dataIndex:'User',text:'User', renderer: function(v) { return v._refObjectName; }});
         columns.push({dataIndex:'WeekStartDate',text:'Week Starting', align: 'center', renderer: function(v) { return Ext.util.Format.date(v,'m/d/y'); }});
