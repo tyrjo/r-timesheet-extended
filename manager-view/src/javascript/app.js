@@ -24,6 +24,30 @@ Ext.define("TSTimeSheetApproval", {
     },
     
     _addSelectors: function(container) {
+        
+        container.add({
+            xtype:'rallybutton',
+            cls: 'secondary',
+            text: '<span class="icon-expandall"> </span>',
+            expanded: false,
+            listeners: {
+                scope: this,
+                click: function(button) {
+                    if ( button.expanded == true ) {
+                        button.expanded = false;
+                        button.setText('<span class="icon-expandall"> </span>');
+                        console.log(this.down('rallygrid'));
+                        
+                        this.down('rallygrid').getView().features[0].collapseAll();
+                    } else {
+                        button.expanded = true;
+                        button.setText('<span class="icon-collapseall"> </span>');
+                        this.down('rallygrid').getView().features[0].expandAll();
+                    }
+                }
+            }
+        });
+        
         var state_store = Ext.create('Ext.data.Store',{
             fields: ['displayName','value'],
             data: [
@@ -254,6 +278,7 @@ Ext.define("TSTimeSheetApproval", {
             enableBulkEdit: true,
             features: [{
                 ftype: 'groupingsummary',
+                startCollapsed: true,
                 groupHeaderTpl: '{name} ({rows.length})'
             }],
             _recordIsSelectable: function(record) {
