@@ -30,11 +30,20 @@ Ext.define('Rally.technicalservices.TimeApprovalRecordMenu', {
             items = [],
             popoverPlacement = this.popoverPlacement || Rally.ui.popover.Popover.DEFAULT_PLACEMENT;
 
+        var current
         items.push({
             xtype: 'tsapprovemenuitem',
             view: this.view,
             record: record
         });
+                
+        if ( this.canUnlock ) {
+            items.push({
+                xtype: 'tsunlockmenuitem',
+                view: this.view,
+                record: record
+            });
+        }
 
         return items;
     }

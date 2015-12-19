@@ -4,8 +4,7 @@ Ext.define('Rally.technicalservices.ApproveMenuItem', {
 
 
     config: {
-        text: 'Approve',
-        cls : 'icon-check'
+        text: 'Approve'
     },
 
     constructor: function(config) {

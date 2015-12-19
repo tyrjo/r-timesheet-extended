@@ -33,28 +33,36 @@ Ext.define("TSTimeSheetApproval", {
     },
     
     _currentUserCanUnlock: function() {
+        this.logger.log('_currentUserCanUnlock',this.getContext().getUser(), this.getContext().getUser().SubscriptionAdmin);
         if ( this.getContext().getUser().SubscriptionAdmin ) {
             return true;
         }
         
         var permissions = this.getContext().getPermissions().userPermissions;
-        this.logger.log('permissions', permissions);
+        
+        this.logger.log('permissions', this.getContext().getPermissions());
+        this.logger.log('user permissions', permissions);
+
         var workspace_admin_list = Ext.Array.filter(permissions, function(p) {
-            return ( p.Role == "Workspace Admin" );
+            return ( p.Role == "Workspace Admin" || p.Role == "Subscription Admin");
         });
         
         var current_workspace_ref = this.getContext().getWorkspace()._ref;
         var can_unlock = false;
         
+        this.logger.log('WS Admin list: ', workspace_admin_list);
+        
         if ( workspace_admin_list.length > 0 ) {
             Ext.Array.each(workspace_admin_list, function(p){
-                if (current_workspace_ref == p._ref) {
+                console.log('comparing ', p._ref, current_workspace_ref);
+                
+                if (current_workspace_ref.replace(/\.js$/,'') == p._ref.replace(/\.js$/,'')) {
                     can_unlock = true;
                 }
             });
         }
         
-        this.logger.log("Can unlock?", can_unlock);
+        this.logger.log('  ', can_unlock);
         return can_unlock;
     },
     
@@ -205,7 +213,10 @@ Ext.define("TSTimeSheetApproval", {
     },
     
     _getColumns: function() {
-        var columns = [{xtype: 'tsrowactioncolumn'}];
+        var columns = [{
+            xtype: 'tsrowactioncolumn',
+            canUnlock: this._currentUserCanUnlock()
+        }];
         
         columns.push({dataIndex:'User',text:'User', renderer: function(v) { return v._refObjectName; }});
         columns.push({dataIndex:'WeekStartDate',text:'Week Starting', align: 'center', renderer: function(v) { return Ext.util.Format.date(v,'m/d/y'); }});

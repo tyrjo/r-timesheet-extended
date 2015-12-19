@@ -3,11 +3,11 @@
 <head>
     <title>Time Sheet Approval</title>
     <!--  (c) 2015 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Sat Dec 19 2015 11:27:00 GMT-0800 (PST) -->
+    <!--  Build Date: Sat Dec 19 2015 11:54:47 GMT-0800 (PST) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Sat Dec 19 2015 11:27:00 GMT-0800 (PST)";
-        var CHECKSUM = 45329619845;
+        var APP_BUILD_DATE = "Sat Dec 19 2015 11:54:47 GMT-0800 (PST)";
+        var CHECKSUM = 48405473110;
     </script>
     
     <script type="text/javascript" src="/apps/2.0/sdk.js"></script>
@@ -785,8 +785,7 @@ Ext.define('Rally.technicalservices.ApproveMenuItem', {
 
 
     config: {
-        text: 'Approve',
-        cls : 'icon-check'
+        text: 'Approve'
     },
 
     constructor: function(config) {
@@ -811,6 +810,39 @@ Ext.define('Rally.technicalservices.ApproveMenuItem', {
         }
         
         record.approve();
+    }
+});
+Ext.define('Rally.technicalservices.UnlockMenuItem', {
+    extend: 'Rally.ui.menu.item.RecordMenuItem',
+    alias: 'widget.tsunlockmenuitem',
+
+
+    config: {
+        text: 'Unlock'
+    },
+
+    constructor: function(config) {
+        config = config || {};
+
+        config.predicate = config.predicate || this._isUnlockable;
+        config.handler   = config.handler || this._unlockRecord;
+        
+        this.initConfig(config);
+        this.callParent([config]);
+    },
+    
+    _isUnlockable: function(record) {
+        return ( record.get('__Status') && record.get('__Status') == "Approved" );
+    },
+    
+    _unlockRecord: function() {
+        var record = this.record;
+        if ( !record ) {
+            Ext.Msg.alert("Problem approving record", "Can't find record");
+            return;
+        }
+        
+        record.unlock();
     }
 });
 
@@ -845,11 +877,20 @@ Ext.define('Rally.technicalservices.TimeApprovalRecordMenu', {
             items = [],
             popoverPlacement = this.popoverPlacement || Rally.ui.popover.Popover.DEFAULT_PLACEMENT;
 
+        var current
         items.push({
             xtype: 'tsapprovemenuitem',
             view: this.view,
             record: record
         });
+                
+        if ( this.canUnlock ) {
+            items.push({
+                xtype: 'tsunlockmenuitem',
+                view: this.view,
+                record: record
+            });
+        }
 
         return items;
     }
@@ -922,7 +963,9 @@ Ext.define('Rally.technicalservices.grid.RowActionColumn', {
         /**
          * @cfg {Object} scope The scope that the rowActionsFn is called with
          */
-        scope: null
+        scope: null,
+        
+        canUnlock: false
     },
 
     constructor: function() {
@@ -970,7 +1013,8 @@ Ext.define('Rally.technicalservices.grid.RowActionColumn', {
             view: view,
             record: selectedRecord,
             owningEl: el.parentElement,
-            popoverPlacement: ['bottom', 'top']
+            popoverPlacement: ['bottom', 'top'],
+            canUnlock: this.canUnlock
         };
 
         if (grid.enableBulkEdit && _.contains(checkedRecords, selectedRecord)) {
@@ -1030,13 +1074,6 @@ Ext.define('TSTimesheet',{
         { name: '__LastUpdateBy', type: 'object' }
     ],
     
-    isUpdatable: function() {
-        return false;
-    },
-    
-    isSelectable: function() {
-        return true;
-    },
     
     getWeekStart: function() {
         var start_date = this.get('WeekStartDate');
@@ -1233,28 +1270,36 @@ Ext.define("TSTimeSheetApproval", {
     },
     
     _currentUserCanUnlock: function() {
+        this.logger.log('_currentUserCanUnlock',this.getContext().getUser(), this.getContext().getUser().SubscriptionAdmin);
         if ( this.getContext().getUser().SubscriptionAdmin ) {
             return true;
         }
         
         var permissions = this.getContext().getPermissions().userPermissions;
-        this.logger.log('permissions', permissions);
+        
+        this.logger.log('permissions', this.getContext().getPermissions());
+        this.logger.log('user permissions', permissions);
+
         var workspace_admin_list = Ext.Array.filter(permissions, function(p) {
-            return ( p.Role == "Workspace Admin" );
+            return ( p.Role == "Workspace Admin" || p.Role == "Subscription Admin");
         });
         
         var current_workspace_ref = this.getContext().getWorkspace()._ref;
         var can_unlock = false;
         
+        this.logger.log('WS Admin list: ', workspace_admin_list);
+        
         if ( workspace_admin_list.length > 0 ) {
             Ext.Array.each(workspace_admin_list, function(p){
-                if (current_workspace_ref == p._ref) {
+                console.log('comparing ', p._ref, current_workspace_ref);
+                
+                if (current_workspace_ref.replace(/\.js$/,'') == p._ref.replace(/\.js$/,'')) {
                     can_unlock = true;
                 }
             });
         }
         
-        this.logger.log("Can unlock?", can_unlock);
+        this.logger.log('  ', can_unlock);
         return can_unlock;
     },
     
@@ -1405,7 +1450,10 @@ Ext.define("TSTimeSheetApproval", {
     },
     
     _getColumns: function() {
-        var columns = [{xtype: 'tsrowactioncolumn'}];
+        var columns = [{
+            xtype: 'tsrowactioncolumn',
+            canUnlock: this._currentUserCanUnlock()
+        }];
         
         columns.push({dataIndex:'User',text:'User', renderer: function(v) { return v._refObjectName; }});
         columns.push({dataIndex:'WeekStartDate',text:'Week Starting', align: 'center', renderer: function(v) { return Ext.util.Format.date(v,'m/d/y'); }});
