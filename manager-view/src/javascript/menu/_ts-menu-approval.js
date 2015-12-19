@@ -27,24 +27,45 @@ Ext.define('Rally.technicalservices.TimeApprovalRecordMenu', {
 
     _getMenuItems: function() {
         var record = this.getRecord(),
+            records = this.records || [],
             items = [],
             popoverPlacement = this.popoverPlacement || Rally.ui.popover.Popover.DEFAULT_PLACEMENT;
 
-        var current
-        items.push({
-            xtype: 'tsapprovemenuitem',
-            view: this.view,
-            record: record
-        });
-                
-        if ( this.canUnlock ) {
+        console.log('record', record);
+        console.log('records', records);
+        
+        if ( records && records.length > 0 ) {
+            // bulk edit
             items.push({
-                xtype: 'tsunlockmenuitem',
+                xtype: 'tsapprovemenuitem',
+                view: this.view,
+                record: record,
+                records: records
+            });
+           
+            if ( this.canUnlock ) {
+                items.push({
+                    xtype: 'tsunlockmenuitem',
+                    view: this.view,
+                    record: record,
+                    records: records
+                });
+            }
+        } else {
+            items.push({
+                xtype: 'tsapprovemenuitem',
                 view: this.view,
                 record: record
             });
+                    
+            if ( this.canUnlock ) {
+                items.push({
+                    xtype: 'tsunlockmenuitem',
+                    view: this.view,
+                    record: record
+                });
+            }
         }
-
         return items;
     }
 });

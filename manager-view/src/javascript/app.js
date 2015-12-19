@@ -195,16 +195,19 @@ Ext.define("TSTimeSheetApproval", {
             columnCfgs: columns,
             enableEditing: false,
             showRowActionsColumn: false,
-            enableBulkEdit: false,
+            enableBulkEdit: true,
             features: [{
                 ftype: 'groupingsummary',
                 groupHeaderTpl: '{name} ({rows.length})'
             }],
+            _recordIsSelectable: function(record) {
+                return true;
+            },
             listeners: {
                 scope: this,
                 itemclick: function(grid, record, item, index, evt) {
                     var column = grid.getPositionByEvent(evt).column;
-                    if ( column > 0 ) {
+                    if ( column > 1 ) {
                         this._popup(record);
                     }
                 }

@@ -4,17 +4,32 @@ Ext.define('Rally.technicalservices.UnlockMenuItem', {
 
 
     config: {
-        text: 'Unlock'
+        text: 'Unlock',
+        records: []
     },
 
     constructor: function(config) {
         config = config || {};
 
-        config.predicate = config.predicate || this._isUnlockable;
-        config.handler   = config.handler || this._unlockRecord;
+        config.predicate = config.predicate || this.shouldShowMenuItem;
+        config.handler   = config.handler || this._unlockRecords;
         
         this.initConfig(config);
         this.callParent([config]);
+    },
+    
+    shouldShowMenuItem: function(record) {
+        if ( this.records && this.records.length > 0 ) {
+            var should_show = true;
+            Ext.Array.each(this.records, function(r){
+                if ( !this._isUnlockable(r) ) {
+                    should_show = false;
+                }
+                console.log(r, should_show);
+            },this);
+            return should_show;
+        }
+        return this._isUnlockable(record);
     },
     
     _isUnlockable: function(record) {
@@ -24,10 +39,23 @@ Ext.define('Rally.technicalservices.UnlockMenuItem', {
     _unlockRecord: function() {
         var record = this.record;
         if ( !record ) {
-            Ext.Msg.alert("Problem approving record", "Can't find record");
+            Ext.Msg.alert("Problem unlocking record", "Can't find record");
             return;
         }
         
         record.unlock();
+    },
+    
+    _unlockRecords: function() {
+        var record = this.record;
+        var records = this.records;
+        
+        if ( records.length === 0 ) {
+            records = [record];
+        }
+        
+        Ext.Array.each(records, function(record) {
+            this._unlockRecord(record);
+        },this);
     }
 });

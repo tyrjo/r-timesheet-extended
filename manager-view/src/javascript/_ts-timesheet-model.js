@@ -12,6 +12,9 @@ Ext.define('TSTimesheet',{
         { name: '__LastUpdateBy', type: 'object' }
     ],
     
+    isSelectable: function() {
+        return true;
+    },
     
     getWeekStart: function() {
         var start_date = this.get('WeekStartDate');

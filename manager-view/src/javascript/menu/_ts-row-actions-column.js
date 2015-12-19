@@ -115,13 +115,14 @@ Ext.define('Rally.technicalservices.grid.RowActionColumn', {
         defaultOptions = {
             view: view,
             record: selectedRecord,
+            records: checkedRecords,
             owningEl: el.parentElement,
             popoverPlacement: ['bottom', 'top'],
             canUnlock: this.canUnlock
         };
 
-        if (grid.enableBulkEdit && _.contains(checkedRecords, selectedRecord)) {
-            this.menu = Ext.create('Rally.ui.menu.bulk.RecordMenu', Ext.apply({
+        /*if (grid.enableBulkEdit && _.contains(checkedRecords, selectedRecord)) {
+            this.menu = Ext.create('Rally.technicalservices.TimeApprovalRecordMenu', Ext.apply({
                 context: grid.getContext(),
                 records: checkedRecords,
                 store: grid.store,
@@ -146,7 +147,7 @@ Ext.define('Rally.technicalservices.grid.RowActionColumn', {
                     });
                 }
             }, grid.bulkEditConfig));
-        } else if (this.rowActionsFn) {
+        } else*/ if (this.rowActionsFn) {
             this.menu = Ext.create('Rally.technicalservices.TimeApprovalRecordMenu', Ext.apply({
                 items: this.rowActionsFn.call(this.scope || this, selectedRecord)
             }, defaultOptions));

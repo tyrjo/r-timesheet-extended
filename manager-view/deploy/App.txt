@@ -3,11 +3,11 @@
 <head>
     <title>Time Sheet Approval</title>
     <!--  (c) 2015 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Sat Dec 19 2015 11:54:47 GMT-0800 (PST) -->
+    <!--  Build Date: Sat Dec 19 2015 14:55:44 GMT-0800 (PST) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Sat Dec 19 2015 11:54:47 GMT-0800 (PST)";
-        var CHECKSUM = 48405473110;
+        var APP_BUILD_DATE = "Sat Dec 19 2015 14:55:44 GMT-0800 (PST)";
+        var CHECKSUM = 53119257027;
     </script>
     
     <script type="text/javascript" src="/apps/2.0/sdk.js"></script>
@@ -785,31 +785,59 @@ Ext.define('Rally.technicalservices.ApproveMenuItem', {
 
 
     config: {
-        text: 'Approve'
+        text: 'Approve',
+        records: []
     },
 
     constructor: function(config) {
         config = config || {};
 
-        config.predicate = config.predicate || this._isApprovable;
-        config.handler   = config.handler || this._approveRecord;
+        config.predicate = config.predicate || this.shouldShowMenuItem;
+        config.handler   = config.handler || this._approveRecords;
         
         this.initConfig(config);
         this.callParent([config]);
+    },
+    
+    shouldShowMenuItem: function(record) {
+
+        if ( this.records && this.records.length > 0 ) {
+            var should_show = true;
+            Ext.Array.each(this.records, function(r){
+                if ( !this._isApprovable(r) ) {
+                    should_show = false;
+                }
+                console.log('should show record:', r, should_show);
+            },this);
+            return should_show;
+        }
+        return this._isApprovable(record);
     },
     
     _isApprovable: function(record) {
         return ( record.get('__Status') && record.get('__Status') != "Approved" );
     },
     
-    _approveRecord: function() {
-        var record = this.record;
+    _approveRecord: function(record) {
         if ( !record ) {
             Ext.Msg.alert("Problem approving record", "Can't find record");
             return;
         }
         
         record.approve();
+    },
+    
+    _approveRecords: function() {
+        var record = this.record;
+        var records = this.records;
+        
+        if ( records.length === 0 ) {
+            records = [record];
+        }
+        
+        Ext.Array.each(records, function(record) {
+            this._approveRecord(record);
+        },this);
     }
 });
 Ext.define('Rally.technicalservices.UnlockMenuItem', {
@@ -818,17 +846,32 @@ Ext.define('Rally.technicalservices.UnlockMenuItem', {
 
 
     config: {
-        text: 'Unlock'
+        text: 'Unlock',
+        records: []
     },
 
     constructor: function(config) {
         config = config || {};
 
-        config.predicate = config.predicate || this._isUnlockable;
-        config.handler   = config.handler || this._unlockRecord;
+        config.predicate = config.predicate || this.shouldShowMenuItem;
+        config.handler   = config.handler || this._unlockRecords;
         
         this.initConfig(config);
         this.callParent([config]);
+    },
+    
+    shouldShowMenuItem: function(record) {
+        if ( this.records && this.records.length > 0 ) {
+            var should_show = true;
+            Ext.Array.each(this.records, function(r){
+                if ( !this._isUnlockable(r) ) {
+                    should_show = false;
+                }
+                console.log(r, should_show);
+            },this);
+            return should_show;
+        }
+        return this._isUnlockable(record);
     },
     
     _isUnlockable: function(record) {
@@ -838,11 +881,24 @@ Ext.define('Rally.technicalservices.UnlockMenuItem', {
     _unlockRecord: function() {
         var record = this.record;
         if ( !record ) {
-            Ext.Msg.alert("Problem approving record", "Can't find record");
+            Ext.Msg.alert("Problem unlocking record", "Can't find record");
             return;
         }
         
         record.unlock();
+    },
+    
+    _unlockRecords: function() {
+        var record = this.record;
+        var records = this.records;
+        
+        if ( records.length === 0 ) {
+            records = [record];
+        }
+        
+        Ext.Array.each(records, function(record) {
+            this._unlockRecord(record);
+        },this);
     }
 });
 
@@ -874,25 +930,51 @@ Ext.define('Rally.technicalservices.TimeApprovalRecordMenu', {
 
     _getMenuItems: function() {
         var record = this.getRecord(),
+            records = this.records || [],
             items = [],
             popoverPlacement = this.popoverPlacement || Rally.ui.popover.Popover.DEFAULT_PLACEMENT;
 
-        var current
-        items.push({
-            xtype: 'tsapprovemenuitem',
-            view: this.view,
-            record: record
-        });
-                
-        if ( this.canUnlock ) {
+        console.log('record', record);
+        console.log('records', records);
+        
+        if ( records && records.length > 0 ) {
+            // bulk edit
             items.push({
-                xtype: 'tsunlockmenuitem',
+                xtype: 'tsapprovemenuitem',
+                view: this.view,
+                record: record,
+                records: records
+            });
+           
+            if ( this.canUnlock ) {
+                items.push({
+                    xtype: 'tsunlockmenuitem',
+                    view: this.view,
+                    record: record,
+                    records: records
+                });
+            }
+        } else {
+            items.push({
+                xtype: 'tsapprovemenuitem',
                 view: this.view,
                 record: record
             });
+                    
+            if ( this.canUnlock ) {
+                items.push({
+                    xtype: 'tsunlockmenuitem',
+                    view: this.view,
+                    record: record
+                });
+            }
         }
-
         return items;
+    }
+});
+Ext.override(Rally.ui.grid.CheckboxModel, {
+    _recordIsSelectable: function(record) {
+        return true;
     }
 });
 Ext.define('Rally.technicalservices.grid.RowActionColumn', {
@@ -1012,13 +1094,14 @@ Ext.define('Rally.technicalservices.grid.RowActionColumn', {
         defaultOptions = {
             view: view,
             record: selectedRecord,
+            records: checkedRecords,
             owningEl: el.parentElement,
             popoverPlacement: ['bottom', 'top'],
             canUnlock: this.canUnlock
         };
 
-        if (grid.enableBulkEdit && _.contains(checkedRecords, selectedRecord)) {
-            this.menu = Ext.create('Rally.ui.menu.bulk.RecordMenu', Ext.apply({
+        /*if (grid.enableBulkEdit && _.contains(checkedRecords, selectedRecord)) {
+            this.menu = Ext.create('Rally.technicalservices.TimeApprovalRecordMenu', Ext.apply({
                 context: grid.getContext(),
                 records: checkedRecords,
                 store: grid.store,
@@ -1043,7 +1126,7 @@ Ext.define('Rally.technicalservices.grid.RowActionColumn', {
                     });
                 }
             }, grid.bulkEditConfig));
-        } else if (this.rowActionsFn) {
+        } else*/ if (this.rowActionsFn) {
             this.menu = Ext.create('Rally.technicalservices.TimeApprovalRecordMenu', Ext.apply({
                 items: this.rowActionsFn.call(this.scope || this, selectedRecord)
             }, defaultOptions));
@@ -1074,6 +1157,9 @@ Ext.define('TSTimesheet',{
         { name: '__LastUpdateBy', type: 'object' }
     ],
     
+    isSelectable: function() {
+        return true;
+    },
     
     getWeekStart: function() {
         var start_date = this.get('WeekStartDate');
@@ -1432,16 +1518,19 @@ Ext.define("TSTimeSheetApproval", {
             columnCfgs: columns,
             enableEditing: false,
             showRowActionsColumn: false,
-            enableBulkEdit: false,
+            enableBulkEdit: true,
             features: [{
                 ftype: 'groupingsummary',
                 groupHeaderTpl: '{name} ({rows.length})'
             }],
+            _recordIsSelectable: function(record) {
+                return true;
+            },
             listeners: {
                 scope: this,
                 itemclick: function(grid, record, item, index, evt) {
                     var column = grid.getPositionByEvent(evt).column;
-                    if ( column > 0 ) {
+                    if ( column > 1 ) {
                         this._popup(record);
                     }
                 }
