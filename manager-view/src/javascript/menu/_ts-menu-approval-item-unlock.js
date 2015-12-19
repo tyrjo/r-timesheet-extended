@@ -25,7 +25,6 @@ Ext.define('Rally.technicalservices.UnlockMenuItem', {
                 if ( !this._isUnlockable(r) ) {
                     should_show = false;
                 }
-                console.log(r, should_show);
             },this);
             return should_show;
         }

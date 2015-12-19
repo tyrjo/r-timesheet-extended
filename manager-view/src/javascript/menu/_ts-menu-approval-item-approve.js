@@ -26,7 +26,6 @@ Ext.define('Rally.technicalservices.ApproveMenuItem', {
                 if ( !this._isApprovable(r) ) {
                     should_show = false;
                 }
-                console.log('should show record:', r, should_show);
             },this);
             return should_show;
         }

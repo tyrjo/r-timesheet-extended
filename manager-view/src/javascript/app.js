@@ -16,8 +16,47 @@ Ext.define("TSTimeSheetApproval", {
     integrationHeaders : {
         name : "TSTimeSheetApproval"
     },
-                        
+    
+    stateFilterValue: 'Approved',
+    
     launch: function() {
+        this._addSelectors(this.down('#selector_box'));
+    },
+    
+    _addSelectors: function(container) {
+        var state_store = Ext.create('Ext.data.Store',{
+            fields: ['displayName','value'],
+            data: [
+                {displayName:'All',  value:'ALL'},
+                {displayName:'Open', value:'Open'},
+                {displayName:'Approved', value:'Approved'}
+            ]
+        });
+        
+        container.add({
+            xtype:'combobox',
+            value: this.stateFilterValue,
+            fieldLabel: 'Timesheet State:',
+            store: state_store,
+            queryMode: 'local',
+            displayField: 'displayName',
+            valueField: 'value',
+            listeners: {
+                scope: this,
+                change: function(cb) {
+                    this.stateFilterValue = cb.getValue();
+                    this._updateData();
+                },
+                boxready: function(cb) {
+                    this._updateData();
+                }
+            }
+        });
+    },
+    
+    _updateData: function() {
+        this.down('#display_box').removeAll();
+        
         Deft.Chain.pipeline([
             this._loadTimesheets,
             this._loadPreferences
@@ -121,11 +160,19 @@ Ext.define("TSTimeSheetApproval", {
     _loadPreferences: function(timesheets) {
         var deferred = Ext.create('Deft.Deferred');
         this.setLoading("Loading statuses...");
+        var stateFilter = this.stateFilterValue;
+        
+        var filters = [{property:'Name',operator:'contains',value:this._approvalKeyPrefix}];
+        
+        // Open might be because there hasn't been a preference created yet
+        if ( stateFilter && stateFilter != "ALL" && stateFilter != "Open" ) {
+            filters.push({property:'Value', operator:'contains', value:stateFilter});
+        }
         
         var config = {
             model:'Preference',
             limit: 'Infinity',
-            filters: [{property:'Name',operator:'contains',value:this._approvalKeyPrefix}],
+            filters: filters,
             fetch: ['Name','Value']
         };
         
@@ -150,8 +197,17 @@ Ext.define("TSTimeSheetApproval", {
                         timesheet.set('__Status', 'Open');
                     }
                 });
+                
+                var filtered_timesheets = Ext.Array.filter(timesheets, function(timesheet){
+                    if (stateFilter == "ALL") {
+                        return true;
+                    }
+                    
+                    return ( timesheet.get('__Status') == stateFilter );
+                });
+                
                 this.setLoading(false);
-                deferred.resolve(timesheets);
+                deferred.resolve(filtered_timesheets);
                 
             },
             failure: function(msg){

@@ -31,9 +31,6 @@ Ext.define('Rally.technicalservices.TimeApprovalRecordMenu', {
             items = [],
             popoverPlacement = this.popoverPlacement || Rally.ui.popover.Popover.DEFAULT_PLACEMENT;
 
-        console.log('record', record);
-        console.log('records', records);
-        
         if ( records && records.length > 0 ) {
             // bulk edit
             items.push({
