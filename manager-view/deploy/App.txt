@@ -3,11 +3,11 @@
 <head>
     <title>Time Sheet Approval</title>
     <!--  (c) 2015 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Sat Dec 19 2015 17:03:20 GMT-0800 (PST) -->
+    <!--  Build Date: Sun Dec 20 2015 10:25:14 GMT-0800 (PST) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Sat Dec 19 2015 17:03:20 GMT-0800 (PST)";
-        var CHECKSUM = 65008746176;
+        var APP_BUILD_DATE = "Sun Dec 20 2015 10:25:14 GMT-0800 (PST)";
+        var CHECKSUM = 66791825566;
     </script>
     
     <script type="text/javascript" src="/apps/2.0/sdk.js"></script>
@@ -288,7 +288,13 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
                             }
                         },this);
                     },
-                    getField: this.getField
+                    getField: this.getField,
+                    clearAndRemove: this.clearAndRemove
+//                    isUpdatable: function() { return true; },
+//                    canHaveTasks: function() { return false; },
+//                    canHaveDefects: function() { return false; },
+//                    canHaveTestCases: function() { return false; },
+//                    canHaveChildren: function() { return false; }
                 });
                 
                 this.model = new_model;
@@ -297,6 +303,15 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
             }
         });
         return deferred;
+    },
+    
+    clearAndRemove: function() {
+        console.log('delete', this);
+        var timeentryitem = this.get('__TimeEntryItem');
+        if ( ! Ext.isEmpty(timeentryitem)){
+            timeentryitem.destroy();
+        }
+        this.destroy();
     },
     
     getField: function(field_name) {
@@ -698,7 +713,15 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
     _getColumns: function(task_states) {
         var me = this;
                 
-        var columns = [
+        var columns = [];
+        
+        if ( this.editable ) {
+            columns.push({
+                xtype: 'tsrowactioncolumn'
+            });
+        }
+            
+        Ext.Array.push(columns, [
             {
                 dataIndex: '__Product',
                 text: 'Product',
@@ -743,7 +766,7 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
                 flex: 1,
                 editor: null
             }
-        ];
+        ]);
         
         var day_width = 50;
         

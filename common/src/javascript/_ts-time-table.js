@@ -318,7 +318,15 @@
     _getColumns: function(task_states) {
         var me = this;
                 
-        var columns = [
+        var columns = [];
+        
+        if ( this.editable ) {
+            columns.push({
+                xtype: 'tsrowactioncolumn'
+            });
+        }
+            
+        Ext.Array.push(columns, [
             {
                 dataIndex: '__Product',
                 text: 'Product',
@@ -363,7 +371,7 @@
                 flex: 1,
                 editor: null
             }
-        ];
+        ]);
         
         var day_width = 50;
         

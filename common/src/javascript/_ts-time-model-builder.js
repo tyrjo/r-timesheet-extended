@@ -87,7 +87,13 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
                             }
                         },this);
                     },
-                    getField: this.getField
+                    getField: this.getField,
+                    clearAndRemove: this.clearAndRemove
+//                    isUpdatable: function() { return true; },
+//                    canHaveTasks: function() { return false; },
+//                    canHaveDefects: function() { return false; },
+//                    canHaveTestCases: function() { return false; },
+//                    canHaveChildren: function() { return false; }
                 });
                 
                 this.model = new_model;
@@ -96,6 +102,15 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
             }
         });
         return deferred;
+    },
+    
+    clearAndRemove: function() {
+        console.log('delete', this);
+        var timeentryitem = this.get('__TimeEntryItem');
+        if ( ! Ext.isEmpty(timeentryitem)){
+            timeentryitem.destroy();
+        }
+        this.destroy();
     },
     
     getField: function(field_name) {
