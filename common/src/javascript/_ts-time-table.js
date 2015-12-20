@@ -53,7 +53,8 @@
 //                });
                 
                 var table_store = Ext.create('Rally.data.custom.Store',{
-                    model: 'TSTableRow'
+                    model: 'TSTableRow',
+                    groupField: '__SecretKey'
                 });
                 
                 this._makeGrid(table_store);
@@ -194,7 +195,14 @@
                         me.logger.log('itemupdate', row);
                     }
                 }
-            }
+            },
+            features: [{
+                ftype: 'groupingsummary',
+                startCollapsed: false,
+                hideGroupedHeader: true,
+                groupHeaderTpl: ' ',
+                enableGroupingMenu: false
+            }]
         });
         
         this.fireEvent('gridReady', this, this.grid);
@@ -318,6 +326,9 @@
                 editor: null,
                 renderer: function(v) {
                     return v._refObjectName;
+                },
+                summaryRenderer: function() {
+                    return "Totals";
                 }
             },
             {
@@ -366,14 +377,22 @@
             editor_config = null;
         }
         
-        columns.push({dataIndex:'__Sunday',   width: day_width, text:'Sun',   align: 'center', editor: editor_config });
-        columns.push({dataIndex:'__Monday',   width: day_width, text:'Mon',   align: 'center',editor: editor_config });
-        columns.push({dataIndex:'__Tuesday',  width: day_width, text:'Tue',   align: 'center',editor: editor_config});
-        columns.push({dataIndex:'__Wednesday',width: day_width, text:'Wed',   align: 'center',editor: editor_config});
-        columns.push({dataIndex:'__Thursday', width: day_width, text:'Thur',  align: 'center',editor: editor_config});
-        columns.push({dataIndex:'__Friday',   width: day_width, text:'Fri',   align: 'center',editor: editor_config});
-        columns.push({dataIndex:'__Saturday', width: day_width, text:'Sat',   align: 'center',editor: editor_config});
-        columns.push({dataIndex:'__Total',    width: day_width, text:'Total', align: 'center',editor: null});
+        
+        columns.push({dataIndex:'__Sunday',   width: day_width, text:'Sun',   align: 'center',editor: editor_config, summaryType: 'sum'});
+        columns.push({dataIndex:'__Monday',   width: day_width, text:'Mon',   align: 'center',editor: editor_config, summaryType: 'sum'});
+        columns.push({dataIndex:'__Tuesday',  width: day_width, text:'Tue',   align: 'center',editor: editor_config, summaryType: 'sum'});
+        columns.push({dataIndex:'__Wednesday',width: day_width, text:'Wed',   align: 'center',editor: editor_config, summaryType: 'sum'});
+        columns.push({dataIndex:'__Thursday', width: day_width, text:'Thur',  align: 'center',editor: editor_config, summaryType: 'sum'});
+        columns.push({dataIndex:'__Friday',   width: day_width, text:'Fri',   align: 'center',editor: editor_config, summaryType: 'sum'});
+        columns.push({dataIndex:'__Saturday', width: day_width, text:'Sat',   align: 'center',editor: editor_config, summaryType: 'sum'});
+        
+        var total_renderer = function(v, meta, record) {
+            meta.tdCls = "totals";
+            return v;
+        };
+        columns.push({dataIndex:'__Total',    width: day_width, text:'Total', align: 'center',editor: null,          summaryType: 'sum',
+            renderer: total_renderer
+        });
 
         
         return columns;

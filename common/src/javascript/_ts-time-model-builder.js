@@ -14,10 +14,11 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
                 
                 var related_fields = [
                     { name: '__TimeEntryItem', type:'object' },
-                    { name: '__Feature', type: 'object' },
-                    { name: '__Release', type: 'object' },
-                    { name: '__Product', type: 'object' },
-                    { name: '__Total',   type: 'float', defaultValue: 0 }
+                    { name: '__Feature',   type: 'object' },
+                    { name: '__Release',   type: 'object' },
+                    { name: '__Product',   type: 'object' },
+                    { name: '__Total',     type: 'float', defaultValue: 0 },
+                    { name: '__SecretKey', type:'auto', defaultValue: 1 }
                 ];
                 
                 var day_fields = this._getDayFields();

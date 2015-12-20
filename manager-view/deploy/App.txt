@@ -3,11 +3,11 @@
 <head>
     <title>Time Sheet Approval</title>
     <!--  (c) 2015 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Sat Dec 19 2015 16:35:13 GMT-0800 (PST) -->
+    <!--  Build Date: Sat Dec 19 2015 17:03:20 GMT-0800 (PST) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Sat Dec 19 2015 16:35:13 GMT-0800 (PST)";
-        var CHECKSUM = 63016134407;
+        var APP_BUILD_DATE = "Sat Dec 19 2015 17:03:20 GMT-0800 (PST)";
+        var CHECKSUM = 65008746176;
     </script>
     
     <script type="text/javascript" src="/apps/2.0/sdk.js"></script>
@@ -215,10 +215,11 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
                 
                 var related_fields = [
                     { name: '__TimeEntryItem', type:'object' },
-                    { name: '__Feature', type: 'object' },
-                    { name: '__Release', type: 'object' },
-                    { name: '__Product', type: 'object' },
-                    { name: '__Total',   type: 'float', defaultValue: 0 }
+                    { name: '__Feature',   type: 'object' },
+                    { name: '__Release',   type: 'object' },
+                    { name: '__Product',   type: 'object' },
+                    { name: '__Total',     type: 'float', defaultValue: 0 },
+                    { name: '__SecretKey', type:'auto', defaultValue: 1 }
                 ];
                 
                 var day_fields = this._getDayFields();
@@ -432,7 +433,8 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
 //                });
                 
                 var table_store = Ext.create('Rally.data.custom.Store',{
-                    model: 'TSTableRow'
+                    model: 'TSTableRow',
+                    groupField: '__SecretKey'
                 });
                 
                 this._makeGrid(table_store);
@@ -573,7 +575,14 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
                         me.logger.log('itemupdate', row);
                     }
                 }
-            }
+            },
+            features: [{
+                ftype: 'groupingsummary',
+                startCollapsed: false,
+                hideGroupedHeader: true,
+                groupHeaderTpl: ' ',
+                enableGroupingMenu: false
+            }]
         });
         
         this.fireEvent('gridReady', this, this.grid);
@@ -697,6 +706,9 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
                 editor: null,
                 renderer: function(v) {
                     return v._refObjectName;
+                },
+                summaryRenderer: function() {
+                    return "Totals";
                 }
             },
             {
@@ -745,14 +757,22 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
             editor_config = null;
         }
         
-        columns.push({dataIndex:'__Sunday',   width: day_width, text:'Sun',   align: 'center', editor: editor_config });
-        columns.push({dataIndex:'__Monday',   width: day_width, text:'Mon',   align: 'center',editor: editor_config });
-        columns.push({dataIndex:'__Tuesday',  width: day_width, text:'Tue',   align: 'center',editor: editor_config});
-        columns.push({dataIndex:'__Wednesday',width: day_width, text:'Wed',   align: 'center',editor: editor_config});
-        columns.push({dataIndex:'__Thursday', width: day_width, text:'Thur',  align: 'center',editor: editor_config});
-        columns.push({dataIndex:'__Friday',   width: day_width, text:'Fri',   align: 'center',editor: editor_config});
-        columns.push({dataIndex:'__Saturday', width: day_width, text:'Sat',   align: 'center',editor: editor_config});
-        columns.push({dataIndex:'__Total',    width: day_width, text:'Total', align: 'center',editor: null});
+        
+        columns.push({dataIndex:'__Sunday',   width: day_width, text:'Sun',   align: 'center',editor: editor_config, summaryType: 'sum'});
+        columns.push({dataIndex:'__Monday',   width: day_width, text:'Mon',   align: 'center',editor: editor_config, summaryType: 'sum'});
+        columns.push({dataIndex:'__Tuesday',  width: day_width, text:'Tue',   align: 'center',editor: editor_config, summaryType: 'sum'});
+        columns.push({dataIndex:'__Wednesday',width: day_width, text:'Wed',   align: 'center',editor: editor_config, summaryType: 'sum'});
+        columns.push({dataIndex:'__Thursday', width: day_width, text:'Thur',  align: 'center',editor: editor_config, summaryType: 'sum'});
+        columns.push({dataIndex:'__Friday',   width: day_width, text:'Fri',   align: 'center',editor: editor_config, summaryType: 'sum'});
+        columns.push({dataIndex:'__Saturday', width: day_width, text:'Sat',   align: 'center',editor: editor_config, summaryType: 'sum'});
+        
+        var total_renderer = function(v, meta, record) {
+            meta.tdCls = "totals";
+            return v;
+        };
+        columns.push({dataIndex:'__Total',    width: day_width, text:'Total', align: 'center',editor: null,          summaryType: 'sum',
+            renderer: total_renderer
+        });
 
         
         return columns;
@@ -1814,6 +1834,14 @@ Ext.define("TSTimeSheetApproval", {
     </script>
     
     <style type="text/css">
+
+.totals {
+    background-color: #eee !important;
+}
+
+.x-grid-row-summary {
+    background-color: #eee;
+}
 
 .app {
 }
