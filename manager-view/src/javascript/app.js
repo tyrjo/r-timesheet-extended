@@ -70,12 +70,60 @@ Ext.define("TSTimeSheetApproval", {
                 change: function(cb) {
                     this.stateFilterValue = cb.getValue();
                     this._updateData();
-                },
-                boxready: function(cb) {
-                    this._updateData();
                 }
             }
         });
+        
+        container.add({xtype:'container',flex: 1});
+        
+        var date_container = container.add({
+            xtype:'container',
+            layout: 'vbox'
+        });
+        
+        var week_start = this._getBeginningOfWeek(Rally.util.DateTime.add(new Date(), 'week', -4));
+        
+        date_container.add({
+            xtype:'rallydatefield',
+            itemId:'from_date_selector',
+            fieldLabel: 'From Week',
+            value: week_start,
+            listeners: {
+                scope: this,
+                change: function(dp, new_value) {
+                    var week_start = this._getBeginningOfWeek(new_value);
+                    if ( week_start !== new_value ) {
+                        dp.setValue(week_start);
+                    }
+                    if ( new_value.getDay() === 0 ) {
+                        this._updateData();
+                    }
+                }
+            }
+        });
+        
+        date_container.add({
+            xtype:'rallydatefield',
+            itemId:'to_date_selector',
+            fieldLabel: 'Through Week',
+            listeners: {
+                scope: this,
+                change: function(dp, new_value) {
+                    var week_start = this._getBeginningOfWeek(new_value);
+                    if ( week_start !== new_value ) {
+                        dp.setValue(week_start);
+                    }
+                    if ( new_value.getDay() === 0 ) {
+                        this._updateData();
+                    }
+                }
+            }
+        }).setValue(new Date());
+        
+        if ( this.isExternal() ) {
+            container.add({type:'container', html: '......'});
+        }
+        
     },
     
     _updateData: function() {
@@ -133,9 +181,22 @@ Ext.define("TSTimeSheetApproval", {
         var deferred = Ext.create('Deft.Deferred');
         this.setLoading("Loading timesheets...");
         
+        var filters = [{property:'ObjectID', operator: '>', value: 0 }];
+        
+        if (this.down('#from_date_selector') ) {
+            var start_date = Rally.util.DateTime.toIsoString( this.down('#from_date_selector').getValue(),false).replace(/T.*$/,'T00:00:00.000Z');
+            filters.push({property:'WeekStartDate', operator: '>=', value:start_date});
+        }
+        
+        if (this.down('#to_date_selector') ) {
+            var start_date = Rally.util.DateTime.toIsoString( this.down('#to_date_selector').getValue(),true).replace(/T.*$/,'T00:00:00.000Z');
+            filters.push({property:'WeekStartDate', operator: '<=', value:start_date});
+        }
+        
         var config = {
             model:'TimeEntryItem',
             limit: 'Infinity',
+            filters: filters,
             context: {
                 project: null
             },
@@ -393,6 +454,11 @@ Ext.define("TSTimeSheetApproval", {
     
     _unlockTimesheet: function(record) {
         record.unlock();
+    },
+    
+    _getBeginningOfWeek: function(js_date){
+        var start_of_week_here = Ext.Date.add(js_date, Ext.Date.DAY, -1 * js_date.getDay());
+        return start_of_week_here;
     },
     
     getOptions: function() {
