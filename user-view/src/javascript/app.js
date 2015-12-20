@@ -197,7 +197,8 @@ Ext.define("TSExtendedTimesheet", {
             Ext.create('Rally.technicalservices.ChooserDialog', {
                 artifactTypes: ['task'],
                 autoShow: true,
-                title: 'Choose a Task',
+                multiple: true,
+                title: 'Choose Task(s)',
                 filterableFields: [
                     {
                         displayName: 'Formatted ID',
@@ -218,8 +219,14 @@ Ext.define("TSExtendedTimesheet", {
                 ],
                 fetchFields: ['WorkProduct','Feature','Project', 'ObjectID', 'Name', 'Release'],
                 listeners: {
-                    artifactchosen: function(dialog, selectedRecord){
-                        timetable.addRowForItem(selectedRecord);
+                    artifactchosen: function(dialog, selectedRecords){
+                        if ( !Ext.isArray(selectedRecords) ) {
+                            selectedRecords = [selectedRecords];
+                        }
+                        
+                        Ext.Array.each(selectedRecords, function(selectedRecord){
+                            timetable.addRowForItem(selectedRecord);
+                        });
                     },
                     scope: this
                 }
@@ -233,7 +240,8 @@ Ext.define("TSExtendedTimesheet", {
             Ext.create('Rally.technicalservices.ChooserDialog', {
                 artifactTypes: ['hierarchicalrequirement'],
                 autoShow: true,
-                title: 'Choose a Story',
+                title: 'Choose Story(ies)',
+                multiple: true,
                 filterableFields: [
                     {
                         displayName: 'Formatted ID',
@@ -254,8 +262,14 @@ Ext.define("TSExtendedTimesheet", {
                 ],
                 fetchFields: ['Feature','Project', 'ObjectID', 'Name', 'Release'],
                 listeners: {
-                    artifactchosen: function(dialog, selectedRecord){
-                        timetable.addRowForItem(selectedRecord);
+                    artifactchosen: function(dialog, selectedRecords){
+                        if ( !Ext.isArray(selectedRecords) ) {
+                            selectedRecords = [selectedRecords];
+                        }
+                        
+                        Ext.Array.each(selectedRecords, function(selectedRecord){
+                            timetable.addRowForItem(selectedRecord);
+                        });
                     },
                     scope: this
                 }
