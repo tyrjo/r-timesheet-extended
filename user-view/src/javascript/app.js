@@ -215,6 +215,18 @@ Ext.define("TSExtendedTimesheet", {
                     {
                         displayName:'WorkProduct',
                         attributeName: 'WorkProduct.Name'
+                    },
+                    {
+                        displayName: 'Project',
+                        attributeName: 'Project.Name'
+                    },
+                    {
+                        displayName: 'Owner',
+                        attributeName: 'Owner.DisplayName'
+                    },
+                    {
+                        displayName: 'Release',
+                        attributeName: 'Release.Name'
                     }
                 ],
                 fetchFields: ['WorkProduct','Feature','Project', 'ObjectID', 'Name', 'Release'],
@@ -258,6 +270,18 @@ Ext.define("TSExtendedTimesheet", {
                     {
                         displayName:'Feature',
                         attributeName: 'Feature.Name'
+                    },
+                    {
+                        displayName: 'Project',
+                        attributeName: 'Project.Name'
+                    },
+                    {
+                        displayName: 'Owner',
+                        attributeName: 'Owner.DisplayName'
+                    },
+                    {
+                        displayName: 'Release',
+                        attributeName: 'Release.Name'
                     }
                 ],
                 fetchFields: ['Feature','Project', 'ObjectID', 'Name', 'Release'],
