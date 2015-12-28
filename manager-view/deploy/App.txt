@@ -3,11 +3,11 @@
 <head>
     <title>Time Sheet Approval</title>
     <!--  (c) 2015 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Sun Dec 27 2015 19:55:06 GMT-0800 (PST) -->
+    <!--  Build Date: Sun Dec 27 2015 20:27:21 GMT-0800 (PST) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Sun Dec 27 2015 19:55:06 GMT-0800 (PST)";
-        var CHECKSUM = 71562993614;
+        var APP_BUILD_DATE = "Sun Dec 27 2015 20:27:21 GMT-0800 (PST)";
+        var CHECKSUM = 73308906581;
     </script>
     
     <script type="text/javascript" src="/apps/2.0/sdk.js"></script>
@@ -1181,6 +1181,30 @@ Ext.define('Rally.technicalservices.grid.RowActionColumn', {
         return Ext.create('Rally.technicalservices.TimeApprovalRecordMenu', menuOptions);
     }
 });
+Ext.override(Ext.selection.CheckboxModel,{
+    onHeaderClick: function(headerCt, header, e) {
+        // force open all if checking.
+        var view = this.view;
+        console.log('view:', view);
+        view.features[0].expandAll();
+        
+        if (header.isCheckerHd) {
+            e.stopEvent();
+            var me = this,
+                isChecked = header.el.hasCls(Ext.baseCSSPrefix + 'grid-hd-checker-on');
+                
+            // Prevent focus changes on the view, since we're selecting/deselecting all records
+            me.preventFocus = true;
+            if (isChecked) {
+                me.deselectAll();
+            } else {
+                me.selectAll();
+            }
+            delete me.preventFocus;
+        }
+    }
+});
+
 Ext.define('TSTimesheet',{
     extend: 'Ext.data.Model',
     
