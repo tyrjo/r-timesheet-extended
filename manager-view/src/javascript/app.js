@@ -43,7 +43,6 @@ Ext.define("TSTimeSheetApproval", {
                     if ( button.expanded == true ) {
                         button.expanded = false;
                         button.setText('<span class="icon-expandall"> </span>');
-                        console.log(this.down('rallygrid'));
                         
                         this.down('rallygrid').getView().features[0].collapseAll();
                     } else {
@@ -332,6 +331,7 @@ Ext.define("TSTimeSheetApproval", {
             data:timesheets,
             groupField: 'User',
             groupDir: 'ASC',
+            pageSize: 50000,
             model: 'TSTimesheet',
             sorters: [{property:'__UserName'}, {property:'WeekStartDate', direction: 'DESC'}],
             getGroupString: function(record) {
@@ -349,6 +349,7 @@ Ext.define("TSTimeSheetApproval", {
             enableEditing: false,
             showRowActionsColumn: false,
             enableBulkEdit: true,
+            showPagingToolbar: false,
             features: [{
                 ftype: 'groupingsummary',
                 startCollapsed: true,

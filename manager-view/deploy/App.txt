@@ -3,11 +3,11 @@
 <head>
     <title>Time Sheet Approval</title>
     <!--  (c) 2015 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Sun Dec 27 2015 19:43:22 GMT-0800 (PST) -->
+    <!--  Build Date: Sun Dec 27 2015 19:55:06 GMT-0800 (PST) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Sun Dec 27 2015 19:43:22 GMT-0800 (PST)";
-        var CHECKSUM = 71553930072;
+        var APP_BUILD_DATE = "Sun Dec 27 2015 19:55:06 GMT-0800 (PST)";
+        var CHECKSUM = 71562993614;
     </script>
     
     <script type="text/javascript" src="/apps/2.0/sdk.js"></script>
@@ -1414,7 +1414,6 @@ Ext.define("TSTimeSheetApproval", {
                     if ( button.expanded == true ) {
                         button.expanded = false;
                         button.setText('<span class="icon-expandall"> </span>');
-                        console.log(this.down('rallygrid'));
                         
                         this.down('rallygrid').getView().features[0].collapseAll();
                     } else {
@@ -1703,6 +1702,7 @@ Ext.define("TSTimeSheetApproval", {
             data:timesheets,
             groupField: 'User',
             groupDir: 'ASC',
+            pageSize: 50000,
             model: 'TSTimesheet',
             sorters: [{property:'__UserName'}, {property:'WeekStartDate', direction: 'DESC'}],
             getGroupString: function(record) {
@@ -1720,6 +1720,7 @@ Ext.define("TSTimeSheetApproval", {
             enableEditing: false,
             showRowActionsColumn: false,
             enableBulkEdit: true,
+            showPagingToolbar: false,
             features: [{
                 ftype: 'groupingsummary',
                 startCollapsed: true,
