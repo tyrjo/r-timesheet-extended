@@ -19,11 +19,18 @@ Ext.define("TSTimeSheetApproval", {
     
     stateFilterValue: 'Approved',
     
+    config: {
+        defaultSettings: {
+            managerField: 'DisplayName'
+        }
+    },
+    
     launch: function() {
         this._addSelectors(this.down('#selector_box'));
     },
     
     _addSelectors: function(container) {
+        container.removeAll();
         
         container.add({
             xtype:'rallybutton',
@@ -191,6 +198,11 @@ Ext.define("TSTimeSheetApproval", {
         if (this.down('#to_date_selector') ) {
             var start_date = Rally.util.DateTime.toIsoString( this.down('#to_date_selector').getValue(),true).replace(/T.*$/,'T00:00:00.000Z');
             filters.push({property:'WeekStartDate', operator: '<=', value:start_date});
+        }
+        
+        if ( ! this._currentUserCanUnlock() ) {
+            var current_user_name = this.getContext().getUser().UserName;
+            filters.push({property:'User.' + this.getSetting('managerField'), value: current_user_name});
         }
         
         var config = {
@@ -478,6 +490,53 @@ Ext.define("TSTimeSheetApproval", {
     
     isExternal: function(){
         return typeof(this.getAppId()) == 'undefined';
+    },
+    
+    _filterOutExceptStrings: function(store) {
+        var app = Rally.getApp();
+        app.logger.log('_filterOutExceptChoices');
+        
+        store.filter([{
+            filterFn:function(field){ 
+                var attribute_definition = field.get('fieldDefinition').attributeDefinition;
+                var attribute_type = null;
+                if ( attribute_definition ) {
+                    attribute_type = attribute_definition.AttributeType;
+                }
+                if (  attribute_type == "BOOLEAN" ) {
+                    return false;
+                }
+                if ( attribute_type == "STRING") {
+                    if ( !field.get('fieldDefinition').attributeDefinition.Constrained ) {
+                        return true;
+                    }
+                }
+                return false;
+            } 
+        }]);
+    },
+    
+    getSettingsFields: function() {
+        var me = this;
+        
+        return [{
+            name: 'managerField',
+            xtype: 'rallyfieldcombobox',
+            fieldLabel: 'User Manager Field',
+            labelWidth: 75,
+            labelAlign: 'left',
+            minWidth: 200,
+            margin: 10,
+            autoExpand: false,
+            alwaysExpanded: false,
+            model: 'User',
+            listeners: {
+                ready: function(field_box) {
+                    me._filterOutExceptStrings(field_box.getStore());
+                }
+            },
+            readyEvent: 'ready'
+        }];
     },
     
     //onSettingsUpdate:  Override

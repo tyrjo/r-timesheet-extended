@@ -156,10 +156,20 @@ Ext.define('TSTimesheet',{
         Rally.data.ModelFactory.getModel({
             type: 'Preference',
             success: function(model) {
-                var pref = Ext.create(model, {
+                var pref_config = {
                     Name: key,
                     Value: 'Open'
-                });
+                };
+                
+                if ( Rally.getApp().isExternal() ) {
+                    pref_config.Project = Rally.getApp().getContext().getProjectRef();
+                } else {
+                    pref_config.AppId = Rally.getApp().getAppId();
+                }
+                
+                console.log("Saving new pref: ", pref_config);
+                var pref = Ext.create(model, pref_config);
+                
                 pref.save({
                     callback: function(result, operation) {
                         if(operation.wasSuccessful()) {
