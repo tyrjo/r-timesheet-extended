@@ -3,11 +3,11 @@
 <head>
     <title>Extended Timesheet</title>
     <!--  (c) 2015 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Tue Dec 29 2015 05:50:53 GMT-0800 (PST) -->
+    <!--  Build Date: Tue Dec 29 2015 06:31:26 GMT-0800 (PST) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Tue Dec 29 2015 05:50:53 GMT-0800 (PST)";
-        var CHECKSUM = 54184012806;
+        var APP_BUILD_DATE = "Tue Dec 29 2015 06:31:26 GMT-0800 (PST)";
+        var CHECKSUM = 54511591429;
     </script>
     
     <script type="text/javascript" src="/apps/2.0/sdk.js"></script>
@@ -1483,6 +1483,7 @@ Ext.define("TSExtendedTimesheet", {
         container.add({
             xtype:'rallybutton',
             text: 'Add My Tasks',
+            toolTipText: "(in current iteration)", 
             padding: 2,
             disabled: true,
             listeners: {
@@ -1495,6 +1496,7 @@ Ext.define("TSExtendedTimesheet", {
             xtype:'rallybutton',
             text: '+<span class="icon-task"> </span>',
             disabled: true,
+            toolTipText: "Search and add tasks", 
             listeners: {
                 scope: this,
                 click: this._findAndAddTask
@@ -1504,6 +1506,7 @@ Ext.define("TSExtendedTimesheet", {
         container.add({
             xtype:'rallybutton',
             text: '+<span class="icon-story"> </span>',
+            toolTipText: "Search and add stories",
             disabled: true,
             listeners: {
                 scope: this,

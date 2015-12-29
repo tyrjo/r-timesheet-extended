@@ -27,6 +27,7 @@ Ext.define("TSExtendedTimesheet", {
         container.add({
             xtype:'rallybutton',
             text: 'Add My Tasks',
+            toolTipText: "(in current iteration)", 
             padding: 2,
             disabled: true,
             listeners: {
@@ -39,6 +40,7 @@ Ext.define("TSExtendedTimesheet", {
             xtype:'rallybutton',
             text: '+<span class="icon-task"> </span>',
             disabled: true,
+            toolTipText: "Search and add tasks", 
             listeners: {
                 scope: this,
                 click: this._findAndAddTask
@@ -48,6 +50,7 @@ Ext.define("TSExtendedTimesheet", {
         container.add({
             xtype:'rallybutton',
             text: '+<span class="icon-story"> </span>',
+            toolTipText: "Search and add stories",
             disabled: true,
             listeners: {
                 scope: this,
