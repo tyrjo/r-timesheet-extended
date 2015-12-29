@@ -3,11 +3,11 @@
 <head>
     <title>Time Sheet Approval</title>
     <!--  (c) 2015 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Sun Dec 27 2015 20:27:21 GMT-0800 (PST) -->
+    <!--  Build Date: Tue Dec 29 2015 05:50:58 GMT-0800 (PST) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Sun Dec 27 2015 20:27:21 GMT-0800 (PST)";
-        var CHECKSUM = 73308906581;
+        var APP_BUILD_DATE = "Tue Dec 29 2015 05:50:58 GMT-0800 (PST)";
+        var CHECKSUM = 73489673244;
     </script>
     
     <script type="text/javascript" src="/apps/2.0/sdk.js"></script>
@@ -1960,6 +1960,9 @@ Ext.define("TSTimeSheetApproval", {
     background-color: #eee;
 }
 
+.x-grid-row-alt .x-grid-td {
+    background-color: #fff;
+}
 .app {
 }
 .tsinfolink {

@@ -5,3 +5,7 @@
 .x-grid-row-summary {
     background-color: #eee;
 }
+
+.x-grid-row-alt .x-grid-td {
+    background-color: #fff;
+}
