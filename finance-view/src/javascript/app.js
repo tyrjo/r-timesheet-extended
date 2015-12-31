@@ -144,7 +144,7 @@ defaults: { margin: 10 },
                 'TimeEntryItem','WorkProduct', 'WorkProductDisplayString',
                 'User','Project','Feature',
                 'Release','c_DecommissionDate','State','c_DeploymentDate',
-                'Task','TaskDisplayString','c_ActivityType'
+                'Task','TaskDisplayString','c_ActivityType','c_ProjectActivityType'
             ]
         };
         
@@ -299,8 +299,12 @@ defaults: { margin: 10 },
         Ext.Object.each(timesheets, function(key,timesheet){
             var time_values = timesheet.get('__TimeEntryValues');
             Ext.Array.each(time_values, function(time_value){
+                var isOpEx = false;
                 
                 var product = time_value.get('TimeEntryItem').Project;
+                if ( /OpEx/.test( product.c_ProjectActivityType ) ) {
+                    isOpEx = true;
+                }
                 var workproduct = time_value.get('TimeEntryItem').WorkProduct;
                 var feature = null;
                 var release = null;
@@ -308,6 +312,9 @@ defaults: { margin: 10 },
                 if ( !Ext.isEmpty(workproduct) && workproduct.Feature ) {
                     feature = workproduct.Feature;
                     product = feature.Project;
+                    if ( /OpEx/.test( product.c_ProjectActivityType ) ) {
+                        isOpEx = true;
+                    }
                 }
                 
                 if ( !Ext.isEmpty(workproduct) && workproduct.Release ) {
@@ -325,6 +332,7 @@ defaults: { margin: 10 },
                     __LastUpdateDate  : timesheet.get('__LastUpdateDate'),
                     __Release         : release,
                     __Product         : product,
+                    __IsOpEx          : isOpEx,
                     __WorkItem        : time_value.get('TimeEntryItem').WorkProduct,
                     __WorkItemDisplay : time_value.get('TimeEntryItem').WorkProductDisplayString,
                     __Task            : time_value.get('TimeEntryItem').Task,
@@ -400,6 +408,7 @@ defaults: { margin: 10 },
         
         columns.push({dataIndex:'__Product',text:'Product', align: 'center', renderer: function(v){ return v._refObjectName; }});
         
+        columns.push({dataIndex: '__IsOpEx', text: 'OpEx', align: 'center'});
         return columns;
     },
     

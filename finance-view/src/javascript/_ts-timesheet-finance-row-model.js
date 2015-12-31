@@ -12,6 +12,7 @@ Ext.define('TSTimesheetFinanceRow',{
         { name: '__LastUpdateBy', type: 'object' },
         { name: '__LastUpdateDate', type: 'date' },
         { name: '__Task', type:'object' },
+        { name: '__IsOpEx', type: 'boolean', defaultValue: false },
         { name: 'WeekStartDate', type: 'date' },
         { name: '__Product', type:'object' },
         { name: '__Release', type: 'object' },
