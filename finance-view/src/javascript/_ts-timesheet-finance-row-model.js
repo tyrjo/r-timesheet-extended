@@ -7,6 +7,7 @@ Ext.define('TSTimesheetFinanceRow',{
         { name: 'User', type: 'object' },
         { name: '__Location', type:'string' },
         { name: '__AssociateID', type:'string' },
+        { name: '__EmployeeType', type:'string' },
         { name: 'WeekStartDate', type: 'date' },
         { name: 'DateVal', type: 'date' },
         { name: 'Hours', type: 'float' }

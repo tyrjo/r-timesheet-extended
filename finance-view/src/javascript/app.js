@@ -129,7 +129,7 @@ defaults: { margin: 10 },
                 project: null
             },
             fetch: ['WeekStartDate','ObjectID','UserName','Project','WorkProduct','WorkProductString',
-                'User','OfficeLocation','NetworkID'
+                'User','OfficeLocation','NetworkID','c_EmployeeType'
             ]
         };
         
@@ -301,6 +301,7 @@ defaults: { margin: 10 },
                     User              : timesheet.get('User'),
                     __Location        : timesheet.get('User').OfficeLocation,
                     __AssociateID     : timesheet.get('User').NetworkID,
+                    __EmployeeType    : timesheet.get('User').c_EmployeeType,
                     __WorkItem        : time_value.get('TimeEntryItem').WorkProduct,
                     __WorkItemDisplay : time_value.get('TimeEntryItem').WorkProductDisplayString
                 }));
@@ -340,7 +341,8 @@ defaults: { margin: 10 },
         columns.push({dataIndex:'User',text:'User', renderer: function(v) { return v._refObjectName; }});
         columns.push({dataIndex:'__Location',text:'Location' });
         columns.push({dataIndex:'__AssociateID',text:'Associate ID' });
-                    
+        columns.push({dataIndex:'__EmployeeType', text:'Employee Type' });
+        
         columns.push({dataIndex:'DateVal',text:'Work Date', align: 'center', renderer: function(v) { return Ext.util.Format.date(v,'m/d/y'); }});
         columns.push({dataIndex:'Hours',  text:'Actual Hours', align: 'right'});
         columns.push({dataIndex:'__WorkItemDisplay',text:'Work Item', align: 'center'});
