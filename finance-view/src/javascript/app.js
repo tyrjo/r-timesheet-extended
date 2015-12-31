@@ -142,8 +142,9 @@ defaults: { margin: 10 },
             },
             fetch: ['WeekStartDate','ObjectID','DateVal','Hours',
                 'TimeEntryItem','WorkProduct', 'WorkProductDisplayString',
-                'User','Task','Project','Feature',
-                'Release','c_DecommissionDate','State','c_DeploymentDate'
+                'User','Project','Feature',
+                'Release','c_DecommissionDate','State','c_DeploymentDate',
+                'Task','TaskDisplayString','c_ActivityType'
             ]
         };
         
@@ -325,7 +326,9 @@ defaults: { margin: 10 },
                     __Release         : release,
                     __Product         : product,
                     __WorkItem        : time_value.get('TimeEntryItem').WorkProduct,
-                    __WorkItemDisplay : time_value.get('TimeEntryItem').WorkProductDisplayString
+                    __WorkItemDisplay : time_value.get('TimeEntryItem').WorkProductDisplayString,
+                    __Task            : time_value.get('TimeEntryItem').Task,
+                    __TaskDisplay     : time_value.get('TimeEntryItem').TaskDisplayString
                 }));
             });
         });
@@ -372,6 +375,10 @@ defaults: { margin: 10 },
         columns.push({dataIndex:'__LastUpdateDate', text:'Approved On', align: 'center'});
         
         columns.push({dataIndex:'__WorkItemDisplay',text:'Work Item', align: 'center'});
+        columns.push({dataIndex:'__Task',text:'Activity Type', align: 'center', renderer: function(v) {
+            if ( Ext.isEmpty(v) || Ext.isEmpty(v.c_ActivityType) ) { return ""; }
+            return v.c_ActivityType;
+        }});
         
         columns.push({dataIndex:'__Release',text:'Release', align: 'center', renderer: function(v) {
             if ( Ext.isEmpty(v) ) { return ""; }
@@ -382,12 +389,10 @@ defaults: { margin: 10 },
             if ( Ext.isEmpty(v) || Ext.isEmpty(v.State) ) { return ""; }
             return v.State;
         }});
-        
         columns.push({dataIndex:'__Release',text:'Decommission Date', align: 'center', renderer: function(v) {
             if ( Ext.isEmpty(v) || Ext.isEmpty(v.c_DecommissionDate) ) { return ""; }
             return v.c_DecommissionDate;
         }});
-        
         columns.push({dataIndex:'__Release',text:'Deployment Date', align: 'center', renderer: function(v) {
             if ( Ext.isEmpty(v) || Ext.isEmpty(v.c_DeploymentDate) ) { return ""; }
             return v.c_DeploymentDate;
@@ -395,7 +400,6 @@ defaults: { margin: 10 },
         
         columns.push({dataIndex:'__Product',text:'Product', align: 'center', renderer: function(v){ return v._refObjectName; }});
         
-        //'c_DecommissionDate','State','c_DeploymentDate'
         return columns;
     },
     
