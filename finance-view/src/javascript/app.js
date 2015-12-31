@@ -128,7 +128,9 @@ defaults: { margin: 10 },
             context: {
                 project: null
             },
-            fetch: ['User','WeekStartDate','ObjectID','UserName','Project','WorkProduct','WorkProductString']
+            fetch: ['WeekStartDate','ObjectID','UserName','Project','WorkProduct','WorkProductString',
+                'User','OfficeLocation','NetworkID'
+            ]
         };
         
         var tevalue_config = {
@@ -138,8 +140,9 @@ defaults: { margin: 10 },
             context: {
                 project: null
             },
-            fetch: ['User','WeekStartDate','ObjectID','DateVal','Hours',
-                'TimeEntryItem','WorkProduct', 'WorkProductDisplayString'
+            fetch: ['WeekStartDate','ObjectID','DateVal','Hours',
+                'TimeEntryItem','WorkProduct', 'WorkProductDisplayString',
+                'User'
             ]
         };
         
@@ -296,6 +299,8 @@ defaults: { margin: 10 },
                 rows.push(Ext.Object.merge( time_value.getData(),{
                     WeekStartDate     : timesheet.get('WeekStartDate'),
                     User              : timesheet.get('User'),
+                    __Location        : timesheet.get('User').OfficeLocation,
+                    __AssociateID     : timesheet.get('User').NetworkID,
                     __WorkItem        : time_value.get('TimeEntryItem').WorkProduct,
                     __WorkItemDisplay : time_value.get('TimeEntryItem').WorkProductDisplayString
                 }));
@@ -333,6 +338,9 @@ defaults: { margin: 10 },
         var columns = [];
         
         columns.push({dataIndex:'User',text:'User', renderer: function(v) { return v._refObjectName; }});
+        columns.push({dataIndex:'__Location',text:'Location' });
+        columns.push({dataIndex:'__AssociateID',text:'Associate ID' });
+                    
         columns.push({dataIndex:'DateVal',text:'Work Date', align: 'center', renderer: function(v) { return Ext.util.Format.date(v,'m/d/y'); }});
         columns.push({dataIndex:'Hours',  text:'Actual Hours', align: 'right'});
         columns.push({dataIndex:'__WorkItemDisplay',text:'Work Item', align: 'center'});
