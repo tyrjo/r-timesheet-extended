@@ -3,11 +3,11 @@
 <head>
     <title>TimeSheet Finance Report</title>
     <!--  (c) 2015 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Wed Dec 30 2015 18:34:35 GMT-0800 (PST) -->
+    <!--  Build Date: Wed Dec 30 2015 18:35:42 GMT-0800 (PST) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Wed Dec 30 2015 18:34:35 GMT-0800 (PST)";
-        var CHECKSUM = 52907917418;
+        var APP_BUILD_DATE = "Wed Dec 30 2015 18:35:42 GMT-0800 (PST)";
+        var CHECKSUM = 52893695316;
     </script>
     
     <script type="text/javascript" src="/apps/2.0/sdk.js"></script>
@@ -1459,7 +1459,7 @@ defaults: { margin: 10 },
         columns.push({dataIndex:'__LastUpdateDate', text:'Approved On', align: 'center'});
         
         columns.push({dataIndex:'__WorkItemDisplay',text:'Work Item', align: 'center'});
-        columns.push({dataIndex:'__Task',text:'Activity Type', align: 'center', renderer: function(v) {
+        columns.push({dataIndex:'__Task',text:'Category', align: 'center', renderer: function(v) {
             if ( Ext.isEmpty(v) || Ext.isEmpty(v.c_ActivityType) ) { return ""; }
             return v.c_ActivityType;
         }});

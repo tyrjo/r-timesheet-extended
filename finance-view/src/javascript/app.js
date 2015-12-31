@@ -383,7 +383,7 @@ defaults: { margin: 10 },
         columns.push({dataIndex:'__LastUpdateDate', text:'Approved On', align: 'center'});
         
         columns.push({dataIndex:'__WorkItemDisplay',text:'Work Item', align: 'center'});
-        columns.push({dataIndex:'__Task',text:'Activity Type', align: 'center', renderer: function(v) {
+        columns.push({dataIndex:'__Task',text:'Category', align: 'center', renderer: function(v) {
             if ( Ext.isEmpty(v) || Ext.isEmpty(v.c_ActivityType) ) { return ""; }
             return v.c_ActivityType;
         }});
