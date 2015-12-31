@@ -388,6 +388,7 @@ Ext.define("TSTimeSheetApproval", {
     _popup: function(record){
         var user_name = record.get('User')._refObjectName;
         var status = record.get('__Status');
+        this.logger.log("_popup", user_name, status, record);
         
         var start_date = record.get('WeekStartDate');
         start_date = new Date(start_date.getUTCFullYear(), 
@@ -411,6 +412,7 @@ Ext.define("TSTimeSheetApproval", {
                 layout: 'fit',
                 weekStart: start_date,
                 editable: false,
+                timesheet_user: record.get('User'),
                 listeners: {
                     scope: this,
                     gridReady: function() {

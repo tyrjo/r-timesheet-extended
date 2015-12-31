@@ -3,11 +3,11 @@
 <head>
     <title>Time Sheet Approval</title>
     <!--  (c) 2015 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Wed Dec 30 2015 18:39:44 GMT-0800 (PST) -->
+    <!--  Build Date: Wed Dec 30 2015 18:59:15 GMT-0800 (PST) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Wed Dec 30 2015 18:39:44 GMT-0800 (PST)";
-        var CHECKSUM = 144420945453;
+        var APP_BUILD_DATE = "Wed Dec 30 2015 18:59:15 GMT-0800 (PST)";
+        var CHECKSUM = 146015646705;
     </script>
     
     <script type="text/javascript" src="/apps/2.0/sdk.js"></script>
@@ -1082,7 +1082,8 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
         
     config: {
         weekStart: new Date(),
-        editable: true
+        editable: true,
+        timesheet_user: null
     },
     
     constructor: function (config) {
@@ -1201,6 +1202,10 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
         this.setLoading('Loading time entry items...');
 
         var week_start = this.weekStart;
+        var user_oid = Rally.getApp().getContext().getUser().ObjectID;
+        if ( !Ext.isEmpty(this.timesheet_user) ) {
+            user_oid = this.timesheet_user.ObjectID;
+        }
         
         var config = {
             model: 'TimeEntryItem',
@@ -1210,7 +1215,7 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
             fetch: this.time_entry_item_fetch,
             filters: [
                 {property:'WeekStartDate',value:week_start},
-                {property:'User.ObjectID',value:Rally.getApp().getContext().getUser().ObjectID}
+                {property:'User.ObjectID',value:user_oid}
             ]
         };
         
@@ -1220,7 +1225,12 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
     _loadTimeEntryValues: function() {
         this.setLoading('Loading time entry values...');
         var week_start = this.weekStart;
-
+        
+        var user_oid = Rally.getApp().getContext().getUser().ObjectID;
+        if ( !Ext.isEmpty(this.timesheet_user) ) {
+            user_oid = this.timesheet_user.ObjectID;
+        }
+        
         var config = {
             model: 'TimeEntryValue',
             context: {
@@ -1229,7 +1239,7 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
             fetch: ['DateVal','Hours','TimeEntryItem','ObjectID'],
             filters: [
                 {property:'TimeEntryItem.WeekStartDate',value:week_start},
-                {property:'TimeEntryItem.User.ObjectID',value:Rally.getApp().getContext().getUser().ObjectID}
+                {property:'TimeEntryItem.User.ObjectID',value:user_oid}
             ]
         };
         
@@ -2452,6 +2462,7 @@ Ext.define("TSTimeSheetApproval", {
     _popup: function(record){
         var user_name = record.get('User')._refObjectName;
         var status = record.get('__Status');
+        this.logger.log("_popup", user_name, status, record);
         
         var start_date = record.get('WeekStartDate');
         start_date = new Date(start_date.getUTCFullYear(), 
@@ -2475,6 +2486,7 @@ Ext.define("TSTimeSheetApproval", {
                 layout: 'fit',
                 weekStart: start_date,
                 editable: false,
+                timesheet_user: record.get('User'),
                 listeners: {
                     scope: this,
                     gridReady: function() {

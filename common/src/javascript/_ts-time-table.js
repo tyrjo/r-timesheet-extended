@@ -19,7 +19,8 @@
         
     config: {
         weekStart: new Date(),
-        editable: true
+        editable: true,
+        timesheet_user: null
     },
     
     constructor: function (config) {
@@ -138,6 +139,10 @@
         this.setLoading('Loading time entry items...');
 
         var week_start = this.weekStart;
+        var user_oid = Rally.getApp().getContext().getUser().ObjectID;
+        if ( !Ext.isEmpty(this.timesheet_user) ) {
+            user_oid = this.timesheet_user.ObjectID;
+        }
         
         var config = {
             model: 'TimeEntryItem',
@@ -147,7 +152,7 @@
             fetch: this.time_entry_item_fetch,
             filters: [
                 {property:'WeekStartDate',value:week_start},
-                {property:'User.ObjectID',value:Rally.getApp().getContext().getUser().ObjectID}
+                {property:'User.ObjectID',value:user_oid}
             ]
         };
         
@@ -157,7 +162,12 @@
     _loadTimeEntryValues: function() {
         this.setLoading('Loading time entry values...');
         var week_start = this.weekStart;
-
+        
+        var user_oid = Rally.getApp().getContext().getUser().ObjectID;
+        if ( !Ext.isEmpty(this.timesheet_user) ) {
+            user_oid = this.timesheet_user.ObjectID;
+        }
+        
         var config = {
             model: 'TimeEntryValue',
             context: {
@@ -166,7 +176,7 @@
             fetch: ['DateVal','Hours','TimeEntryItem','ObjectID'],
             filters: [
                 {property:'TimeEntryItem.WeekStartDate',value:week_start},
-                {property:'TimeEntryItem.User.ObjectID',value:Rally.getApp().getContext().getUser().ObjectID}
+                {property:'TimeEntryItem.User.ObjectID',value:user_oid}
             ]
         };
         
