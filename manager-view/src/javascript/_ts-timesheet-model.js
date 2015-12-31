@@ -9,7 +9,8 @@ Ext.define('TSTimesheet',{
         { name: '__Status', type: 'string', defaultValue: 'Unknown' }, // Open, Approved, Locked
         { name: 'User', type: 'object' },
         { name: 'WeekStartDate', type: 'date' },
-        { name: '__LastUpdateBy', type: 'object' }
+        { name: '__LastUpdateBy', type: 'object' },
+        { name: '__LastUpdateDate', type: 'date' }
     ],
     
     isSelectable: function() {
@@ -81,7 +82,7 @@ Ext.define('TSTimesheet',{
     
     unlock: function() {
         this.set('__Status', "Open");
-        
+
         var pref_key = this.getPreferenceKey();
         
         this._findOrCreatePreference(pref_key).then({

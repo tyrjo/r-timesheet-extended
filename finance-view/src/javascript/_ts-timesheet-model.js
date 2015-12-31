@@ -10,6 +10,7 @@ Ext.define('TSTimesheet',{
         { name: 'User', type: 'object' },
         { name: 'WeekStartDate', type: 'date' },
         { name: '__LastUpdateBy', type: 'object' },
+        { name: '__LastUpdateDate', type: 'date' },
         { name: '__TimeEntryItems', type: 'object' },
         { name: '__TimeEntryValues', type: 'object' }
     ],

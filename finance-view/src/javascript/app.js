@@ -129,7 +129,7 @@ defaults: { margin: 10 },
                 project: null
             },
             fetch: ['WeekStartDate','ObjectID','UserName','Project','WorkProduct','WorkProductString',
-                'User','OfficeLocation','NetworkID','c_EmployeeType'
+                'User','OfficeLocation','NetworkID','c_EmployeeType','CostCenter'
             ]
         };
         
@@ -204,6 +204,8 @@ defaults: { margin: 10 },
                         var status_object = Ext.JSON.decode(preferences_by_key[key].get('Value'));
                         timesheet.set('__Status', status_object.status || "Open");
                         timesheet.set('__LastUpdateBy', status_object.status_owner._refObjectName || "");
+                        timesheet.set('__LastUpdateDate', status_object.status_date);
+                        
                     } else { 
                         timesheet.set('__Status', 'Open');
                     }
@@ -302,6 +304,9 @@ defaults: { margin: 10 },
                     __Location        : timesheet.get('User').OfficeLocation,
                     __AssociateID     : timesheet.get('User').NetworkID,
                     __EmployeeType    : timesheet.get('User').c_EmployeeType,
+                    __CostCenter      : timesheet.get('User').CostCenter,
+                    __LastUpdateBy    : timesheet.get('__LastUpdateBy'),
+                    __LastUpdateDate  : timesheet.get('__LastUpdateDate'),
                     __WorkItem        : time_value.get('TimeEntryItem').WorkProduct,
                     __WorkItemDisplay : time_value.get('TimeEntryItem').WorkProductDisplayString
                 }));
@@ -342,9 +347,13 @@ defaults: { margin: 10 },
         columns.push({dataIndex:'__Location',text:'Location' });
         columns.push({dataIndex:'__AssociateID',text:'Associate ID' });
         columns.push({dataIndex:'__EmployeeType', text:'Employee Type' });
+        columns.push({dataIndex:'__CostCenter', text:'Cost Center' });
         
         columns.push({dataIndex:'DateVal',text:'Work Date', align: 'center', renderer: function(v) { return Ext.util.Format.date(v,'m/d/y'); }});
         columns.push({dataIndex:'Hours',  text:'Actual Hours', align: 'right'});
+        columns.push({dataIndex:'__LastUpdateBy', text:'Approved By', align: 'center'});
+        columns.push({dataIndex:'__LastUpdateDate', text:'Approved On', align: 'center'});
+        
         columns.push({dataIndex:'__WorkItemDisplay',text:'Work Item', align: 'center'});
         
         return columns;
