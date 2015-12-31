@@ -142,7 +142,7 @@ defaults: { margin: 10 },
             },
             fetch: ['WeekStartDate','ObjectID','DateVal','Hours',
                 'TimeEntryItem','WorkProduct', 'WorkProductDisplayString',
-                'User'
+                'User','Task','Release','Project','Feature'
             ]
         };
         
@@ -298,6 +298,20 @@ defaults: { margin: 10 },
             var time_values = timesheet.get('__TimeEntryValues');
             Ext.Array.each(time_values, function(time_value){
                 
+                var product = time_value.get('TimeEntryItem').Project;
+                var workproduct = time_value.get('TimeEntryItem').WorkProduct;
+                var feature = null;
+                var release = null;
+                
+                if ( !Ext.isEmpty(workproduct) && workproduct.Feature ) {
+                    feature = workproduct.Feature;
+                    product = feature.Project;
+                }
+                
+                if ( !Ext.isEmpty(workproduct) && workproduct.Release ) {
+                    release = workproduct.Release;
+                }
+                    
                 rows.push(Ext.Object.merge( time_value.getData(),{
                     WeekStartDate     : timesheet.get('WeekStartDate'),
                     User              : timesheet.get('User'),
@@ -307,6 +321,8 @@ defaults: { margin: 10 },
                     __CostCenter      : timesheet.get('User').CostCenter,
                     __LastUpdateBy    : timesheet.get('__LastUpdateBy'),
                     __LastUpdateDate  : timesheet.get('__LastUpdateDate'),
+                    __Release         : release,
+                    __Product         : product,
                     __WorkItem        : time_value.get('TimeEntryItem').WorkProduct,
                     __WorkItemDisplay : time_value.get('TimeEntryItem').WorkProductDisplayString
                 }));
@@ -355,6 +371,11 @@ defaults: { margin: 10 },
         columns.push({dataIndex:'__LastUpdateDate', text:'Approved On', align: 'center'});
         
         columns.push({dataIndex:'__WorkItemDisplay',text:'Work Item', align: 'center'});
+        columns.push({dataIndex:'__Release',text:'Release', align: 'center', renderer: function(v) {
+            if ( Ext.isEmpty(v) ) { return ""; }
+            return v._refObjectName;
+        }});
+        columns.push({dataIndex:'__Product',text:'Product', align: 'center', renderer: function(v){ return v._refObjectName; }});
         
         return columns;
     },
