@@ -31,9 +31,7 @@ defaults: { margin: 10 },
     
     _addSelectors: function(container) {
         container.removeAll();
-        
-        container.add({xtype:'container',flex: 1});
-        
+                
         var date_container = container.add({
             xtype:'container',
             layout: 'vbox'
@@ -77,6 +75,21 @@ defaults: { margin: 10 },
                 }
             }
         }).setValue(new Date());
+        
+        var spacer = container.add({ xtype: 'container', flex: 1});
+        
+        container.add({
+            xtype:'rallybutton',
+            itemId:'export_button',
+            text: '<span class="icon-export"> </span>',
+            disabled: false,
+            listeners: {
+                scope: this,
+                click: function() {
+                    this._export();
+                }
+            }
+        });
         
         if ( this.isExternal() ) {
             container.add({type:'container', html: '......'});
@@ -430,6 +443,32 @@ defaults: { margin: 10 },
     _launchInfo: function() {
         if ( this.about_dialog ) { this.about_dialog.destroy(); }
         this.about_dialog = Ext.create('Rally.technicalservices.InfoLink',{});
+    },
+    
+    _export: function(){
+        var grid = this.down('rallygrid');
+        var me = this;
+        
+        if ( !grid ) { return; }
+        
+        this.logger.log('_export',grid);
+
+        var filename = Ext.String.format('project-report.csv');
+
+        this.setLoading("Generating CSV");
+        Deft.Chain.sequence([
+            function() { return Rally.technicalservices.FileUtilities.getCSVFromGrid(this,grid) } 
+        ]).then({
+            scope: this,
+            success: function(csv){
+                if (csv && csv.length > 0){
+                    Rally.technicalservices.FileUtilities.saveCSVToFile(csv,filename);
+                } else {
+                    Rally.ui.notify.Notifier.showWarning({message: 'No data to export'});
+                }
+                
+            }
+        }).always(function() { me.setLoading(false); });
     },
     
     isExternal: function(){
