@@ -17,7 +17,7 @@ Ext.define("TSTimeSheetApproval", {
         name : "TSTimeSheetApproval"
     },
     
-    stateFilterValue: 'Approved',
+    stateFilterValue: 'Open',
     
     config: {
         defaultSettings: {
