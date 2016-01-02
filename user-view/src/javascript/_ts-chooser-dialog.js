@@ -57,14 +57,6 @@ Ext.define('Rally.technicalservices.ChooserDialog', {
             {
                 displayName: 'Name',
                 attributeName: 'Name'
-            },
-            {
-                displayName: 'State',
-                attributeName: 'State'
-            },
-            {
-                displayName:'WorkProduct',
-                attributeName: 'WorkProduct.Name'
             }
         ],
 

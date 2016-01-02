@@ -40,7 +40,7 @@ Ext.define("TSExtendedTimesheet", {
             xtype:'rallybutton',
             text: '+<span class="icon-task"> </span>',
             disabled: true,
-            toolTipText: "Search and add tasks", 
+            toolTipText: "Search and add Tasks", 
             listeners: {
                 scope: this,
                 click: this._findAndAddTask
@@ -50,7 +50,7 @@ Ext.define("TSExtendedTimesheet", {
         container.add({
             xtype:'rallybutton',
             text: '+<span class="icon-story"> </span>',
-            toolTipText: "Search and add stories",
+            toolTipText: "Search and add User Stories",
             disabled: true,
             listeners: {
                 scope: this,
@@ -212,24 +212,24 @@ Ext.define("TSExtendedTimesheet", {
                         attributeName: 'Name'
                     },
                     {
-                        displayName: 'State',
-                        attributeName: 'State'
-                    },
-                    {
                         displayName:'WorkProduct',
                         attributeName: 'WorkProduct.Name'
                     },
                     {
-                        displayName: 'Project',
+                        displayName:'Release',
+                        attributeName: 'Release.Name'
+                    },
+                    {
+                        displayName:'Project',
                         attributeName: 'Project.Name'
                     },
                     {
-                        displayName: 'Owner',
-                        attributeName: 'Owner.DisplayName'
+                        displayName:'Owner',
+                        attributeName: 'Owner'
                     },
                     {
-                        displayName: 'Release',
-                        attributeName: 'Release.Name'
+                        displayName: 'State',
+                        attributeName: 'State'
                     }
                 ],
                 fetchFields: ['WorkProduct','Feature','Project', 'ObjectID', 'Name', 'Release'],
@@ -267,24 +267,20 @@ Ext.define("TSExtendedTimesheet", {
                         attributeName: 'Name'
                     },
                     {
-                        displayName: 'Schedule State',
-                        attributeName: 'ScheduleState'
-                    },
-                    {
                         displayName:'Feature',
                         attributeName: 'Feature.Name'
                     },
                     {
-                        displayName: 'Project',
+                        displayName:'Release',
+                        attributeName: 'Release.Name'
+                    },
+                    {
+                        displayName:'Project',
                         attributeName: 'Project.Name'
                     },
                     {
-                        displayName: 'Owner',
-                        attributeName: 'Owner.DisplayName'
-                    },
-                    {
-                        displayName: 'Release',
-                        attributeName: 'Release.Name'
+                        displayName:'Owner',
+                        attributeName: 'Owner'
                     }
                 ],
                 fetchFields: ['Feature','Project', 'ObjectID', 'Name', 'Release'],
