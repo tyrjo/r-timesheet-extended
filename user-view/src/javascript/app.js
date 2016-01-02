@@ -169,7 +169,7 @@ Ext.define("TSExtendedTimesheet", {
                 context: {
                     project: null
                 },
-                fetch: ['ObjectID','Name','FormattedID','WorkProduct'],
+                fetch: ['ObjectID','Name','FormattedID','WorkProduct','Project'],
                 filters: [
                     {property:'Owner.ObjectID',value:this.getContext().getUser().ObjectID},
                     {property:'Iteration.StartDate',operator: '<=', value:Rally.util.DateTime.toIsoString(new Date())},

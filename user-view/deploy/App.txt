@@ -3,11 +3,11 @@
 <head>
     <title>Extended Timesheet</title>
     <!--  (c) 2015 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Fri Jan 01 2016 19:33:29 GMT-0800 (PST) -->
+    <!--  Build Date: Fri Jan 01 2016 19:56:05 GMT-0800 (PST) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Fri Jan 01 2016 19:33:29 GMT-0800 (PST)";
-        var CHECKSUM = 117207227353;
+        var APP_BUILD_DATE = "Fri Jan 01 2016 19:56:05 GMT-0800 (PST)";
+        var CHECKSUM = 117683438498;
     </script>
     
     <script type="text/javascript" src="/apps/2.0/sdk.js"></script>
@@ -1147,13 +1147,17 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
                 
                 var rows = Ext.Array.map(time_entry_items, function(item){
                     var product = item.get('Project');
+
                     var workproduct = item.get('WorkProduct');
                     var feature = null;
                     var release = null;
                     
-                    if ( !Ext.isEmpty(workproduct) && workproduct.Feature ) {
-                        feature = workproduct.Feature;
-                        product = feature.Project;
+                    if ( !Ext.isEmpty(workproduct) ) {
+                        product = workproduct.Project;
+                        if ( workproduct.Feature ) {
+                            feature = workproduct.Feature;
+                            product = feature.Project;
+                        }
                     }
                     
                     if ( !Ext.isEmpty(workproduct) && workproduct.Release ) {
@@ -1301,6 +1305,10 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
                         WorkProduct: { _ref: _ref },
                         WeekStartDate: week_start_date
                     };
+                    
+                    if ( item.get('Project') ) {
+                        config.Project = item.get('Project');
+                    }
                     
                     if ( item_type == "task" ) {
                         config.Task = { _ref: _ref };
@@ -2295,7 +2303,7 @@ Ext.define("TSExtendedTimesheet", {
                 context: {
                     project: null
                 },
-                fetch: ['ObjectID','Name','FormattedID','WorkProduct'],
+                fetch: ['ObjectID','Name','FormattedID','WorkProduct','Project'],
                 filters: [
                     {property:'Owner.ObjectID',value:this.getContext().getUser().ObjectID},
                     {property:'Iteration.StartDate',operator: '<=', value:Rally.util.DateTime.toIsoString(new Date())},

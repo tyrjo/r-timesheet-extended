@@ -84,13 +84,17 @@
                 
                 var rows = Ext.Array.map(time_entry_items, function(item){
                     var product = item.get('Project');
+
                     var workproduct = item.get('WorkProduct');
                     var feature = null;
                     var release = null;
                     
-                    if ( !Ext.isEmpty(workproduct) && workproduct.Feature ) {
-                        feature = workproduct.Feature;
-                        product = feature.Project;
+                    if ( !Ext.isEmpty(workproduct) ) {
+                        product = workproduct.Project;
+                        if ( workproduct.Feature ) {
+                            feature = workproduct.Feature;
+                            product = feature.Project;
+                        }
                     }
                     
                     if ( !Ext.isEmpty(workproduct) && workproduct.Release ) {
@@ -238,6 +242,10 @@
                         WorkProduct: { _ref: _ref },
                         WeekStartDate: week_start_date
                     };
+                    
+                    if ( item.get('Project') ) {
+                        config.Project = item.get('Project');
+                    }
                     
                     if ( item_type == "task" ) {
                         config.Task = { _ref: _ref };
