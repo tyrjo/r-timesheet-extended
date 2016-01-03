@@ -15,6 +15,8 @@ Ext.define('Rally.technicalservices.ChooserDialog', {
     width: 800,
     closable: true,
 
+    searchContext: 'project',
+    
     config: {
         /**
          * @cfg {String}
@@ -37,7 +39,7 @@ Ext.define('Rally.technicalservices.ChooserDialog', {
          * An {Ext.data.Store} config object used when building the grid
          * Handy when you need to limit the selection with store filters
          */
-        storeConfig: {},
+        storeConfig: { },
 
         /**
          * @cfg {Object}
@@ -244,14 +246,14 @@ Ext.define('Rally.technicalservices.ChooserDialog', {
                 },
                 {
                     xtype: 'button',
-                    text: 'Search',
-                    handler: this._search,
+                    text: '<span class="icon-search"> </span>',
+                    handler: this._openSearchMenu,
                     scope: this
                 }
             ]
         });
     },
-
+    
     /**
      * @private
      * @param {Object} models Object with {Rally.domain.WsapiModel} items
@@ -302,6 +304,9 @@ Ext.define('Rally.technicalservices.ChooserDialog', {
             allowDeselect: true
         });
 
+        var store_config = this.storeConfig;
+        store_config.context = { project: Rally.getApp().getContext().getProjectRef()};
+        
         var gridConfig = Ext.Object.merge({
             model: model,
             selModel: this.selectionModel,
@@ -310,7 +315,7 @@ Ext.define('Rally.technicalservices.ChooserDialog', {
             enableColumnHide: false,
             enableColumnMove: false,
             columnCfgs: this.columns,
-            storeConfig: this.storeConfig,
+            storeConfig: store_config,
             showRowActionsColumn: false,
             viewConfig: {
                 emptyText: Rally.ui.EmptyTextFactory.get('defaultText')
@@ -364,12 +369,23 @@ Ext.define('Rally.technicalservices.ChooserDialog', {
      * @private
      */
     _search: function() {
-
+        
         var terms = this.down('#searchTerms').getValue();
         var filterBy = this.down('#filterTypeComboBox').getValue();
         var filter;
 
         var fetch_fields = Ext.Array.merge(['ObjectID'],this.fetchFields);
+        
+        var store_config = this.grid.storeConfig;
+        
+        store_config.context = { project: Rally.getApp().getContext().getProjectRef() };
+        
+        if ( this.searchContext == "workspace" ) {
+            store_config.context = { project: null };
+        }
+        
+        var store = this.grid.getStore();        
+        store.context = store_config.context;
         
         if (!Ext.isEmpty(terms)) {
             filter = Ext.create('Rally.data.wsapi.Filter', {
@@ -380,5 +396,33 @@ Ext.define('Rally.technicalservices.ChooserDialog', {
         }
 
         this.grid.filter(filter, true);
+    },
+
+    _openSearchMenu: function(button) {
+        var menu = Ext.widget({
+            xtype: 'rallymenu',
+            items: [
+                { 
+                    text: 'Search Selected Project',
+                    handler: function() {
+                        this.searchContext = 'project';
+                        this._search();
+                    },
+                    scope: this
+                },
+                { 
+                    text: 'Search Everywhere',
+                    handler: function() {
+                        this.searchContext = 'workspace';
+                        this._search();
+                    },
+                    scope: this
+                }
+            ]
+        });
+        menu.showBy(button.getEl());
+        if(button.toolTip) {
+            button.toolTip.hide();
+        }
     }
 });
