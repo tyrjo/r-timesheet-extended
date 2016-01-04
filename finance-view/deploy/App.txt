@@ -3,11 +3,11 @@
 <head>
     <title>TimeSheet Finance Report</title>
     <!--  (c) 2015 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Wed Dec 30 2015 18:59:24 GMT-0800 (PST) -->
+    <!--  Build Date: Sun Jan 03 2016 17:26:07 GMT-0800 (PST) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Wed Dec 30 2015 18:59:24 GMT-0800 (PST)";
-        var CHECKSUM = 119039113078;
+        var APP_BUILD_DATE = "Sun Jan 03 2016 17:26:07 GMT-0800 (PST)";
+        var CHECKSUM = 144649500802;
     </script>
     
     <script type="text/javascript" src="/apps/2.0/sdk.js"></script>
@@ -867,6 +867,294 @@ Ext.define('Rally.technicalservices.FileUtilities', {
     }
 
 });
+Ext.define('Rally.technicalservices.CommentDialog',{
+    extend: 'Rally.ui.dialog.Dialog',
+    alias: 'widget.tscommentdialog',
+
+    height: 400,
+    width: 600,
+    layout: 'fit',
+    closable: true,
+    draggable: true,
+    
+    config: {
+        title: 'Timesheet Comments',
+        
+        keyPrefix: null,
+        
+        preferences: null
+    },
+
+    constructor: function(config) {
+        this.mergeConfig(config);
+
+        if ( Ext.isEmpty(this.config.keyPrefix) ) {
+            throw "keyPrefix is required for the Comment Dialog";
+        }
+        
+        console.log('prefs:', this.config.preferences);
+        
+        if ( !Ext.isArray(this.config.preferences) ) {
+            throw "preferences is required for the Comment Dialog";
+        }
+        
+        this.callParent([this.config]);
+    },
+
+    beforeRender: function() {
+        this.callParent(arguments);
+        
+       this.addDocked({
+            xtype: 'toolbar',
+            dock: 'bottom',
+            padding: '0 0 10 0',
+            layout: {
+                type: 'hbox',
+                pack: 'center'
+            },
+            ui: 'footer',
+            items: [
+                {
+                    xtype: 'rallybutton',
+                    text: 'Close',
+                    cls: 'secondary rly-small',
+                    handler: this.close,
+                    scope: this,
+                    ui: 'link'
+                }
+            ]
+        });
+        
+        this.addDocked({
+            xtype: 'toolbar',
+            itemId: 'add_box',
+            dock: 'top',
+            border: false,
+            padding: 2,
+            items: this._getAddBoxItems()
+        });
+        
+        this.buildGrid();
+    },
+
+    _getColumns: function() {
+        return [
+            { dataIndex: 'User', text:'User'},
+            { dataIndex: 'Comment', text:'Comment', flex: 1}
+        ];
+    },
+    
+    buildGrid: function() {
+        if (this.grid) {
+            this.grid.destroy();
+        }
+
+        var me = this;
+
+        var data = Ext.Array.map(this.preferences, function(preference){
+            var value = Ext.JSON.decode( preference.get("Value") );
+            return {
+                Comment: value.text,
+                User: value.user._refObjectName,
+                CreationDate: preference.get('CreationDate')
+            };
+        });
+        
+        console.log(this.preferences, data);
+        
+        var store = Ext.create('Rally.data.custom.Store',{
+            data: data,
+            sorters: [{property:'CreationDate', direction:'DESC'}]
+        });
+        
+        this.grid = Ext.create('Rally.ui.grid.Grid', {
+            columnCfgs: this._getColumns(),
+            enableEditing: false,
+            enableColumnHide: false,
+            enableColumnMove: false,
+            showRowActionsColumn: false,
+            showPagingToolbar: false,
+            store: store
+        });
+
+        this.add(this.grid);
+    },
+    
+    _getAddBoxItems: function() {
+        return [
+        {
+            xtype: 'rallytextfield',
+            itemId: 'comment_field',
+            flex: 1,
+            margin: 5
+        },
+        {
+            xtype:'rallybutton',
+            text: 'Post',
+            listeners: {
+                scope: this,
+                click: this._postComment
+            }
+        }
+        ];
+    },
+    
+    _postComment: function() {
+        var comment = this.down('#comment_field').getValue();
+        if ( Ext.isEmpty(comment) || Ext.isEmpty(Ext.String.trim(comment)) ) {
+            return;
+        }
+        
+        var current_user = Rally.getApp().getContext().getUser();
+
+        var value = {
+            text: comment,
+            user: { 
+                _type: 'User', 
+                '_ref': current_user._ref, 
+                '_refObjectName': current_user._refObjectName,
+                'ObjectID': current_user.ObjectID
+            }
+        };
+        
+        var key = Ext.String.format("{0}.{1}",
+            this.keyPrefix,
+            Ext.util.Format.date( new Date(), 'time' )
+        );
+        
+        console.log('Key', key);
+        console.log('Value', value);
+        
+        this._makePreference(key,Ext.JSON.encode(value)).then({
+            scope: this,
+            success: function(results) {
+                Ext.Array.push(this.preferences, results);
+                this.buildGrid();
+            },
+            failure: function(msg) {
+                Ext.Msg.alert("", msg);
+            }
+        });
+    },
+    
+    _makePreference: function(key,value) {
+        var deferred = Ext.create('Deft.Deferred');
+        
+        Rally.data.ModelFactory.getModel({
+            type: 'Preference',
+            success: function(model) {
+                
+                pref_config = {
+                    Name: key,
+                    Value: value
+                }
+                
+                if ( Rally.getApp().isExternal() ) {
+                    pref_config.Project = Rally.getApp().getContext().getProjectRef();
+                } else {
+                    pref_config.AppId = Rally.getApp().getAppId();
+                }
+                
+                var pref = Ext.create(model, pref_config);
+                
+                pref.save({
+                    callback: function(result, operation) {
+                        if(operation.wasSuccessful()) {
+                            deferred.resolve([result]);
+                        } else {
+                            console.log(operation);
+                            deferred.reject('Problem creating comment');
+                        }
+                    }
+                });
+            }
+        });
+        return deferred.promise;
+    }
+    
+});
+Ext.define('Rally.technicalservices.CommentButton',{
+    extend: 'Rally.ui.Button',
+    requires: [
+        'TSUtilities',
+        'Rally.technicalservices.CommentDialog'
+    ],
+    
+    alias: 'widget.tscommentbutton',
+    
+    config: {
+        keyPrefix: null
+    },
+    
+    constructor:function (config) {
+        this.mergeConfig(config);
+        if ( Ext.isEmpty(this.config.keyPrefix) ) {
+            throw "keyPrefix is required for the Comment Button";
+        }
+
+        this.config.text = Ext.String.format("<span class='icon-comment'>{0}</span>", config.text || "");
+        
+        this.callParent([this.config]);
+    },
+    
+    afterRender: function() {
+        this.callParent(arguments);
+
+        this.setDisabled(true);
+        
+        this._getComments().then({
+            scope: this,
+            success: function(results) {
+                this.comments = results;
+                this.mon(this.el, this.clickEvent, this._showDialog, this);
+                this.setDisabled(false);
+            },
+            failure: function(msg) {
+                Ext.Msg.alert('Problem loading comments', msg);
+            }
+        });
+    },
+    
+    _getComments: function() {
+        var deferred = Ext.create('Deft.Deferred');
+        var key = this.keyPrefix;
+        
+        var config = {
+            model:'Preference',
+            filters: [{property:'Name',operator:'contains', value:key}],
+            fetch: ['Name','Value','CreationDate']
+        };
+        
+        TSUtilities._loadWsapiRecords(config).then({
+            scope: this,
+            success: function(results) {
+                var text = "";
+                if ( results.length === 0 ) {
+                    text = Ext.String.format("<span class='icon-comment'>{0}</span>", "");
+                } else {
+                    text = Ext.String.format("<span class='icon-comment'></span> {0}", results.length);
+                }
+                                
+                this.setText(text);
+                deferred.resolve(results);
+            },
+            failure: function(msg) {
+                deferred.reject(msg);
+            }
+        });
+        
+        return deferred.promise;
+    },
+    
+    _showDialog: function() {
+        console.log('show dialog', this.comments);
+        Ext.create('Rally.technicalservices.CommentDialog',{
+            autoShow: true,
+            keyPrefix: this.keyPrefix,
+            preferences: this.comments
+        });
+    }
+});
 Ext.define('Rally.technicalservices.TimeModelBuilder',{
     singleton: true,
 
@@ -1147,13 +1435,17 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
                 
                 var rows = Ext.Array.map(time_entry_items, function(item){
                     var product = item.get('Project');
+
                     var workproduct = item.get('WorkProduct');
                     var feature = null;
                     var release = null;
                     
-                    if ( !Ext.isEmpty(workproduct) && workproduct.Feature ) {
-                        feature = workproduct.Feature;
-                        product = feature.Project;
+                    if ( !Ext.isEmpty(workproduct) ) {
+                        product = workproduct.Project;
+                        if ( workproduct.Feature ) {
+                            feature = workproduct.Feature;
+                            product = feature.Project;
+                        }
                     }
                     
                     if ( !Ext.isEmpty(workproduct) && workproduct.Release ) {
@@ -1301,6 +1593,10 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
                         WorkProduct: { _ref: _ref },
                         WeekStartDate: week_start_date
                     };
+                    
+                    if ( item.get('Project') ) {
+                        config.Project = item.get('Project');
+                    }
                     
                     if ( item_type == "task" ) {
                         config.Task = { _ref: _ref };
@@ -2069,9 +2365,6 @@ defaults: { margin: 10 },
                 var isOpEx = false;
                 
                 var product = time_value.get('TimeEntryItem').Project;
-                if ( /OpEx/.test( product.c_ProjectActivityType ) ) {
-                    isOpEx = true;
-                }
                 var workproduct = time_value.get('TimeEntryItem').WorkProduct;
                 var feature = null;
                 var release = null;
@@ -2079,15 +2372,31 @@ defaults: { margin: 10 },
                 if ( !Ext.isEmpty(workproduct) && workproduct.Feature ) {
                     feature = workproduct.Feature;
                     product = feature.Project;
-                    if ( /OpEx/.test( product.c_ProjectActivityType ) ) {
-                        isOpEx = true;
-                    }
                 }
                 
                 if ( !Ext.isEmpty(workproduct) && workproduct.Release ) {
                     release = workproduct.Release;
                 }
-                    
+                
+                var task = time_value.get('TimeEntryItem').Task;
+                if ( !Ext.isEmpty(task) ) {
+                    if ( !Ext.isEmpty(task.c_ActivityType) && !/CapEx/.test(task.c_ActivityType) ) {
+                        isOpEx = true;
+                    }
+                }
+                
+                if ( !Ext.isEmpty(workproduct)  ) {
+                    if ( !Ext.isEmpty(workproduct.c_ActivityType) && !/CapEx/.test(workproduct.c_ActivityType) ) {
+                        isOpEx = true;
+                    }
+                }
+                
+                if ( !Ext.isEmpty(feature) ) {
+                    if ( !Ext.isEmpty(workproduct.c_ActivityType) && !/CapEx/.test(workproduct.c_ActivityType) ) {
+                        isOpEx = true;
+                    }
+                }
+                
                 rows.push(Ext.Object.merge( time_value.getData(),{
                     WeekStartDate     : timesheet.get('WeekStartDate'),
                     User              : timesheet.get('User'),

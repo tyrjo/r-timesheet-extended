@@ -2,6 +2,13 @@
 
 ## Development Notes
 
+* This finance report lists each day of hour entry separately.  
+* CapEx v. OpEx is calculated this way:
+    * If ANY of the c_ActivityType values on Task, Story, Feature does NOT have CapEx in the text, then 
+the item is listed as OpEx, otherwise it is OpEx
+    * An empty c_ActivityType counts as CapEx for that level
+
+
 ### First Load
 
 If you've just downloaded this from github and you want to do development, 

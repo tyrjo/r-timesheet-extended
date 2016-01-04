@@ -315,9 +315,6 @@ defaults: { margin: 10 },
                 var isOpEx = false;
                 
                 var product = time_value.get('TimeEntryItem').Project;
-                if ( /OpEx/.test( product.c_ProjectActivityType ) ) {
-                    isOpEx = true;
-                }
                 var workproduct = time_value.get('TimeEntryItem').WorkProduct;
                 var feature = null;
                 var release = null;
@@ -325,15 +322,31 @@ defaults: { margin: 10 },
                 if ( !Ext.isEmpty(workproduct) && workproduct.Feature ) {
                     feature = workproduct.Feature;
                     product = feature.Project;
-                    if ( /OpEx/.test( product.c_ProjectActivityType ) ) {
-                        isOpEx = true;
-                    }
                 }
                 
                 if ( !Ext.isEmpty(workproduct) && workproduct.Release ) {
                     release = workproduct.Release;
                 }
-                    
+                
+                var task = time_value.get('TimeEntryItem').Task;
+                if ( !Ext.isEmpty(task) ) {
+                    if ( !Ext.isEmpty(task.c_ActivityType) && !/CapEx/.test(task.c_ActivityType) ) {
+                        isOpEx = true;
+                    }
+                }
+                
+                if ( !Ext.isEmpty(workproduct)  ) {
+                    if ( !Ext.isEmpty(workproduct.c_ActivityType) && !/CapEx/.test(workproduct.c_ActivityType) ) {
+                        isOpEx = true;
+                    }
+                }
+                
+                if ( !Ext.isEmpty(feature) ) {
+                    if ( !Ext.isEmpty(workproduct.c_ActivityType) && !/CapEx/.test(workproduct.c_ActivityType) ) {
+                        isOpEx = true;
+                    }
+                }
+                
                 rows.push(Ext.Object.merge( time_value.getData(),{
                     WeekStartDate     : timesheet.get('WeekStartDate'),
                     User              : timesheet.get('User'),
