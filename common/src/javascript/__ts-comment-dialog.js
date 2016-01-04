@@ -90,9 +90,7 @@ Ext.define('Rally.technicalservices.CommentDialog',{
                 CreationDate: preference.get('CreationDate')
             };
         });
-        
-        console.log(this.preferences, data);
-        
+                
         var store = Ext.create('Rally.data.custom.Store',{
             data: data,
             sorters: [{property:'CreationDate', direction:'DESC'}]
@@ -112,6 +110,15 @@ Ext.define('Rally.technicalservices.CommentDialog',{
     },
     
     _getAddBoxItems: function() {
+        
+        var can_post = TSUtilities._getEditableProjectForCurrentUser();
+        var tooltip_text = "Posting requires Edit rights in at least one project";
+        
+        if ( can_post !== false && !Ext.isEmpty( can_post )) {
+            can_post = true;
+            tooltip_text = "Submit Comment";
+        }
+        
         return [
         {
             xtype: 'rallytextfield',
@@ -122,6 +129,8 @@ Ext.define('Rally.technicalservices.CommentDialog',{
         {
             xtype:'rallybutton',
             text: 'Post',
+            disabled: !can_post,
+            toolTipText: tooltip_text,
             listeners: {
                 scope: this,
                 click: this._postComment
@@ -163,7 +172,7 @@ Ext.define('Rally.technicalservices.CommentDialog',{
                 this.buildGrid();
             },
             failure: function(msg) {
-                Ext.Msg.alert("", msg);
+                Ext.Msg.alert("Cannot Create Comment", msg);
             }
         });
     },
@@ -174,17 +183,18 @@ Ext.define('Rally.technicalservices.CommentDialog',{
         Rally.data.ModelFactory.getModel({
             type: 'Preference',
             success: function(model) {
-                
+
                 pref_config = {
                     Name: key,
-                    Value: value
+                    Value: value,
+                    Project: TSUtilities._getEditableProjectForCurrentUser()
                 }
-                
-                if ( Rally.getApp().isExternal() ) {
-                    pref_config.Project = Rally.getApp().getContext().getProjectRef();
-                } else {
-                    pref_config.AppId = Rally.getApp().getAppId();
-                }
+
+//                if ( Rally.getApp().isExternal() ) {
+//                    pref_config.Project = Rally.getApp().getContext().getProjectRef();
+//                } else {
+//                    pref_config.AppId = Rally.getApp().getAppId();
+//                }
                 
                 var pref = Ext.create(model, pref_config);
                 
@@ -194,7 +204,7 @@ Ext.define('Rally.technicalservices.CommentDialog',{
                             deferred.resolve([result]);
                         } else {
                             console.log(operation);
-                            deferred.reject('Problem creating comment');
+                            deferred.reject(operation.error.errors[0]);
                         }
                     }
                 });

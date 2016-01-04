@@ -3,11 +3,11 @@
 <head>
     <title>Time Sheet Approval</title>
     <!--  (c) 2015 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Sun Jan 03 2016 17:25:53 GMT-0800 (PST) -->
+    <!--  Build Date: Mon Jan 04 2016 15:11:30 GMT-0800 (PST) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Sun Jan 03 2016 17:25:53 GMT-0800 (PST)";
-        var CHECKSUM = 175728229319;
+        var APP_BUILD_DATE = "Mon Jan 04 2016 15:11:30 GMT-0800 (PST)";
+        var CHECKSUM = 186890268332;
     </script>
     
     <script type="text/javascript" src="/apps/2.0/sdk.js"></script>
@@ -456,7 +456,73 @@ Ext.define('TSUtilities', {
             }
         });
         return deferred.promise;
+    },
+    
+    _getEditableProjectForCurrentUser: function() {
+        var app = Rally.getApp();
+        if ( this._currentUserCanWrite() ) {
+            return app.getContext().getProjectRef();
+        }
+        
+        var workspace_oid = this._getOidFromRef( app.getContext().getWorkspaceRef());
+        
+        var editor_permissions = Ext.Array.filter(app.getContext().getPermissions().userPermissions, function(permission){
+            if ( Ext.isEmpty(permission.Workspace) ) {
+                return false;
+            }
+            var permission_oid = this._getOidFromRef(permission.Workspace);
+
+            //console.log('comparing ', workspace_oid, permission_oid, permission);
+            if (workspace_oid  !=  permission_oid) {
+                return false;
+            }
+                        
+            return ( permission.Role == "Editor" || permission.Role == "ProjectAdmin");
+        },this);
+        
+        console.log('perms:', editor_permissions);
+        
+        if ( editor_permissions.length > 0 ) {
+            return editor_permissions[0]._ref;
+        }
+        return false;
+    },
+    
+    _getOidFromRef: function(ref) {
+        var ref_array = ref.replace(/\.js$/,'').split(/\//);
+        return ref_array[ref_array.length-1];
+    },
+    
+    _currentUserCanWrite: function() {
+        var app = Rally.getApp();
+        
+        //console.log('_currentUserCanWrite',app.getContext().getUser(), app.getContext().getUser().SubscriptionAdmin);
+        if ( app.getContext().getUser().SubscriptionAdmin ) {
+            return true;
+        }
+        
+        var permissions = app.getContext().getPermissions().userPermissions;
+
+        var workspace_admin_list = Ext.Array.filter(permissions, function(p) {
+            return ( p.Role == "Workspace Admin" || p.Role == "Subscription Admin");
+        });
+        
+        var current_workspace_ref = app.getContext().getWorkspace()._ref;
+        var can_unlock = false;
+                
+        if ( workspace_admin_list.length > 0 ) {
+            Ext.Array.each(workspace_admin_list, function(p){
+                
+                if (current_workspace_ref.replace(/\.js$/,'') == p._ref.replace(/\.js$/,'')) {
+                    can_unlock = true;
+                }
+            });
+        }
+        
+        console.log('  ', can_unlock);
+        return can_unlock;
     }
+    
 });
 /**
  * A link that pops up a version dialog box
@@ -959,9 +1025,7 @@ Ext.define('Rally.technicalservices.CommentDialog',{
                 CreationDate: preference.get('CreationDate')
             };
         });
-        
-        console.log(this.preferences, data);
-        
+                
         var store = Ext.create('Rally.data.custom.Store',{
             data: data,
             sorters: [{property:'CreationDate', direction:'DESC'}]
@@ -981,6 +1045,15 @@ Ext.define('Rally.technicalservices.CommentDialog',{
     },
     
     _getAddBoxItems: function() {
+        
+        var can_post = TSUtilities._getEditableProjectForCurrentUser();
+        var tooltip_text = "Posting requires Edit rights in at least one project";
+        
+        if ( can_post !== false && !Ext.isEmpty( can_post )) {
+            can_post = true;
+            tooltip_text = "Submit Comment";
+        }
+        
         return [
         {
             xtype: 'rallytextfield',
@@ -991,6 +1064,8 @@ Ext.define('Rally.technicalservices.CommentDialog',{
         {
             xtype:'rallybutton',
             text: 'Post',
+            disabled: !can_post,
+            toolTipText: tooltip_text,
             listeners: {
                 scope: this,
                 click: this._postComment
@@ -1032,7 +1107,7 @@ Ext.define('Rally.technicalservices.CommentDialog',{
                 this.buildGrid();
             },
             failure: function(msg) {
-                Ext.Msg.alert("", msg);
+                Ext.Msg.alert("Cannot Create Comment", msg);
             }
         });
     },
@@ -1043,17 +1118,18 @@ Ext.define('Rally.technicalservices.CommentDialog',{
         Rally.data.ModelFactory.getModel({
             type: 'Preference',
             success: function(model) {
-                
+
                 pref_config = {
                     Name: key,
-                    Value: value
+                    Value: value,
+                    Project: TSUtilities._getEditableProjectForCurrentUser()
                 }
-                
-                if ( Rally.getApp().isExternal() ) {
-                    pref_config.Project = Rally.getApp().getContext().getProjectRef();
-                } else {
-                    pref_config.AppId = Rally.getApp().getAppId();
-                }
+
+//                if ( Rally.getApp().isExternal() ) {
+//                    pref_config.Project = Rally.getApp().getContext().getProjectRef();
+//                } else {
+//                    pref_config.AppId = Rally.getApp().getAppId();
+//                }
                 
                 var pref = Ext.create(model, pref_config);
                 
@@ -1063,7 +1139,7 @@ Ext.define('Rally.technicalservices.CommentDialog',{
                             deferred.resolve([result]);
                         } else {
                             console.log(operation);
-                            deferred.reject('Problem creating comment');
+                            deferred.reject(operation.error.errors[0]);
                         }
                     }
                 });
