@@ -11,6 +11,7 @@ Ext.define("TSTimeSheetApproval", {
         {xtype:'container', itemId:'display_box' , region: 'center', layout: { type: 'fit'} }
     ],
 
+    _commentKeyPrefix: 'rally.technicalservices.timesheet.comment',
     _approvalKeyPrefix: 'rally.technicalservices.timesheet.status',
 
     integrationHeaders : {
@@ -427,13 +428,37 @@ Ext.define("TSTimeSheetApproval", {
                 itemId: 'popup_selector_box',
                 padding: 10,
                 items: [
-                    {xtype:'container',  flex: 1}
+                    {xtype:'container', itemId:'popup_left_box'},
+                    {xtype:'container',  flex: 1},
+                    {xtype:'container', itemId:'popup_right_box'}
                 ]
             }],
             listeners: {
                 scope: this,
                 boxready: function(popup) {
-                    popup.down('#popup_selector_box').add({
+                    var comment_start_date = Rally.util.DateTime.toIsoString(
+                        new Date(start_date.getUTCFullYear(), 
+                            start_date.getUTCMonth(), 
+                            start_date.getUTCDate(),  
+                            start_date.getUTCHours(), 
+                            start_date.getUTCMinutes(), 
+                            start_date.getUTCSeconds()
+                        )
+                    ).replace(/T.*$/,'');
+                    
+                    var comment_key = Ext.String.format("{0}.{1}.{2}", 
+                        this._commentKeyPrefix,
+                        comment_start_date,
+                        record.get('User').ObjectID
+                    );
+                    
+                    popup.down('#popup_left_box').add({
+                        xtype:'tscommentbutton',
+                        toolTipText: 'Read/Add Comments',
+                        keyPrefix: comment_key
+                    });
+    
+                    popup.down('#popup_right_box').add({
                         xtype:'rallybutton', 
                         text:'Unlock',
                         disabled: (status != "Approved" || !this._currentUserCanUnlock()),
@@ -446,7 +471,7 @@ Ext.define("TSTimeSheetApproval", {
                         }
                     });
                     
-                    popup.down('#popup_selector_box').add({
+                    popup.down('#popup_right_box').add({
                         xtype:'rallybutton', 
                         text:'Approve',
                         disabled: (status == "Approved"),
