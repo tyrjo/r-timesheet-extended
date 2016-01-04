@@ -330,7 +330,7 @@ defaults: { margin: 10 },
                 
                 var task = time_value.get('TimeEntryItem').Task;
                 if ( !Ext.isEmpty(task) ) {
-                    if ( !Ext.isEmpty(task.c_ActivityType) && !/CapEx/.test(task.c_ActivityType) ) {
+                    if ( !Ext.isEmpty(task.c_ActivityType) && !/CapEx/.test(task.c_ActivityType) && !/^-/.test(task.c_ActivityType)) {
                         isOpEx = true;
                     }
                 }

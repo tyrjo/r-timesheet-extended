@@ -3,11 +3,11 @@
 <head>
     <title>TimeSheet Finance Report</title>
     <!--  (c) 2015 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Sun Jan 03 2016 17:26:07 GMT-0800 (PST) -->
+    <!--  Build Date: Mon Jan 04 2016 07:05:10 GMT-0800 (PST) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Sun Jan 03 2016 17:26:07 GMT-0800 (PST)";
-        var CHECKSUM = 144649500802;
+        var APP_BUILD_DATE = "Mon Jan 04 2016 07:05:10 GMT-0800 (PST)";
+        var CHECKSUM = 144808101413;
     </script>
     
     <script type="text/javascript" src="/apps/2.0/sdk.js"></script>
@@ -2380,7 +2380,7 @@ defaults: { margin: 10 },
                 
                 var task = time_value.get('TimeEntryItem').Task;
                 if ( !Ext.isEmpty(task) ) {
-                    if ( !Ext.isEmpty(task.c_ActivityType) && !/CapEx/.test(task.c_ActivityType) ) {
+                    if ( !Ext.isEmpty(task.c_ActivityType) && !/CapEx/.test(task.c_ActivityType) && !/^-/.test(task.c_ActivityType)) {
                         isOpEx = true;
                     }
                 }
