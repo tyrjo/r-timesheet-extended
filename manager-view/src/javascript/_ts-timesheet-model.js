@@ -52,7 +52,6 @@ Ext.define('TSTimesheet',{
         this._findOrCreatePreference(pref_key).then({
             scope: this,
             success: function(results) {
-                console.log('results:', results);
                 if ( results.length > 0 ) {
                     var pref = results[0];
                     
@@ -88,7 +87,6 @@ Ext.define('TSTimesheet',{
         this._findOrCreatePreference(pref_key).then({
             scope: this,
             success: function(results) {
-                console.log('results:', results);
                 if ( results.length > 0 ) {
                     var pref = results[0];
                     var current_user = Rally.getApp().getContext().getUser();

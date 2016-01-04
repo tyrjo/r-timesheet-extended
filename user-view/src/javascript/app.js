@@ -15,6 +15,7 @@ Ext.define("TSExtendedTimesheet", {
         name : "TSExtendedTimesheet"
     },
    
+    _commentKeyPrefix: 'rally.technicalservices.timesheet.comment',
     _approvalKeyPrefix: 'rally.technicalservices.timesheet.status',
 
     
@@ -24,6 +25,40 @@ Ext.define("TSExtendedTimesheet", {
     },
     
     _addSelectors: function(container) {
+        container.add({
+            xtype:'container',
+            itemId: 'button_box'
+        });
+        
+        
+        container.add({xtype:'container',flex: 1});
+        
+        container.add({
+            xtype:'rallydatefield',
+            itemId:'date_selector',
+            fieldLabel: 'Week Starting',
+            listeners: {
+                scope: this,
+                change: function(dp, new_value) {
+                    var week_start = this._getBeginningOfWeek(new_value);
+                    if ( week_start !== new_value ) {
+                        dp.setValue(week_start);
+                    }
+                    if ( new_value.getDay() === 0 ) {
+                        this.updateData();
+                    }
+                }
+            }
+        }).setValue(new Date());
+        
+        if ( this.isExternal() ) {
+            container.add({type:'container', html: '......'});
+        }
+    },
+    
+    _addButtons: function(container) {
+        container.removeAll();
+        
         container.add({
             xtype:'rallybutton',
             text: 'Add My Tasks',
@@ -58,29 +93,32 @@ Ext.define("TSExtendedTimesheet", {
             }
         });
         
-        container.add({xtype:'container',flex: 1});
+        this._addCommentButton(container);
+    },
+    
+    _addCommentButton: function(container) {
+        var start_date = this.startDate;
+        start_date = Rally.util.DateTime.toIsoString(
+            new Date(start_date.getUTCFullYear(), 
+                start_date.getUTCMonth(), 
+                start_date.getUTCDate(),  
+                start_date.getUTCHours(), 
+                start_date.getUTCMinutes(), 
+                start_date.getUTCSeconds()
+            )
+        ).replace(/T.*$/,'');
+        
+        var comment_key = Ext.String.format("{0}.{1}.{2}", 
+            this._commentKeyPrefix,
+            start_date,
+            this.getContext().getUser().ObjectID
+        );
         
         container.add({
-            xtype:'rallydatefield',
-            itemId:'date_selector',
-            fieldLabel: 'Week Starting',
-            listeners: {
-                scope: this,
-                change: function(dp, new_value) {
-                    var week_start = this._getBeginningOfWeek(new_value);
-                    if ( week_start !== new_value ) {
-                        dp.setValue(week_start);
-                    }
-                    if ( new_value.getDay() === 0 ) {
-                        this.updateData();
-                    }
-                }
-            }
-        }).setValue(new Date());
-        
-        if ( this.isExternal() ) {
-            container.add({type:'container', html: '......'});
-        }
+            xtype:'tscommentbutton',
+            toolTipText: 'Read/Add Comments',
+            keyPrefix: comment_key
+        });
     },
     
     updateData: function()  { 
@@ -91,7 +129,10 @@ Ext.define("TSExtendedTimesheet", {
         });
                                 
         var display_box = this.down('#display_box');
+        var button_box = this.down('#button_box');
+        
         display_box.removeAll();
+        button_box.removeAll();
         
         this.startDate = this.down('#date_selector').getValue();
         this.logger.log("Date changed to:", this.startDate);
@@ -115,6 +156,7 @@ Ext.define("TSExtendedTimesheet", {
                         scope: this,
                         gridReady: function() {
                             this.logger.log("Grid is ready");
+                            this._addButtons(button_box);
                             if ( editable ) {
                                 Ext.Array.each( this.query('rallybutton'), function(button) {
                                     button.setDisabled(false);
@@ -298,6 +340,10 @@ Ext.define("TSExtendedTimesheet", {
                 }
              });
         }
+    },
+    
+    _findAndAddDiscussion: function() {
+    
     },
     
     _getBeginningOfWeek: function(js_date){
