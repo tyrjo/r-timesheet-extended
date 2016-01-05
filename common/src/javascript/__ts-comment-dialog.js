@@ -154,10 +154,14 @@ Ext.define('Rally.technicalservices.CommentDialog',{
     },
     
     _postComment: function() {
-        var comment = this.down('#comment_field').getValue();
+        var comment_field = this.down('#comment_field');
+        
+        var comment = comment_field.getValue();
         if ( Ext.isEmpty(comment) || Ext.isEmpty(Ext.String.trim(comment)) ) {
             return;
         }
+        
+        comment_field.setValue('');
         
         var current_user = Rally.getApp().getContext().getUser();
 
