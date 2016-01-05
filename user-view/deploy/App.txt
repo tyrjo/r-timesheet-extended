@@ -3,11 +3,11 @@
 <head>
     <title>Extended Timesheet</title>
     <!--  (c) 2015 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Tue Jan 05 2016 13:31:00 GMT-0800 (PST) -->
+    <!--  Build Date: Tue Jan 05 2016 13:38:32 GMT-0800 (PST) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Tue Jan 05 2016 13:31:00 GMT-0800 (PST)";
-        var CHECKSUM = 163272111182;
+        var APP_BUILD_DATE = "Tue Jan 05 2016 13:38:32 GMT-0800 (PST)";
+        var CHECKSUM = 163904198728;
     </script>
     
     <script type="text/javascript" src="/apps/2.0/sdk.js"></script>
@@ -1019,8 +1019,11 @@ Ext.define('Rally.technicalservices.CommentDialog',{
 
     _getColumns: function() {
         return [
-            { dataIndex: 'User', text:'User'},
-            { dataIndex: 'Comment', text:'Comment', flex: 1}
+            {dataIndex: 'User', text:'User'},
+            {dataIndex: 'Comment', text:'Comment', flex: 1},
+            {dataIndex: 'CreationDate', text: 'Posted', renderer: function(value) { 
+                return Ext.util.Format.date(value,'n/j/Y, g:i a')}
+            }
         ];
     },
     

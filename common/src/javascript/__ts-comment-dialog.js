@@ -84,8 +84,11 @@ Ext.define('Rally.technicalservices.CommentDialog',{
 
     _getColumns: function() {
         return [
-            { dataIndex: 'User', text:'User'},
-            { dataIndex: 'Comment', text:'Comment', flex: 1}
+            {dataIndex: 'User', text:'User'},
+            {dataIndex: 'Comment', text:'Comment', flex: 1},
+            {dataIndex: 'CreationDate', text: 'Posted', renderer: function(value) { 
+                return Ext.util.Format.date(value,'n/j/Y, g:i a')}
+            }
         ];
     },
     
