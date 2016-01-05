@@ -125,7 +125,7 @@ Ext.define("TSTimeSheetApproval", {
                     }
                 }
             }
-        }).setValue(new Date());
+        }).setValue(Rally.util.DateTime.add(new Date(), 'week', -1));
         
         if ( this.isExternal() ) {
             container.add({type:'container', html: '......'});
