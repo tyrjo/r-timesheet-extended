@@ -23,8 +23,6 @@ Ext.define('Rally.technicalservices.CommentDialog',{
             throw "keyPrefix is required for the Comment Dialog";
         }
         
-        console.log('prefs:', this.config.preferences);
-        
         if ( !Ext.isArray(this.config.preferences) ) {
             throw "preferences is required for the Comment Dialog";
         }
@@ -38,11 +36,18 @@ Ext.define('Rally.technicalservices.CommentDialog',{
         this.addEvents(
             /**
              * @event commentAdded
-             * Fires when user clicks done after choosing an artifact
+             * Fires when user posts a new comment
              * @param {Rally.technicalservices.CommentDialog} source the dialog
              * @param {Ext.data.Model} new post comment
              */
-            'commentAdded'
+            'commentAdded',
+            /**
+             * @event commentRemoved
+             * Fires when user removes a new comment
+             * @param {Rally.technicalservices.CommentDialog} source the dialog
+             * @param {Ext.data.Model} old post comment
+             */
+            'commentRemoved'
         );
     },
 
@@ -83,13 +88,42 @@ Ext.define('Rally.technicalservices.CommentDialog',{
     },
 
     _getColumns: function() {
-        return [
+        var columns = [];
+        var can_delete = TSUtilities._currentUserIsAdmin();
+
+        if ( can_delete ) {
+            columns.push({
+                xtype: 'tscommentrowactioncolumn',
+                rowActionsFn: function(record,view) {
+                    return [
+                        {
+                            text: 'Remove', 
+                            record: record, 
+                            view: view,
+                            handler: function(){
+                                var item = this.record;
+                                var pref = this.record.get('Preference');
+                                
+                                if ( pref ) {
+                                    if ( this.view && this.view.getStore() ) {
+                                        this.view.getStore().remove(item);
+                                        this.view.getStore().fireEvent('recordRemoved',this.view.getStore(), item);
+                                    }
+                                    pref.destroy();
+                                }
+                            }}
+                    ]
+                }
+            });
+        }
+            
+        return Ext.Array.push(columns,[
             {dataIndex: 'User', text:'User'},
             {dataIndex: 'Comment', text:'Comment', flex: 1},
             {dataIndex: 'CreationDate', text: 'Posted', renderer: function(value) { 
                 return Ext.util.Format.date(value,'n/j/Y, g:i a')}
             }
-        ];
+        ]);
     },
     
     buildGrid: function() {
@@ -104,13 +138,20 @@ Ext.define('Rally.technicalservices.CommentDialog',{
             return {
                 Comment: value.text,
                 User: value.user._refObjectName,
-                CreationDate: preference.get('CreationDate')
+                CreationDate: preference.get('CreationDate'),
+                Preference: preference
             };
         });
                 
         var store = Ext.create('Rally.data.custom.Store',{
             data: data,
-            sorters: [{property:'CreationDate', direction:'DESC'}]
+            sorters: [{property:'CreationDate', direction:'DESC'}],
+            listeners: {
+                scope: this, 
+                recordRemoved: function(store, record) {
+                    this.fireEvent('commentRemoved', this, record.get('Preference'));
+                }
+            }
         });
         
         this.grid = Ext.create('Rally.ui.grid.Grid', {
@@ -127,8 +168,8 @@ Ext.define('Rally.technicalservices.CommentDialog',{
     },
     
     _getAddBoxItems: function() {
-        
         var can_post = TSUtilities._getEditableProjectForCurrentUser();
+
         var tooltip_text = "Posting requires Edit rights in at least one project";
         
         if ( can_post !== false && !Ext.isEmpty( can_post )) {
@@ -182,9 +223,6 @@ Ext.define('Rally.technicalservices.CommentDialog',{
             this.keyPrefix,
             Ext.util.Format.date( new Date(), 'time' )
         );
-        
-        console.log('Key', key);
-        console.log('Value', value);
         
         this._makePreference(key,Ext.JSON.encode(value)).then({
             scope: this,

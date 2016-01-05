@@ -85,7 +85,13 @@ Ext.define('Rally.technicalservices.CommentButton',{
             listeners: {
                 scope: this,
                 commentAdded: function(dialog,comment) {
+                    console.log("added comment", comment);
                     this.comments = Ext.Array.merge(this.comments,comment);
+                    this._setResultCount();
+                },
+                commentRemoved: function(dialog, comment) {
+                    console.log("removed comment", comment);
+                    this.comments = Ext.Array.remove(this.comments,comment);
                     this._setResultCount();
                 }
             }
