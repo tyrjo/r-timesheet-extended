@@ -31,6 +31,8 @@ Ext.define('Rally.technicalservices.CommentButton',{
             scope: this,
             success: function(results) {
                 this.comments = results;
+                this._setResultCount();
+                
                 this.mon(this.el, this.clickEvent, this._showDialog, this);
                 this.setDisabled(false);
             },
@@ -38,6 +40,17 @@ Ext.define('Rally.technicalservices.CommentButton',{
                 Ext.Msg.alert('Problem loading comments', msg);
             }
         });
+    },
+    
+    _setResultCount: function() {
+        var count = this.comments.length;
+        var text = "";
+        if ( count === 0 ) {
+            text = Ext.String.format("<span class='icon-comment'>{0}</span>", "");
+        } else {
+            text = Ext.String.format("<span class='icon-comment'></span> {0}", count);
+        }
+        this.setText(text);
     },
     
     _getComments: function() {
@@ -53,14 +66,6 @@ Ext.define('Rally.technicalservices.CommentButton',{
         TSUtilities._loadWsapiRecords(config).then({
             scope: this,
             success: function(results) {
-                var text = "";
-                if ( results.length === 0 ) {
-                    text = Ext.String.format("<span class='icon-comment'>{0}</span>", "");
-                } else {
-                    text = Ext.String.format("<span class='icon-comment'></span> {0}", results.length);
-                }
-                                
-                this.setText(text);
                 deferred.resolve(results);
             },
             failure: function(msg) {
@@ -76,7 +81,14 @@ Ext.define('Rally.technicalservices.CommentButton',{
         Ext.create('Rally.technicalservices.CommentDialog',{
             autoShow: true,
             keyPrefix: this.keyPrefix,
-            preferences: this.comments
+            preferences: this.comments,
+            listeners: {
+                scope: this,
+                commentAdded: function(dialog,comment) {
+                    this.comments = Ext.Array.merge(this.comments,comment);
+                    this._setResultCount();
+                }
+            }
         });
     }
 });

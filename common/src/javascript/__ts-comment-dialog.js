@@ -32,6 +32,20 @@ Ext.define('Rally.technicalservices.CommentDialog',{
         this.callParent([this.config]);
     },
 
+    initComponent: function() {
+        this.callParent(arguments);
+
+        this.addEvents(
+            /**
+             * @event commentAdded
+             * Fires when user clicks done after choosing an artifact
+             * @param {Rally.technicalservices.CommentDialog} source the dialog
+             * @param {Ext.data.Model} new post comment
+             */
+            'commentAdded'
+        );
+    },
+
     beforeRender: function() {
         this.callParent(arguments);
         
@@ -179,6 +193,7 @@ Ext.define('Rally.technicalservices.CommentDialog',{
     
     _makePreference: function(key,value) {
         var deferred = Ext.create('Deft.Deferred');
+        var me = this;
         
         Rally.data.ModelFactory.getModel({
             type: 'Preference',
@@ -201,6 +216,7 @@ Ext.define('Rally.technicalservices.CommentDialog',{
                 pref.save({
                     callback: function(result, operation) {
                         if(operation.wasSuccessful()) {
+                            me.fireEvent('commentAdded',this,result);
                             deferred.resolve([result]);
                         } else {
                             console.log(operation);
