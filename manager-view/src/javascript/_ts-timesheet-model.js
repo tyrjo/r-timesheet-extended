@@ -79,7 +79,7 @@ Ext.define('TSTimesheet',{
         
     },
     
-    unlock: function() {
+    unapprove: function() {
         this.set('__Status', "Open");
 
         var pref_key = this.getPreferenceKey();

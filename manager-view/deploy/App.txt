@@ -3,11 +3,11 @@
 <head>
     <title>Time Sheet Approval</title>
     <!--  (c) 2015 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Tue Jan 05 2016 16:10:10 GMT-0800 (PST) -->
+    <!--  Build Date: Tue Jan 05 2016 16:30:22 GMT-0800 (PST) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Tue Jan 05 2016 16:10:10 GMT-0800 (PST)";
-        var CHECKSUM = 218276276262;
+        var APP_BUILD_DATE = "Tue Jan 05 2016 16:30:22 GMT-0800 (PST)";
+        var CHECKSUM = 218389603102;
     </script>
     
     <script type="text/javascript" src="/apps/2.0/sdk.js"></script>
@@ -2581,7 +2581,7 @@ Ext.define('TSTimesheet',{
         
     },
     
-    unlock: function() {
+    unapprove: function() {
         this.set('__Status', "Open");
 
         var pref_key = this.getPreferenceKey();
@@ -3148,12 +3148,12 @@ Ext.define("TSTimeSheetApproval", {
     
                     popup.down('#popup_right_box').add({
                         xtype:'rallybutton', 
-                        text:'Unlock',
+                        text:'Unapprove',
                         disabled: (status != "Approved" || !this._currentUserCanUnlock()),
                         listeners: {
                             scope: this,
                             click: function() {
-                                this._unlockTimesheet(record);
+                                this._unapproveTimesheet(record);
                                 popup.close();
                             }
                         }
@@ -3180,8 +3180,8 @@ Ext.define("TSTimeSheetApproval", {
         record.approve();
     },
     
-    _unlockTimesheet: function(record) {
-        record.unlock();
+    _unapproveTimesheet: function(record) {
+        record.unapprove();
     },
     
     _getBeginningOfWeek: function(js_date){

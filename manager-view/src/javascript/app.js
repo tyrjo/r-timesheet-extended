@@ -459,12 +459,12 @@ Ext.define("TSTimeSheetApproval", {
     
                     popup.down('#popup_right_box').add({
                         xtype:'rallybutton', 
-                        text:'Unlock',
+                        text:'Unapprove',
                         disabled: (status != "Approved" || !this._currentUserCanUnlock()),
                         listeners: {
                             scope: this,
                             click: function() {
-                                this._unlockTimesheet(record);
+                                this._unapproveTimesheet(record);
                                 popup.close();
                             }
                         }
@@ -491,8 +491,8 @@ Ext.define("TSTimeSheetApproval", {
         record.approve();
     },
     
-    _unlockTimesheet: function(record) {
-        record.unlock();
+    _unapproveTimesheet: function(record) {
+        record.unapprove();
     },
     
     _getBeginningOfWeek: function(js_date){

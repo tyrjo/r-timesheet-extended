@@ -18,7 +18,6 @@ Ext.define("TSExtendedTimesheet", {
     _commentKeyPrefix: 'rally.technicalservices.timesheet.comment',
     _approvalKeyPrefix: 'rally.technicalservices.timesheet.status',
 
-    
     launch: function() {
         this._addSelectors(this.down('#selector_box'));
         //this.updateData();
