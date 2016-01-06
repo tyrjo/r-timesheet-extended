@@ -30,6 +30,7 @@ Ext.define("TSExtendedTimesheet", {
             itemId: 'button_box'
         });
         
+        container.add({ xtype:'container', itemId:'status_box'});
         
         container.add({xtype:'container',flex: 1});
         
@@ -130,9 +131,11 @@ Ext.define("TSExtendedTimesheet", {
                                 
         var display_box = this.down('#display_box');
         var button_box = this.down('#button_box');
+        var status_box = this.down('#status_box');
         
         display_box.removeAll();
         button_box.removeAll();
+        status_box.removeAll();
         
         this.startDate = this.down('#date_selector').getValue();
         this.logger.log("Date changed to:", this.startDate);
@@ -151,13 +154,19 @@ Ext.define("TSExtendedTimesheet", {
                 if ( status_prefs.length > 0 ) {
                     var value = status_prefs[0].get('Value');
                     var status_object = Ext.JSON.decode(value);
-                    if ( status_object.status == "Approved" ) { editable = false; }
+                    if ( status_object.status == "Approved" ) { 
+                        editable = false;
+                        status_box.add({xtype:'container',html:'Approved'});
+                    }
                 }
                 if ( week_lock_prefs.length > 0 ) {
                     var value = week_lock_prefs[0].get('Value');
                     var status_object = Ext.JSON.decode(value);
                     console.log("status:", status_object);
-                    if ( status_object.status == "Locked" ) { editable = false; }
+                    if ( status_object.status == "Locked" ) { 
+                        editable = false;
+                        status_box.add({xtype:'container',html:'Week Locked'});
+                    }
                     console.log('editable', editable);
                 }
 
