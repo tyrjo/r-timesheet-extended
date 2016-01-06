@@ -15,6 +15,7 @@ Ext.define("TSExtendedTimesheet", {
         name : "TSExtendedTimesheet"
     },
    
+    _timeLockKeyPrefix: 'rally.technicalservices.timesheet.weeklock',
     _commentKeyPrefix: 'rally.technicalservices.timesheet.comment',
     _approvalKeyPrefix: 'rally.technicalservices.timesheet.status',
 
@@ -136,15 +137,30 @@ Ext.define("TSExtendedTimesheet", {
         this.startDate = this.down('#date_selector').getValue();
         this.logger.log("Date changed to:", this.startDate);
         
-        this._loadWeekPreference().then({
+        Deft.Chain.sequence([
+            this._loadWeekStatusPreference,
+            this._loadWeekLockPreference
+        ],this).then({
             scope: this,
-            success: function(prefs) {
+            success: function(results) {
+                this.logger.log('Results:',results);
+                var status_prefs = results[0];
+                var week_lock_prefs = results[1];
+                
                 var editable = true;
-                if ( prefs.length > 0 ) {
-                    var value = prefs[0].get('Value');
+                if ( status_prefs.length > 0 ) {
+                    var value = status_prefs[0].get('Value');
                     var status_object = Ext.JSON.decode(value);
                     if ( status_object.status == "Approved" ) { editable = false; }
                 }
+                if ( week_lock_prefs.length > 0 ) {
+                    var value = week_lock_prefs[0].get('Value');
+                    var status_object = Ext.JSON.decode(value);
+                    console.log("status:", status_object);
+                    if ( status_object.status == "Locked" ) { editable = false; }
+                    console.log('editable', editable);
+                }
+
                 this.time_table = display_box.add({ 
                     xtype: 'tstimetable',
                     region: 'center',
@@ -171,7 +187,7 @@ Ext.define("TSExtendedTimesheet", {
         });
     },
     
-    _loadWeekPreference: function() {
+    _loadWeekStatusPreference: function() {
         var start_date = this.startDate;
         start_date = Rally.util.DateTime.toIsoString(
             new Date(start_date.getUTCFullYear(), 
@@ -187,6 +203,35 @@ Ext.define("TSExtendedTimesheet", {
             this._approvalKeyPrefix,
             start_date,
             this.getContext().getUser().ObjectID
+        );
+        this.logger.log('finding by key',key);
+        
+        var config = {
+            model:'Preference',
+            limit: 1,
+            pageSize: 1,
+            filters: [{property:'Name',value:key}],
+            fetch: ['Name','Value']
+        };
+        
+        return TSUtilities._loadWsapiRecords(config);
+    },
+    
+    _loadWeekLockPreference: function() {
+        var start_date = this.startDate;
+        start_date = Rally.util.DateTime.toIsoString(
+            new Date(start_date.getUTCFullYear(), 
+                start_date.getUTCMonth(), 
+                start_date.getUTCDate(),  
+                start_date.getUTCHours(), 
+                start_date.getUTCMinutes(), 
+                start_date.getUTCSeconds()
+            )
+        ).replace(/T.*$/,'');
+        
+        var key = Ext.String.format("{0}.{1}", 
+            this._timeLockKeyPrefix,
+            start_date
         );
         this.logger.log('finding by key',key);
         

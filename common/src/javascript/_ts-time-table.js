@@ -49,9 +49,6 @@
         Rally.technicalservices.TimeModelBuilder.build('TimeEntryItem','TSTableRow').then({
             scope: this,
             success: function(model) {
-//                Ext.Array.each(model.getFields(), function(field){
-//                    console.log(' - ', field.name, field.type );
-//                });
                 
                 var table_store = Ext.create('Rally.data.custom.Store',{
                     model: 'TSTableRow',
