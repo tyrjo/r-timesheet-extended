@@ -3,11 +3,11 @@
 <head>
     <title>Extended Timesheet</title>
     <!--  (c) 2015 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Tue Jan 05 2016 18:50:57 GMT-0800 (PST) -->
+    <!--  Build Date: Tue Jan 05 2016 19:07:05 GMT-0800 (PST) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Tue Jan 05 2016 18:50:57 GMT-0800 (PST)";
-        var CHECKSUM = 194654349253;
+        var APP_BUILD_DATE = "Tue Jan 05 2016 19:07:05 GMT-0800 (PST)";
+        var CHECKSUM = 195640954347;
     </script>
     
     <script type="text/javascript" src="/apps/2.0/sdk.js"></script>
@@ -1583,8 +1583,11 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
     },
     
     clearAndRemove: function() {
-        console.log('delete', this);
         var timeentryitem = this.get('__TimeEntryItem');
+        var cells_to_clear = ['__Monday','__Tuesday','__Wednesday','__Thursday','__Friday','__Saturday','__Sunday','__Total'];
+        Ext.Array.each(cells_to_clear, function(cell_to_clear){
+            this.set(cell_to_clear,0);
+        },this);
         if ( ! Ext.isEmpty(timeentryitem)){
             timeentryitem.destroy();
         }
@@ -1873,7 +1876,6 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
             enableColumnMove: false,
             viewConfig: {
                 listeners: {
-                    scope: this,
                     itemupdate: function(row, row_index) {
                         me.logger.log('itemupdate', row);
                     }
@@ -2144,6 +2146,7 @@ Ext.define('Rally.technicalservices.RemoveTimeEntryMenuItem', {
     },
     _removeRecord: function(record) {
         console.log('ok', record);
+        
         record.clearAndRemove();
     },
     

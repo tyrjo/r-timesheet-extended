@@ -23,6 +23,7 @@ Ext.define('Rally.technicalservices.RemoveTimeEntryMenuItem', {
     },
     _removeRecord: function(record) {
         console.log('ok', record);
+        
         record.clearAndRemove();
     },
     

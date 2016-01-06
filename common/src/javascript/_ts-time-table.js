@@ -201,7 +201,6 @@
             enableColumnMove: false,
             viewConfig: {
                 listeners: {
-                    scope: this,
                     itemupdate: function(row, row_index) {
                         me.logger.log('itemupdate', row);
                     }

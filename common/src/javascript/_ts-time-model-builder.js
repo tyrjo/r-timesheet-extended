@@ -105,8 +105,11 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
     },
     
     clearAndRemove: function() {
-        console.log('delete', this);
         var timeentryitem = this.get('__TimeEntryItem');
+        var cells_to_clear = ['__Monday','__Tuesday','__Wednesday','__Thursday','__Friday','__Saturday','__Sunday','__Total'];
+        Ext.Array.each(cells_to_clear, function(cell_to_clear){
+            this.set(cell_to_clear,0);
+        },this);
         if ( ! Ext.isEmpty(timeentryitem)){
             timeentryitem.destroy();
         }
