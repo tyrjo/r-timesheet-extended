@@ -358,16 +358,29 @@
                 text:  'Feature',
                 flex: 1,
                 editor: null,
-                renderer: function(v) {
-                    if ( Ext.isEmpty(v) ) { return ""; }
-                    return v._refObjectName;
+                renderer: function(value) {
+                    if ( Ext.isEmpty(value) ) { return ""; }
+                    return Ext.String.format("<a target='_blank' href='{0}'>{1}</a>",
+                        Rally.nav.Manager.getDetailUrl(value),
+                        value._refObjectName
+                    );;
                 }
             },
             {
-                dataIndex: 'WorkProductDisplayString',
+                dataIndex: 'WorkProduct',
                 text:  'Work Product',
                 flex: 1,
-                editor: null
+                editor: null,
+                renderer: function(value, meta, record) {
+                    if ( Ext.isEmpty(value) ) {
+                        return record.get('WorkProductDisplayString');
+                    }
+                    
+                    return Ext.String.format("<a target='_blank' href='{0}'>{1}</a>",
+                        Rally.nav.Manager.getDetailUrl(value),
+                        record.get('WorkProductDisplayString')
+                    );
+                }
             },
             {
                 dataIndex: '__Release',
@@ -380,10 +393,20 @@
                 }
             },
             {
-                dataIndex: 'TaskDisplayString',
+                dataIndex: 'Task',
                 text:  'Task',
                 flex: 1,
-                editor: null
+                editor: null,
+                renderer: function(value, meta, record) {
+                    if ( Ext.isEmpty(value) ) {
+                        return record.get('TaskDisplayString');
+                    }
+                    
+                    return Ext.String.format("<a target='_blank' href='{0}'>{1}</a>",
+                        Rally.nav.Manager.getDetailUrl(value),
+                        record.get('TaskDisplayString')
+                    );
+                }
             }
         ]);
         
