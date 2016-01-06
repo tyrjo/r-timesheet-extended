@@ -3,11 +3,11 @@
 <head>
     <title>Timesheet Administration</title>
     <!--  (c) 2015 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Tue Jan 05 2016 17:18:58 GMT-0800 (PST) -->
+    <!--  Build Date: Tue Jan 05 2016 19:12:25 GMT-0800 (PST) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Tue Jan 05 2016 17:18:58 GMT-0800 (PST)";
-        var CHECKSUM = 146105046563;
+        var APP_BUILD_DATE = "Tue Jan 05 2016 19:12:25 GMT-0800 (PST)";
+        var CHECKSUM = 150182984709;
     </script>
     
     <script type="text/javascript" src="/apps/2.0/sdk.js"></script>
@@ -1583,8 +1583,11 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
     },
     
     clearAndRemove: function() {
-        console.log('delete', this);
         var timeentryitem = this.get('__TimeEntryItem');
+        var cells_to_clear = ['__Monday','__Tuesday','__Wednesday','__Thursday','__Friday','__Saturday','__Sunday','__Total'];
+        Ext.Array.each(cells_to_clear, function(cell_to_clear){
+            this.set(cell_to_clear,0);
+        },this);
         if ( ! Ext.isEmpty(timeentryitem)){
             timeentryitem.destroy();
         }
@@ -1721,9 +1724,6 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
         Rally.technicalservices.TimeModelBuilder.build('TimeEntryItem','TSTableRow').then({
             scope: this,
             success: function(model) {
-//                Ext.Array.each(model.getFields(), function(field){
-//                    console.log(' - ', field.name, field.type );
-//                });
                 
                 var table_store = Ext.create('Rally.data.custom.Store',{
                     model: 'TSTableRow',
@@ -1876,7 +1876,6 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
             enableColumnMove: false,
             viewConfig: {
                 listeners: {
-                    scope: this,
                     itemupdate: function(row, row_index) {
                         me.logger.log('itemupdate', row);
                     }
@@ -2310,13 +2309,15 @@ Ext.define('TSLockedWeek',{
     
     getPreferenceKey: function() {
         // get or create and then update pref
-        return Ext.String.format("{0}.{1}.{2}", 
+        return Ext.String.format("{0}.{1}", 
             this._timeLockKeyPrefix,
             this.getWeekStart()
         );
     },
     
     lock: function() {
+        var deferred = Ext.create('Deft.Deferred');
+        
         var current_user = Rally.getApp().getContext().getUser();
         var status_owner = { _type: 'User', '_ref': current_user._ref, '_refObjectName': current_user._refObjectName }
         var status = "Locked";
@@ -2345,6 +2346,8 @@ Ext.define('TSLockedWeek',{
                             if(!operation.wasSuccessful()) {
                                 console.log(operation);
                                 Ext.Msg.alert("Problem saving status");
+                            } else {
+                                deferred.resolve(result);
                             }
                         }
                     });
@@ -2354,7 +2357,7 @@ Ext.define('TSLockedWeek',{
                 Ext.Msg.alert("Failed to save week lock state to " + pref_key, msg);
             }
         });
-        
+        return deferred.promise;
     },
     
     unlock: function() {
@@ -2648,17 +2651,20 @@ Ext.define("TSAdmin", {
             success: function(preferences) {
                 var locked_weeks =  Ext.Array.map(preferences, function(preference){
                     var status_object = Ext.JSON.decode(preference.get('Value'));
+                    
+                    console.log('status_object', status_object);
+                    
                     var locked_week = Ext.create('TSLockedWeek',{
                         '__Status': status_object.status,
                         'WeekStartDate': status_object.week_start,
-                        '__LastUpdateBy': status_object.status_date,
-                        '__LastUpdateDate': status_object.status_owner
+                        '__LastUpdateBy': status_object.status_owner,
+                        '__LastUpdateDate': status_object.status_date
                     });
                     return locked_week;
                 });
               
                 this.setLoading(false);
-                deferred.resolve(filtered_timesheets);
+                deferred.resolve(locked_weeks);
                 
             },
             failure: function(msg){
@@ -2678,10 +2684,10 @@ Ext.define("TSAdmin", {
         container.add({
             xtype:'rallygrid',
             store: store,
-            columnCfgs: columns,
+            columnCfgs: this._getColumns(),
             enableEditing: false,
             showRowActionsColumn: false,
-            enableBulkEdit: true,
+            enableBulkEdit: false,
             showPagingToolbar: false,
             _recordIsSelectable: function(record) {
                 return true;
@@ -2693,7 +2699,19 @@ Ext.define("TSAdmin", {
         var columns = [];
         
         return Ext.Array.merge([], [
-            {dataIndex: 'WeekStartDate', text:'Week of'}
+            {dataIndex: 'WeekStartDate', text:'Week of', renderer: function(value) {
+                var start_date = value;
+                start_date = new Date(start_date.getUTCFullYear(), 
+                    start_date.getUTCMonth(), 
+                    start_date.getUTCDate(),  
+                    start_date.getUTCHours(), 
+                    start_date.getUTCMinutes(), 
+                    start_date.getUTCSeconds());
+                return Ext.util.Format.date(start_date,'n/j/Y');
+            }},
+            {dataIndex: '__LastUpdateBy', text: 'Locked by', renderer: function(value, meta, record) {
+                return value._refObjectName;
+            }}
         ]);
     },
     
@@ -2703,18 +2721,31 @@ Ext.define("TSAdmin", {
             multiple: true,
             title: 'Choose Week',
             listeners: {
-                weekchosen: function(dialog, chosenweeks){
-                    if ( !Ext.isArray(chosenweeks) ) {
-                        chosenweeks = [chosenweeks];
+                weekchosen: function(dialog, chosen_weeks){
+                    if ( !Ext.isArray(chosen_weeks) ) {
+                        chosen_weeks = [chosen_weeks];
                     }
                     
-//                    Ext.Array.each(chosenweeks, function(chosenweek){
-//                        weektable.addRowForItem(chosenweek);
-//                    });
+                    Ext.Array.each(chosen_weeks, function(chosen_week){
+                        this._addRowForItem(chosen_week);
+                    },this);
                 },
                 scope: this
             }
          });
+    },
+    
+    _addRowForItem: function(chosen_week) {
+        var week = Ext.create('TSLockedWeek',{
+            '__Status': "Locked",
+            'WeekStartDate': chosen_week
+        });
+        
+        week.lock().then({
+            scope: this,
+            success: this._updateData
+        });
+        
     },
     
     getOptions: function() {
