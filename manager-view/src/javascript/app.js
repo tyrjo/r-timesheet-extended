@@ -94,7 +94,6 @@ Ext.define("TSTimeSheetApproval", {
             xtype:'rallydatefield',
             itemId:'from_date_selector',
             fieldLabel: 'From Week',
-            value: week_start,
             listeners: {
                 scope: this,
                 change: function(dp, new_value) {
@@ -107,7 +106,7 @@ Ext.define("TSTimeSheetApproval", {
                     }
                 }
             }
-        });
+        }).setValue(week_start)
         
         date_container.add({
             xtype:'rallydatefield',
@@ -127,9 +126,9 @@ Ext.define("TSTimeSheetApproval", {
             }
         }).setValue(Rally.util.DateTime.add(new Date(), 'week', -1));
         
-        if ( this.isExternal() ) {
-            container.add({type:'container', html: '......'});
-        }
+        //if ( this.isExternal() ) {
+            container.add({type:'container', html: '&nbsp;&nbsp;&nbsp;', border: 0, padding: 10});
+        //}
         
     },
     

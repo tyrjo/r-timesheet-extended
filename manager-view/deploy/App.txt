@@ -3,11 +3,11 @@
 <head>
     <title>Time Sheet Approval</title>
     <!--  (c) 2015 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Tue Jan 05 2016 15:48:57 GMT-0800 (PST) -->
+    <!--  Build Date: Tue Jan 05 2016 16:10:10 GMT-0800 (PST) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Tue Jan 05 2016 15:48:57 GMT-0800 (PST)";
-        var CHECKSUM = 217737397232;
+        var APP_BUILD_DATE = "Tue Jan 05 2016 16:10:10 GMT-0800 (PST)";
+        var CHECKSUM = 218276276262;
     </script>
     
     <script type="text/javascript" src="/apps/2.0/sdk.js"></script>
@@ -2783,7 +2783,6 @@ Ext.define("TSTimeSheetApproval", {
             xtype:'rallydatefield',
             itemId:'from_date_selector',
             fieldLabel: 'From Week',
-            value: week_start,
             listeners: {
                 scope: this,
                 change: function(dp, new_value) {
@@ -2796,7 +2795,7 @@ Ext.define("TSTimeSheetApproval", {
                     }
                 }
             }
-        });
+        }).setValue(week_start)
         
         date_container.add({
             xtype:'rallydatefield',
@@ -2816,9 +2815,9 @@ Ext.define("TSTimeSheetApproval", {
             }
         }).setValue(Rally.util.DateTime.add(new Date(), 'week', -1));
         
-        if ( this.isExternal() ) {
-            container.add({type:'container', html: '......'});
-        }
+        //if ( this.isExternal() ) {
+            container.add({type:'container', html: '&nbsp;&nbsp;&nbsp;', border: 0, padding: 10});
+        //}
         
     },
     
@@ -3284,6 +3283,10 @@ Ext.define("TSTimeSheetApproval", {
 .x-grid-row-alt .x-grid-td {
     background-color: #fff;
 }
+
+.x-border-layout-ct {
+    background-color: #ffffff;
+}
 .app {
 }
 .tsinfolink {
@@ -3301,6 +3304,7 @@ Ext.define("TSTimeSheetApproval", {
     margin-right: 5px;
     cursor: pointer;
 }
+
     </style>
 
 </head>

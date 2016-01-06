@@ -51,9 +51,9 @@ Ext.define("TSExtendedTimesheet", {
             }
         }).setValue(new Date());
         
-        if ( this.isExternal() ) {
-            container.add({type:'container', html: '......'});
-        }
+        //if ( this.isExternal() ) {
+            container.add({type:'container', html: '&nbsp;&nbsp;&nbsp;', border: 0, padding: 10});
+        //}
     },
     
     _addButtons: function(container) {

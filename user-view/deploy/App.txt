@@ -3,11 +3,11 @@
 <head>
     <title>Extended Timesheet</title>
     <!--  (c) 2015 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Tue Jan 05 2016 15:48:54 GMT-0800 (PST) -->
+    <!--  Build Date: Tue Jan 05 2016 16:10:11 GMT-0800 (PST) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Tue Jan 05 2016 15:48:54 GMT-0800 (PST)";
-        var CHECKSUM = 188541887211;
+        var APP_BUILD_DATE = "Tue Jan 05 2016 16:10:11 GMT-0800 (PST)";
+        var CHECKSUM = 189025693686;
     </script>
     
     <script type="text/javascript" src="/apps/2.0/sdk.js"></script>
@@ -2838,9 +2838,9 @@ Ext.define("TSExtendedTimesheet", {
             }
         }).setValue(new Date());
         
-        if ( this.isExternal() ) {
-            container.add({type:'container', html: '......'});
-        }
+        //if ( this.isExternal() ) {
+            container.add({type:'container', html: '&nbsp;&nbsp;&nbsp;', border: 0, padding: 10});
+        //}
     },
     
     _addButtons: function(container) {
@@ -3184,6 +3184,10 @@ Ext.define("TSExtendedTimesheet", {
 
 .x-grid-row-alt .x-grid-td {
     background-color: #fff;
+}
+
+.x-border-layout-ct {
+    background-color: #ffffff;
 }
 .app {
 }
