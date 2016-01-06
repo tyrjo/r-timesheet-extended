@@ -346,8 +346,11 @@
                 text: 'Product',
                 flex: 1,
                 editor: null,
-                renderer: function(v) {
-                    return v._refObjectName;
+                renderer: function(value,meta,record) {
+                    if ( !Ext.isEmpty(record.get('__Release') ) ) {
+                        console.log('release', record.get('__Release'));
+                    }
+                    return value._refObjectName;
                 },
                 summaryRenderer: function() {
                     return "Totals";

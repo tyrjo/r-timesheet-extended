@@ -3,11 +3,11 @@
 <head>
     <title>Time Sheet Approval</title>
     <!--  (c) 2015 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Wed Jan 06 2016 10:38:55 GMT-0800 (PST) -->
+    <!--  Build Date: Wed Jan 06 2016 13:37:47 GMT-0800 (PST) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Wed Jan 06 2016 10:38:55 GMT-0800 (PST)";
-        var CHECKSUM = 222487357224;
+        var APP_BUILD_DATE = "Wed Jan 06 2016 13:37:47 GMT-0800 (PST)";
+        var CHECKSUM = 223878635767;
     </script>
     
     <script type="text/javascript" src="/apps/2.0/sdk.js"></script>
@@ -2021,8 +2021,11 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
                 text: 'Product',
                 flex: 1,
                 editor: null,
-                renderer: function(v) {
-                    return v._refObjectName;
+                renderer: function(value,meta,record) {
+                    if ( !Ext.isEmpty(record.get('__Release') ) ) {
+                        console.log('release', record.get('__Release'));
+                    }
+                    return value._refObjectName;
                 },
                 summaryRenderer: function() {
                     return "Totals";
@@ -2845,11 +2848,16 @@ Ext.define("TSTimeSheetApproval", {
     
     _updateData: function() {
         this.down('#display_box').removeAll();
+        if ( this.pipeline && this.pipeline.getState() === 'pending' ) {
+            this.pipeline.cancel();
+        }
         
-        Deft.Chain.pipeline([
+        this.pipeline = Deft.Chain.pipeline([
             this._loadTimesheets,
             this._loadPreferences
-        ],this).then({
+        ],this);
+        
+        this.pipeline.then({
             scope: this,
             success: function(timesheets) {
                 this._addGrid(this.down('#display_box'), timesheets);

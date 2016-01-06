@@ -134,11 +134,16 @@ Ext.define("TSTimeSheetApproval", {
     
     _updateData: function() {
         this.down('#display_box').removeAll();
+        if ( this.pipeline && this.pipeline.getState() === 'pending' ) {
+            this.pipeline.cancel();
+        }
         
-        Deft.Chain.pipeline([
+        this.pipeline = Deft.Chain.pipeline([
             this._loadTimesheets,
             this._loadPreferences
-        ],this).then({
+        ],this);
+        
+        this.pipeline.then({
             scope: this,
             success: function(timesheets) {
                 this._addGrid(this.down('#display_box'), timesheets);
