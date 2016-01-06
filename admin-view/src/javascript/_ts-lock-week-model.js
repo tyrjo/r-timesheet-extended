@@ -7,7 +7,8 @@ Ext.define('TSLockedWeek',{
         { name: '__Status', type: 'string', defaultValue: 'Unknown' }, // Open, Approved, Locked
         { name: 'WeekStartDate', type: 'date' },
         { name: '__LastUpdateBy', type: 'object' },
-        { name: '__LastUpdateDate', type: 'date' }
+        { name: '__LastUpdateDate', type: 'date' },
+        { name: 'Preference', type: 'object'}
     ],
     
     isSelectable: function() {

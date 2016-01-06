@@ -72,13 +72,12 @@ Ext.define("TSAdmin", {
                 var locked_weeks =  Ext.Array.map(preferences, function(preference){
                     var status_object = Ext.JSON.decode(preference.get('Value'));
                     
-                    console.log('status_object', status_object);
-                    
                     var locked_week = Ext.create('TSLockedWeek',{
                         '__Status': status_object.status,
                         'WeekStartDate': status_object.week_start,
                         '__LastUpdateBy': status_object.status_owner,
-                        '__LastUpdateDate': status_object.status_date
+                        '__LastUpdateDate': status_object.status_date,
+                        'Preference': preference
                     });
                     return locked_week;
                 });
@@ -117,8 +116,31 @@ Ext.define("TSAdmin", {
     
     _getColumns: function() {
         var columns = [];
-        
-        return Ext.Array.merge([], [
+        columns.push({
+            xtype: 'tscommentrowactioncolumn',
+            rowActionsFn: function(record,view) {
+                return [
+                    {
+                        text: 'Unlock', 
+                        record: record, 
+                        view: view,
+                        handler: function(){
+                            var item = this.record;
+                            var pref = this.record.get('Preference');
+                            
+                            if ( pref ) {
+                                if ( this.view && this.view.getStore() ) {
+                                    this.view.getStore().remove(item);
+                                    this.view.getStore().fireEvent('recordRemoved',this.view.getStore(), item);
+                                }
+                                pref.destroy();
+                            }
+                        }}
+                ]
+            }
+        });
+                
+        return Ext.Array.merge(columns, [
             {dataIndex: 'WeekStartDate', text:'Week of', renderer: function(value) {
                 var start_date = value;
                 start_date = new Date(start_date.getUTCFullYear(), 

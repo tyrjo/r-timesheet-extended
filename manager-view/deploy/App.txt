@@ -3,11 +3,11 @@
 <head>
     <title>Time Sheet Approval</title>
     <!--  (c) 2015 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Wed Jan 06 2016 05:52:35 GMT-0800 (PST) -->
+    <!--  Build Date: Wed Jan 06 2016 10:38:55 GMT-0800 (PST) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Wed Jan 06 2016 05:52:35 GMT-0800 (PST)";
-        var CHECKSUM = 218893927284;
+        var APP_BUILD_DATE = "Wed Jan 06 2016 10:38:55 GMT-0800 (PST)";
+        var CHECKSUM = 222487357224;
     </script>
     
     <script type="text/javascript" src="/apps/2.0/sdk.js"></script>
@@ -2033,16 +2033,29 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
                 text:  'Feature',
                 flex: 1,
                 editor: null,
-                renderer: function(v) {
-                    if ( Ext.isEmpty(v) ) { return ""; }
-                    return v._refObjectName;
+                renderer: function(value) {
+                    if ( Ext.isEmpty(value) ) { return ""; }
+                    return Ext.String.format("<a target='_blank' href='{0}'>{1}</a>",
+                        Rally.nav.Manager.getDetailUrl(value),
+                        value._refObjectName
+                    );;
                 }
             },
             {
-                dataIndex: 'WorkProductDisplayString',
+                dataIndex: 'WorkProduct',
                 text:  'Work Product',
                 flex: 1,
-                editor: null
+                editor: null,
+                renderer: function(value, meta, record) {
+                    if ( Ext.isEmpty(value) ) {
+                        return record.get('WorkProductDisplayString');
+                    }
+                    
+                    return Ext.String.format("<a target='_blank' href='{0}'>{1}</a>",
+                        Rally.nav.Manager.getDetailUrl(value),
+                        record.get('WorkProductDisplayString')
+                    );
+                }
             },
             {
                 dataIndex: '__Release',
@@ -2055,10 +2068,20 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
                 }
             },
             {
-                dataIndex: 'TaskDisplayString',
+                dataIndex: 'Task',
                 text:  'Task',
                 flex: 1,
-                editor: null
+                editor: null,
+                renderer: function(value, meta, record) {
+                    if ( Ext.isEmpty(value) ) {
+                        return record.get('TaskDisplayString');
+                    }
+                    
+                    return Ext.String.format("<a target='_blank' href='{0}'>{1}</a>",
+                        Rally.nav.Manager.getDetailUrl(value),
+                        record.get('TaskDisplayString')
+                    );
+                }
             }
         ]);
         
