@@ -3,10 +3,10 @@
 <head>
     <title>TimeSheet Finance Report</title>
     <!--  (c) 2015 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Mon Jan 04 2016 07:05:10 GMT-0800 (PST) -->
+    <!--  Build Date: Wed Jan 06 2016 05:52:45 GMT-0800 (PST) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Mon Jan 04 2016 07:05:10 GMT-0800 (PST)";
+        var APP_BUILD_DATE = "Wed Jan 06 2016 05:52:45 GMT-0800 (PST)";
         var CHECKSUM = [%= checksum %];
     </script>
     
@@ -34,6 +34,10 @@
 
 .x-grid-row-alt .x-grid-td {
     background-color: #fff;
+}
+
+.x-border-layout-ct {
+    background-color: #ffffff;
 }
 .app {
 }

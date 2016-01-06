@@ -3,11 +3,11 @@
 <head>
     <title>TimeSheet Finance Report</title>
     <!--  (c) 2015 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Mon Jan 04 2016 07:05:10 GMT-0800 (PST) -->
+    <!--  Build Date: Wed Jan 06 2016 05:52:45 GMT-0800 (PST) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Mon Jan 04 2016 07:05:10 GMT-0800 (PST)";
-        var CHECKSUM = 144808101413;
+        var APP_BUILD_DATE = "Wed Jan 06 2016 05:52:45 GMT-0800 (PST)";
+        var CHECKSUM = 181664342255;
     </script>
     
     <script type="text/javascript" src="/apps/2.0/sdk.js"></script>
@@ -456,7 +456,102 @@ Ext.define('TSUtilities', {
             }
         });
         return deferred.promise;
+    },
+    
+    _getEditableProjectForCurrentUser: function() {
+        var app = Rally.getApp();
+        if ( this._currentUserCanWrite() ) {
+            return app.getContext().getProjectRef();
+        }
+        
+        var workspace_oid = this._getOidFromRef( app.getContext().getWorkspaceRef());
+        
+        var editor_permissions = Ext.Array.filter(app.getContext().getPermissions().userPermissions, function(permission){
+            if ( Ext.isEmpty(permission.Workspace) ) {
+                return false;
+            }
+            var permission_oid = this._getOidFromRef(permission.Workspace);
+
+            //console.log('comparing ', workspace_oid, permission_oid, permission);
+            if (workspace_oid  !=  permission_oid) {
+                return false;
+            }
+                        
+            return ( permission.Role == "Editor" || permission.Role == "ProjectAdmin");
+        },this);
+        
+        console.log('perms:', editor_permissions);
+        
+        if ( editor_permissions.length > 0 ) {
+            return editor_permissions[0]._ref;
+        }
+        return false;
+    },
+    
+    _getOidFromRef: function(ref) {
+        var ref_array = ref.replace(/\.js$/,'').split(/\//);
+        return ref_array[ref_array.length-1];
+    },
+    
+    // true if sub or workspace admin
+    _currentUserIsAdmin: function(){
+        var app = Rally.getApp();
+        
+        if ( app.getContext().getUser().SubscriptionAdmin ) {
+            return true;
+        }
+        
+        var permissions = app.getContext().getPermissions().userPermissions;
+
+        var workspace_admin_list = Ext.Array.filter(permissions, function(p) {
+            return ( p.Role == "Workspace Admin" || p.Role == "Subscription Admin");
+        });
+        
+        var current_workspace_ref = app.getContext().getWorkspace()._ref;
+        var is_workspace_admin = false;
+                
+        if ( workspace_admin_list.length > 0 ) {
+            Ext.Array.each(workspace_admin_list, function(p){
+                
+                if (current_workspace_ref.replace(/\.js$/,'') == p._ref.replace(/\.js$/,'')) {
+                    is_workspace_admin = true;
+                }
+            });
+        }
+        
+        return is_workspace_admin;
+    },
+    
+    _currentUserCanWrite: function() {
+        var app = Rally.getApp();
+        
+        //console.log('_currentUserCanWrite',app.getContext().getUser(), app.getContext().getUser().SubscriptionAdmin);
+        if ( app.getContext().getUser().SubscriptionAdmin ) {
+            return true;
+        }
+        
+        var permissions = app.getContext().getPermissions().userPermissions;
+
+        var workspace_admin_list = Ext.Array.filter(permissions, function(p) {
+            return ( p.Role == "Workspace Admin" || p.Role == "Subscription Admin");
+        });
+        
+        var current_workspace_ref = app.getContext().getWorkspace()._ref;
+        var can_unlock = false;
+                
+        if ( workspace_admin_list.length > 0 ) {
+            Ext.Array.each(workspace_admin_list, function(p){
+                
+                if (current_workspace_ref.replace(/\.js$/,'') == p._ref.replace(/\.js$/,'')) {
+                    can_unlock = true;
+                }
+            });
+        }
+        
+        console.log('  ', can_unlock);
+        return can_unlock;
     }
+    
 });
 /**
  * A link that pops up a version dialog box
@@ -892,13 +987,32 @@ Ext.define('Rally.technicalservices.CommentDialog',{
             throw "keyPrefix is required for the Comment Dialog";
         }
         
-        console.log('prefs:', this.config.preferences);
-        
         if ( !Ext.isArray(this.config.preferences) ) {
             throw "preferences is required for the Comment Dialog";
         }
         
         this.callParent([this.config]);
+    },
+
+    initComponent: function() {
+        this.callParent(arguments);
+
+        this.addEvents(
+            /**
+             * @event commentAdded
+             * Fires when user posts a new comment
+             * @param {Rally.technicalservices.CommentDialog} source the dialog
+             * @param {Ext.data.Model} new post comment
+             */
+            'commentAdded',
+            /**
+             * @event commentRemoved
+             * Fires when user removes a new comment
+             * @param {Rally.technicalservices.CommentDialog} source the dialog
+             * @param {Ext.data.Model} old post comment
+             */
+            'commentRemoved'
+        );
     },
 
     beforeRender: function() {
@@ -938,10 +1052,42 @@ Ext.define('Rally.technicalservices.CommentDialog',{
     },
 
     _getColumns: function() {
-        return [
-            { dataIndex: 'User', text:'User'},
-            { dataIndex: 'Comment', text:'Comment', flex: 1}
-        ];
+        var columns = [];
+        var can_delete = TSUtilities._currentUserIsAdmin();
+
+        if ( can_delete ) {
+            columns.push({
+                xtype: 'tscommentrowactioncolumn',
+                rowActionsFn: function(record,view) {
+                    return [
+                        {
+                            text: 'Remove', 
+                            record: record, 
+                            view: view,
+                            handler: function(){
+                                var item = this.record;
+                                var pref = this.record.get('Preference');
+                                
+                                if ( pref ) {
+                                    if ( this.view && this.view.getStore() ) {
+                                        this.view.getStore().remove(item);
+                                        this.view.getStore().fireEvent('recordRemoved',this.view.getStore(), item);
+                                    }
+                                    pref.destroy();
+                                }
+                            }}
+                    ]
+                }
+            });
+        }
+            
+        return Ext.Array.push(columns,[
+            {dataIndex: 'User', text:'User'},
+            {dataIndex: 'Comment', text:'Comment', flex: 1},
+            {dataIndex: 'CreationDate', text: 'Posted', renderer: function(value) { 
+                return Ext.util.Format.date(value,'n/j/Y, g:i a')}
+            }
+        ]);
     },
     
     buildGrid: function() {
@@ -956,15 +1102,20 @@ Ext.define('Rally.technicalservices.CommentDialog',{
             return {
                 Comment: value.text,
                 User: value.user._refObjectName,
-                CreationDate: preference.get('CreationDate')
+                CreationDate: preference.get('CreationDate'),
+                Preference: preference
             };
         });
-        
-        console.log(this.preferences, data);
-        
+                
         var store = Ext.create('Rally.data.custom.Store',{
             data: data,
-            sorters: [{property:'CreationDate', direction:'DESC'}]
+            sorters: [{property:'CreationDate', direction:'DESC'}],
+            listeners: {
+                scope: this, 
+                recordRemoved: function(store, record) {
+                    this.fireEvent('commentRemoved', this, record.get('Preference'));
+                }
+            }
         });
         
         this.grid = Ext.create('Rally.ui.grid.Grid', {
@@ -981,6 +1132,15 @@ Ext.define('Rally.technicalservices.CommentDialog',{
     },
     
     _getAddBoxItems: function() {
+        var can_post = TSUtilities._getEditableProjectForCurrentUser();
+
+        var tooltip_text = "Posting requires Edit rights in at least one project";
+        
+        if ( can_post !== false && !Ext.isEmpty( can_post )) {
+            can_post = true;
+            tooltip_text = "Submit Comment";
+        }
+        
         return [
         {
             xtype: 'rallytextfield',
@@ -991,6 +1151,8 @@ Ext.define('Rally.technicalservices.CommentDialog',{
         {
             xtype:'rallybutton',
             text: 'Post',
+            disabled: !can_post,
+            toolTipText: tooltip_text,
             listeners: {
                 scope: this,
                 click: this._postComment
@@ -1000,10 +1162,14 @@ Ext.define('Rally.technicalservices.CommentDialog',{
     },
     
     _postComment: function() {
-        var comment = this.down('#comment_field').getValue();
+        var comment_field = this.down('#comment_field');
+        
+        var comment = comment_field.getValue();
         if ( Ext.isEmpty(comment) || Ext.isEmpty(Ext.String.trim(comment)) ) {
             return;
         }
+        
+        comment_field.setValue('');
         
         var current_user = Rally.getApp().getContext().getUser();
 
@@ -1022,9 +1188,6 @@ Ext.define('Rally.technicalservices.CommentDialog',{
             Ext.util.Format.date( new Date(), 'time' )
         );
         
-        console.log('Key', key);
-        console.log('Value', value);
-        
         this._makePreference(key,Ext.JSON.encode(value)).then({
             scope: this,
             success: function(results) {
@@ -1032,38 +1195,41 @@ Ext.define('Rally.technicalservices.CommentDialog',{
                 this.buildGrid();
             },
             failure: function(msg) {
-                Ext.Msg.alert("", msg);
+                Ext.Msg.alert("Cannot Create Comment", msg);
             }
         });
     },
     
     _makePreference: function(key,value) {
         var deferred = Ext.create('Deft.Deferred');
+        var me = this;
         
         Rally.data.ModelFactory.getModel({
             type: 'Preference',
             success: function(model) {
-                
+
                 pref_config = {
                     Name: key,
-                    Value: value
+                    Value: value,
+                    Project: TSUtilities._getEditableProjectForCurrentUser()
                 }
-                
-                if ( Rally.getApp().isExternal() ) {
-                    pref_config.Project = Rally.getApp().getContext().getProjectRef();
-                } else {
-                    pref_config.AppId = Rally.getApp().getAppId();
-                }
+
+//                if ( Rally.getApp().isExternal() ) {
+//                    pref_config.Project = Rally.getApp().getContext().getProjectRef();
+//                } else {
+//                    pref_config.AppId = Rally.getApp().getAppId();
+//                }
                 
                 var pref = Ext.create(model, pref_config);
                 
                 pref.save({
                     callback: function(result, operation) {
                         if(operation.wasSuccessful()) {
+                            me.fireEvent('commentAdded',this,result);
                             deferred.resolve([result]);
                         } else {
                             console.log(operation);
-                            deferred.reject('Problem creating comment');
+                            deferred.reject(operation.error.errors[0]);
                         }
                     }
                 });
@@ -1072,6 +1238,143 @@ Ext.define('Rally.technicalservices.CommentDialog',{
         return deferred.promise;
     }
     
+});
+Ext.define('Rally.technicalservices.grid.comments.RowActionColumn', {
+    extend: 'Ext.grid.column.Column',
+    alias: 'widget.tscommentrowactioncolumn',
+    
+    /**
+     * @property {Boolean} sortable False to disable sorting of this column
+     *
+     */
+    sortable: false,
+    /**
+     * @property {Boolean} hideable False to disable hiding of column
+     *
+     */
+    hideable: false,
+    /**
+     * @property {Boolean} resizable False to disable resizing of column
+     *
+     */
+    resizable: false,
+    /**
+     * @property {Boolean} draggable False to disable reordering of a column
+     *
+     */
+    draggable: false,
+    /**
+     * @property {Boolean} menuDisabled True to disable the column header menu containing sort/hide options
+     *
+     */
+    menuDisabled: true,
+    /**
+     * @property {Number}
+     *
+     */
+    flex: -1,
+    minWidth: Ext.isIE9 ? 22 : 26,
+    maxWidth: Ext.isIE9 ? 22 : 26,
+
+    /**
+     * @property {Boolean}
+     * This column should not show up on print pages that include a printable grid
+     */
+    printable: false,
+
+    tdCls: 'rally-cell-row-action',
+    cls: 'row-action-column-header',
+
+    config: {
+        /**
+         * @cfg {Function} rowActionsFn
+         * A list of Rally.ui.menu.Menu#items objects that will be used as the row action options
+         * Each row action can contain a predicate property which will be evaluated to see if the row action should be included
+         * Usage:
+         *  rowActionsFn: function(record) {
+         *      return [
+         *           {text: 'Remove', record: record, handler: function(){ console.log('record:', this.record); } }
+         *      ]
+         *   }
+         */
+        rowActionsFn: null,
+
+        /**
+         * @cfg {Object} scope The scope that the rowActionsFn is called with
+         */
+        scope: null,
+        
+        canUnlock: false
+    },
+
+    constructor: function() {
+        this.callParent(arguments);
+        this.renderer = this._renderGearIcon;
+    },
+
+    initComponent: function() {
+        this.callParent(arguments);
+        this.on('click', this._showMenu, this);
+    },
+
+    onDestroy: function() {
+        if (this.menu) {
+            this.menu.destroy();
+            delete this.menu;
+        }
+
+        this.callParent(arguments);
+    },
+
+    /**
+     * @private
+     * @param value
+     * @param metaData
+     * @param record
+     */
+    _renderGearIcon: function(value, metaData, record) {
+        metaData.tdCls = Rally.util.Test.toBrowserTestCssClass('row-action', Rally.util.Ref.getOidFromRef(record.get('_ref')));
+        return '<div class="row-action-icon icon-gear"/>';
+    },
+
+    /**
+     * @private
+     * @param view
+     * @param el
+     */
+    _showMenu: function(view, el) {
+        var selectedRecord = view.getRecord(Ext.fly(el).parent("tr")),
+            checkedRecords = view.getSelectionModel().getSelection(),
+            grid = view.panel,
+            defaultOptions;
+
+        defaultOptions = {
+            view: view,
+            record: selectedRecord,
+            records: checkedRecords,
+            owningEl: el.parentElement,
+            popoverPlacement: ['bottom', 'top'],
+            canUnlock: this.canUnlock
+        };
+
+        if (this.rowActionsFn) {
+            var config = Ext.apply({
+                items: this.rowActionsFn.call(this.scope || this, selectedRecord, view)
+            }, defaultOptions);
+            
+            this.menu = Ext.create('Rally.ui.menu.Menu', config);
+        } else {
+            this.menu = this._getDefaultRecordMenu(selectedRecord, defaultOptions);
+        }
+
+        this.menu.showBy(Ext.fly(el).down(".row-action-icon"));
+    },
+
+    _getDefaultRecordMenu: function(selectedRecord, defaultOptions) {
+        var menu;
+        var menuOptions = Ext.merge(defaultOptions, this.menuOptions || {});
+        return Ext.create('Rally.technicalservices.RecordMenu', menuOptions);
+    }
 });
 Ext.define('Rally.technicalservices.CommentButton',{
     extend: 'Rally.ui.Button',
@@ -1106,6 +1409,8 @@ Ext.define('Rally.technicalservices.CommentButton',{
             scope: this,
             success: function(results) {
                 this.comments = results;
+                this._setResultCount();
+                
                 this.mon(this.el, this.clickEvent, this._showDialog, this);
                 this.setDisabled(false);
             },
@@ -1113,6 +1418,17 @@ Ext.define('Rally.technicalservices.CommentButton',{
                 Ext.Msg.alert('Problem loading comments', msg);
             }
         });
+    },
+    
+    _setResultCount: function() {
+        var count = this.comments.length;
+        var text = "";
+        if ( count === 0 ) {
+            text = Ext.String.format("<span class='icon-comment'>{0}</span>", "");
+        } else {
+            text = Ext.String.format("<span class='icon-comment'></span> {0}", count);
+        }
+        this.setText(text);
     },
     
     _getComments: function() {
@@ -1128,14 +1444,6 @@ Ext.define('Rally.technicalservices.CommentButton',{
         TSUtilities._loadWsapiRecords(config).then({
             scope: this,
             success: function(results) {
-                var text = "";
-                if ( results.length === 0 ) {
-                    text = Ext.String.format("<span class='icon-comment'>{0}</span>", "");
-                } else {
-                    text = Ext.String.format("<span class='icon-comment'></span> {0}", results.length);
-                }
-                                
-                this.setText(text);
                 deferred.resolve(results);
             },
             failure: function(msg) {
@@ -1151,7 +1459,20 @@ Ext.define('Rally.technicalservices.CommentButton',{
         Ext.create('Rally.technicalservices.CommentDialog',{
             autoShow: true,
             keyPrefix: this.keyPrefix,
-            preferences: this.comments
+            preferences: this.comments,
+            listeners: {
+                scope: this,
+                commentAdded: function(dialog,comment) {
+                    console.log("added comment", comment);
+                    this.comments = Ext.Array.merge(this.comments,comment);
+                    this._setResultCount();
+                },
+                commentRemoved: function(dialog, comment) {
+                    console.log("removed comment", comment);
+                    this.comments = Ext.Array.remove(this.comments,comment);
+                    this._setResultCount();
+                }
+            }
         });
     }
 });
@@ -1262,8 +1583,11 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
     },
     
     clearAndRemove: function() {
-        console.log('delete', this);
         var timeentryitem = this.get('__TimeEntryItem');
+        var cells_to_clear = ['__Monday','__Tuesday','__Wednesday','__Thursday','__Friday','__Saturday','__Sunday','__Total'];
+        Ext.Array.each(cells_to_clear, function(cell_to_clear){
+            this.set(cell_to_clear,0);
+        },this);
         if ( ! Ext.isEmpty(timeentryitem)){
             timeentryitem.destroy();
         }
@@ -1400,9 +1724,6 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
         Rally.technicalservices.TimeModelBuilder.build('TimeEntryItem','TSTableRow').then({
             scope: this,
             success: function(model) {
-//                Ext.Array.each(model.getFields(), function(field){
-//                    console.log(' - ', field.name, field.type );
-//                });
                 
                 var table_store = Ext.create('Rally.data.custom.Store',{
                     model: 'TSTableRow',
@@ -1555,7 +1876,6 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
             enableColumnMove: false,
             viewConfig: {
                 listeners: {
-                    scope: this,
                     itemupdate: function(row, row_index) {
                         me.logger.log('itemupdate', row);
                     }
@@ -2492,16 +2812,16 @@ defaults: { margin: 10 },
         var start_of_week_here = Ext.Date.add(js_date, Ext.Date.DAY, -1 * js_date.getDay());
         return start_of_week_here;
     },
-    
-    getOptions: function() {
-        return [
-            {
-                text: 'About...',
-                handler: this._launchInfo,
-                scope: this
-            }
-        ];
-    },
+//    
+//    getOptions: function() {
+//        return [
+//            {
+//                text: 'About...',
+//                handler: this._launchInfo,
+//                scope: this
+//            }
+//        ];
+//    },
     
     _launchInfo: function() {
         if ( this.about_dialog ) { this.about_dialog.destroy(); }
@@ -2562,29 +2882,6 @@ defaults: { margin: 10 },
         }]);
     },
     
-    getSettingsFields: function() {
-        var me = this;
-        
-        return [{
-            name: 'managerField',
-            xtype: 'rallyfieldcombobox',
-            fieldLabel: 'User Manager Field',
-            labelWidth: 75,
-            labelAlign: 'left',
-            minWidth: 200,
-            margin: 10,
-            autoExpand: false,
-            alwaysExpanded: false,
-            model: 'User',
-            listeners: {
-                ready: function(field_box) {
-                    me._filterOutExceptStrings(field_box.getStore());
-                }
-            },
-            readyEvent: 'ready'
-        }];
-    },
-    
     //onSettingsUpdate:  Override
     onSettingsUpdate: function (settings){
         this.logger.log('onSettingsUpdate',settings);
@@ -2612,6 +2909,10 @@ defaults: { margin: 10 },
 
 .x-grid-row-alt .x-grid-td {
     background-color: #fff;
+}
+
+.x-border-layout-ct {
+    background-color: #ffffff;
 }
 .app {
 }

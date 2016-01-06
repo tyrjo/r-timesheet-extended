@@ -3,11 +3,11 @@
 <head>
     <title>Time Sheet Approval</title>
     <!--  (c) 2015 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Tue Jan 05 2016 16:48:12 GMT-0800 (PST) -->
+    <!--  Build Date: Wed Jan 06 2016 05:52:35 GMT-0800 (PST) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Tue Jan 05 2016 16:48:12 GMT-0800 (PST)";
-        var CHECKSUM = 218389606160;
+        var APP_BUILD_DATE = "Wed Jan 06 2016 05:52:35 GMT-0800 (PST)";
+        var CHECKSUM = 218893927284;
     </script>
     
     <script type="text/javascript" src="/apps/2.0/sdk.js"></script>
@@ -1583,8 +1583,11 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
     },
     
     clearAndRemove: function() {
-        console.log('delete', this);
         var timeentryitem = this.get('__TimeEntryItem');
+        var cells_to_clear = ['__Monday','__Tuesday','__Wednesday','__Thursday','__Friday','__Saturday','__Sunday','__Total'];
+        Ext.Array.each(cells_to_clear, function(cell_to_clear){
+            this.set(cell_to_clear,0);
+        },this);
         if ( ! Ext.isEmpty(timeentryitem)){
             timeentryitem.destroy();
         }
@@ -1721,9 +1724,6 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
         Rally.technicalservices.TimeModelBuilder.build('TimeEntryItem','TSTableRow').then({
             scope: this,
             success: function(model) {
-//                Ext.Array.each(model.getFields(), function(field){
-//                    console.log(' - ', field.name, field.type );
-//                });
                 
                 var table_store = Ext.create('Rally.data.custom.Store',{
                     model: 'TSTableRow',
@@ -1876,7 +1876,6 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
             enableColumnMove: false,
             viewConfig: {
                 listeners: {
-                    scope: this,
                     itemupdate: function(row, row_index) {
                         me.logger.log('itemupdate', row);
                     }
@@ -3189,15 +3188,15 @@ Ext.define("TSTimeSheetApproval", {
         return start_of_week_here;
     },
     
-    getOptions: function() {
-        return [
-            {
-                text: 'About...',
-                handler: this._launchInfo,
-                scope: this
-            }
-        ];
-    },
+//    getOptions: function() {
+//        return [
+//            {
+//                text: 'About...',
+//                handler: this._launchInfo,
+//                scope: this
+//            }
+//        ];
+//    },
     
     _launchInfo: function() {
         if ( this.about_dialog ) { this.about_dialog.destroy(); }

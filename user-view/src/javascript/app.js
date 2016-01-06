@@ -395,15 +395,15 @@ Ext.define("TSExtendedTimesheet", {
         return start_of_week_here;
     },
     
-    getOptions: function() {
-        return [
-            {
-                text: 'About...',
-                handler: this._launchInfo,
-                scope: this
-            }
-        ];
-    },
+//    getOptions: function() {
+//        return [
+//            {
+//                text: 'About...',
+//                handler: this._launchInfo,
+//                scope: this
+//            }
+//        ];
+//    },
     
     _launchInfo: function() {
         if ( this.about_dialog ) { this.about_dialog.destroy(); }

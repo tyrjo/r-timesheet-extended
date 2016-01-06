@@ -442,16 +442,16 @@ defaults: { margin: 10 },
         var start_of_week_here = Ext.Date.add(js_date, Ext.Date.DAY, -1 * js_date.getDay());
         return start_of_week_here;
     },
-    
-    getOptions: function() {
-        return [
-            {
-                text: 'About...',
-                handler: this._launchInfo,
-                scope: this
-            }
-        ];
-    },
+//    
+//    getOptions: function() {
+//        return [
+//            {
+//                text: 'About...',
+//                handler: this._launchInfo,
+//                scope: this
+//            }
+//        ];
+//    },
     
     _launchInfo: function() {
         if ( this.about_dialog ) { this.about_dialog.destroy(); }
@@ -510,29 +510,6 @@ defaults: { margin: 10 },
                 return false;
             } 
         }]);
-    },
-    
-    getSettingsFields: function() {
-        var me = this;
-        
-        return [{
-            name: 'managerField',
-            xtype: 'rallyfieldcombobox',
-            fieldLabel: 'User Manager Field',
-            labelWidth: 75,
-            labelAlign: 'left',
-            minWidth: 200,
-            margin: 10,
-            autoExpand: false,
-            alwaysExpanded: false,
-            model: 'User',
-            listeners: {
-                ready: function(field_box) {
-                    me._filterOutExceptStrings(field_box.getStore());
-                }
-            },
-            readyEvent: 'ready'
-        }];
     },
     
     //onSettingsUpdate:  Override
