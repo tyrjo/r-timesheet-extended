@@ -6,6 +6,9 @@ An app to replace the Rally timesheet.
 ## Development Notes
 
 * Caution: "Feature"
+* Caution: Locking of rows depends on a custom boolean field on Release called "c_isDeployed"
+* Override in the time grid in order to allow for variable selection of editor
+
 
 ### First Load
 

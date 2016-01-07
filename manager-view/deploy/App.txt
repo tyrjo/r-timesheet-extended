@@ -3,11 +3,11 @@
 <head>
     <title>Time Sheet Approval</title>
     <!--  (c) 2015 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Wed Jan 06 2016 13:37:47 GMT-0800 (PST) -->
+    <!--  Build Date: Wed Jan 06 2016 16:31:53 GMT-0800 (PST) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Wed Jan 06 2016 13:37:47 GMT-0800 (PST)";
-        var CHECKSUM = 223878635767;
+        var APP_BUILD_DATE = "Wed Jan 06 2016 16:31:53 GMT-0800 (PST)";
+        var CHECKSUM = 229044165527;
     </script>
     
     <script type="text/javascript" src="/apps/2.0/sdk.js"></script>
@@ -1479,6 +1479,8 @@ Ext.define('Rally.technicalservices.CommentButton',{
 Ext.define('Rally.technicalservices.TimeModelBuilder',{
     singleton: true,
 
+    deploy_field: 'c_isDeployed',
+    
     days: ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'],
     
     build: function(modelType, newModelName) {
@@ -1496,7 +1498,9 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
                     { name: '__Release',   type: 'object' },
                     { name: '__Product',   type: 'object' },
                     { name: '__Total',     type: 'float', defaultValue: 0 },
-                    { name: '__SecretKey', type:'auto', defaultValue: 1 }
+                    { name: '__SecretKey', type:'auto', defaultValue: 1 },
+                    { name: '_ReleaseLockFieldName',  type:'string', defaultValue: Rally.technicalservices.TimeModelBuilder.deploy_field }
+
                 ];
                 
                 var day_fields = this._getDayFields();
@@ -1566,7 +1570,8 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
                         },this);
                     },
                     getField: this.getField,
-                    clearAndRemove: this.clearAndRemove
+                    clearAndRemove: this.clearAndRemove,
+                    isLocked: this._isLocked
 //                    isUpdatable: function() { return true; },
 //                    canHaveTasks: function() { return false; },
 //                    canHaveDefects: function() { return false; },
@@ -1580,6 +1585,23 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
             }
         });
         return deferred;
+    },
+    
+    getFetchFields: function() {
+        return [ this.deploy_field ];
+    },
+    
+    _isLocked: function (fieldName, newValue) {
+        var release = this.get('__Release');
+        var lock_field_name = this.get('_ReleaseLockFieldName');
+        
+        console.log('::', release, lock_field_name);
+        
+        if ( Ext.isEmpty(release) || Ext.isEmpty(lock_field_name) ) {
+            return false;
+        }
+        
+        return release[lock_field_name];
     },
     
     clearAndRemove: function() {
@@ -1673,6 +1695,12 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
         return Rally.util.DateTime.add(Rally.util.DateTime.add(js_date,'day',1),'second',-1);
     }
 });
+Ext.override(Rally.ui.grid.plugin.Validation,{
+    _onBeforeEdit: function(editor, object, eOpts) {
+        // clear this because it won't let us do the getEditor on cells
+    }
+});
+
 /**
  */
  
@@ -1724,6 +1752,7 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
         Rally.technicalservices.TimeModelBuilder.build('TimeEntryItem','TSTableRow').then({
             scope: this,
             success: function(model) {
+                this.row_model = model;
                 
                 var table_store = Ext.create('Rally.data.custom.Store',{
                     model: 'TSTableRow',
@@ -1819,13 +1848,13 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
         if ( !Ext.isEmpty(this.timesheet_user) ) {
             user_oid = this.timesheet_user.ObjectID;
         }
-        
+
         var config = {
             model: 'TimeEntryItem',
             context: {
                 project: null
             },
-            fetch: this.time_entry_item_fetch,
+            fetch: Ext.Array.merge(Rally.technicalservices.TimeModelBuilder.getFetchFields(), this.time_entry_item_fetch),
             filters: [
                 {property:'WeekStartDate',value:week_start},
                 {property:'User.ObjectID',value:user_oid}
@@ -1863,12 +1892,11 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
         this.removeAll();
         
         var me = this;
-        var columns = this._getColumns();
                 
         this.grid = this.add({ 
             xtype:'rallygrid', 
             store: table_store,
-            columnCfgs: columns,
+            columnCfgs: this._getColumns(),
             showPagingToolbar : false,
             showRowActionsColumn : false,
             sortableColumns: false,
@@ -2022,9 +2050,10 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
                 flex: 1,
                 editor: null,
                 renderer: function(value,meta,record) {
-                    if ( !Ext.isEmpty(record.get('__Release') ) ) {
-                        console.log('release', record.get('__Release'));
+                    if ( record.isLocked() ) {
+                        return "<span class='icon-lock'> </span>" + value._refObjectName;
                     }
+
                     return value._refObjectName;
                 },
                 summaryRenderer: function() {
@@ -2090,24 +2119,27 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
         
         var day_width = 50;
         
-        var editor_config = {
-            xtype:'rallynumberfield',
-            minValue: 0,
-            maxValue: 24
+        var editor_config = function(record,df){
+            var config = {
+                xtype:'rallynumberfield',
+                minValue: 0,
+                maxValue: 24
+            };
+            
+            if( record.isLocked() || ! me.editable ){
+                return false;
+            } 
+            
+            return config;
         };
         
-        if ( ! this.editable ) {
-            editor_config = null;
-        }
-        
-        
-        columns.push({dataIndex:'__Sunday',   width: day_width, text:'Sun',   align: 'center',editor: editor_config, summaryType: 'sum'});
-        columns.push({dataIndex:'__Monday',   width: day_width, text:'Mon',   align: 'center',editor: editor_config, summaryType: 'sum'});
-        columns.push({dataIndex:'__Tuesday',  width: day_width, text:'Tue',   align: 'center',editor: editor_config, summaryType: 'sum'});
-        columns.push({dataIndex:'__Wednesday',width: day_width, text:'Wed',   align: 'center',editor: editor_config, summaryType: 'sum'});
-        columns.push({dataIndex:'__Thursday', width: day_width, text:'Thur',  align: 'center',editor: editor_config, summaryType: 'sum'});
-        columns.push({dataIndex:'__Friday',   width: day_width, text:'Fri',   align: 'center',editor: editor_config, summaryType: 'sum'});
-        columns.push({dataIndex:'__Saturday', width: day_width, text:'Sat',   align: 'center',editor: editor_config, summaryType: 'sum'});
+        columns.push({dataIndex:'__Sunday',   width: day_width, text:'Sun',   align: 'center',getEditor: editor_config, summaryType: 'sum'});
+        columns.push({dataIndex:'__Monday',   width: day_width, text:'Mon',   align: 'center',getEditor: editor_config, summaryType: 'sum'});
+        columns.push({dataIndex:'__Tuesday',  width: day_width, text:'Tue',   align: 'center',getEditor: editor_config, summaryType: 'sum'});
+        columns.push({dataIndex:'__Wednesday',width: day_width, text:'Wed',   align: 'center',getEditor: editor_config, summaryType: 'sum'});
+        columns.push({dataIndex:'__Thursday', width: day_width, text:'Thur',  align: 'center',getEditor: editor_config, summaryType: 'sum'});
+        columns.push({dataIndex:'__Friday',   width: day_width, text:'Fri',   align: 'center',getEditor: editor_config, summaryType: 'sum'});
+        columns.push({dataIndex:'__Saturday', width: day_width, text:'Sat',   align: 'center',getEditor: editor_config, summaryType: 'sum'});
         
         var total_renderer = function(v, meta, record) {
             meta.tdCls = "totals";

@@ -1,3 +1,9 @@
+Ext.override(Rally.ui.grid.plugin.Validation,{
+    _onBeforeEdit: function(editor, object, eOpts) {
+        // clear this because it won't let us do the getEditor on cells
+    }
+});
+
 /**
  */
  
@@ -49,6 +55,7 @@
         Rally.technicalservices.TimeModelBuilder.build('TimeEntryItem','TSTableRow').then({
             scope: this,
             success: function(model) {
+                this.row_model = model;
                 
                 var table_store = Ext.create('Rally.data.custom.Store',{
                     model: 'TSTableRow',
@@ -144,13 +151,13 @@
         if ( !Ext.isEmpty(this.timesheet_user) ) {
             user_oid = this.timesheet_user.ObjectID;
         }
-        
+
         var config = {
             model: 'TimeEntryItem',
             context: {
                 project: null
             },
-            fetch: this.time_entry_item_fetch,
+            fetch: Ext.Array.merge(Rally.technicalservices.TimeModelBuilder.getFetchFields(), this.time_entry_item_fetch),
             filters: [
                 {property:'WeekStartDate',value:week_start},
                 {property:'User.ObjectID',value:user_oid}
@@ -188,12 +195,11 @@
         this.removeAll();
         
         var me = this;
-        var columns = this._getColumns();
                 
         this.grid = this.add({ 
             xtype:'rallygrid', 
             store: table_store,
-            columnCfgs: columns,
+            columnCfgs: this._getColumns(),
             showPagingToolbar : false,
             showRowActionsColumn : false,
             sortableColumns: false,
@@ -347,9 +353,10 @@
                 flex: 1,
                 editor: null,
                 renderer: function(value,meta,record) {
-                    if ( !Ext.isEmpty(record.get('__Release') ) ) {
-                        console.log('release', record.get('__Release'));
+                    if ( record.isLocked() ) {
+                        return "<span class='icon-lock'> </span>" + value._refObjectName;
                     }
+
                     return value._refObjectName;
                 },
                 summaryRenderer: function() {
@@ -415,24 +422,27 @@
         
         var day_width = 50;
         
-        var editor_config = {
-            xtype:'rallynumberfield',
-            minValue: 0,
-            maxValue: 24
+        var editor_config = function(record,df){
+            var config = {
+                xtype:'rallynumberfield',
+                minValue: 0,
+                maxValue: 24
+            };
+            
+            if( record.isLocked() || ! me.editable ){
+                return false;
+            } 
+            
+            return config;
         };
         
-        if ( ! this.editable ) {
-            editor_config = null;
-        }
-        
-        
-        columns.push({dataIndex:'__Sunday',   width: day_width, text:'Sun',   align: 'center',editor: editor_config, summaryType: 'sum'});
-        columns.push({dataIndex:'__Monday',   width: day_width, text:'Mon',   align: 'center',editor: editor_config, summaryType: 'sum'});
-        columns.push({dataIndex:'__Tuesday',  width: day_width, text:'Tue',   align: 'center',editor: editor_config, summaryType: 'sum'});
-        columns.push({dataIndex:'__Wednesday',width: day_width, text:'Wed',   align: 'center',editor: editor_config, summaryType: 'sum'});
-        columns.push({dataIndex:'__Thursday', width: day_width, text:'Thur',  align: 'center',editor: editor_config, summaryType: 'sum'});
-        columns.push({dataIndex:'__Friday',   width: day_width, text:'Fri',   align: 'center',editor: editor_config, summaryType: 'sum'});
-        columns.push({dataIndex:'__Saturday', width: day_width, text:'Sat',   align: 'center',editor: editor_config, summaryType: 'sum'});
+        columns.push({dataIndex:'__Sunday',   width: day_width, text:'Sun',   align: 'center',getEditor: editor_config, summaryType: 'sum'});
+        columns.push({dataIndex:'__Monday',   width: day_width, text:'Mon',   align: 'center',getEditor: editor_config, summaryType: 'sum'});
+        columns.push({dataIndex:'__Tuesday',  width: day_width, text:'Tue',   align: 'center',getEditor: editor_config, summaryType: 'sum'});
+        columns.push({dataIndex:'__Wednesday',width: day_width, text:'Wed',   align: 'center',getEditor: editor_config, summaryType: 'sum'});
+        columns.push({dataIndex:'__Thursday', width: day_width, text:'Thur',  align: 'center',getEditor: editor_config, summaryType: 'sum'});
+        columns.push({dataIndex:'__Friday',   width: day_width, text:'Fri',   align: 'center',getEditor: editor_config, summaryType: 'sum'});
+        columns.push({dataIndex:'__Saturday', width: day_width, text:'Sat',   align: 'center',getEditor: editor_config, summaryType: 'sum'});
         
         var total_renderer = function(v, meta, record) {
             meta.tdCls = "totals";

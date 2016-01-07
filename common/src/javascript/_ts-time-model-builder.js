@@ -1,6 +1,8 @@
 Ext.define('Rally.technicalservices.TimeModelBuilder',{
     singleton: true,
 
+    deploy_field: 'c_isDeployed',
+    
     days: ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'],
     
     build: function(modelType, newModelName) {
@@ -18,7 +20,9 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
                     { name: '__Release',   type: 'object' },
                     { name: '__Product',   type: 'object' },
                     { name: '__Total',     type: 'float', defaultValue: 0 },
-                    { name: '__SecretKey', type:'auto', defaultValue: 1 }
+                    { name: '__SecretKey', type:'auto', defaultValue: 1 },
+                    { name: '_ReleaseLockFieldName',  type:'string', defaultValue: Rally.technicalservices.TimeModelBuilder.deploy_field }
+
                 ];
                 
                 var day_fields = this._getDayFields();
@@ -88,7 +92,8 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
                         },this);
                     },
                     getField: this.getField,
-                    clearAndRemove: this.clearAndRemove
+                    clearAndRemove: this.clearAndRemove,
+                    isLocked: this._isLocked
 //                    isUpdatable: function() { return true; },
 //                    canHaveTasks: function() { return false; },
 //                    canHaveDefects: function() { return false; },
@@ -102,6 +107,23 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
             }
         });
         return deferred;
+    },
+    
+    getFetchFields: function() {
+        return [ this.deploy_field ];
+    },
+    
+    _isLocked: function (fieldName, newValue) {
+        var release = this.get('__Release');
+        var lock_field_name = this.get('_ReleaseLockFieldName');
+        
+        console.log('::', release, lock_field_name);
+        
+        if ( Ext.isEmpty(release) || Ext.isEmpty(lock_field_name) ) {
+            return false;
+        }
+        
+        return release[lock_field_name];
     },
     
     clearAndRemove: function() {
