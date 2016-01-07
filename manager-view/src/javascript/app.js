@@ -154,8 +154,8 @@ Ext.define("TSTimeSheetApproval", {
         });
     },
     
-    _currentUserCanUnlock: function() {
-        this.logger.log('_currentUserCanUnlock',this.getContext().getUser(), this.getContext().getUser().SubscriptionAdmin);
+    _currentUserCanUnapprove: function() {
+        this.logger.log('_currentUserCanUnapprove',this.getContext().getUser(), this.getContext().getUser().SubscriptionAdmin);
         if ( this.getContext().getUser().SubscriptionAdmin ) {
             return true;
         }
@@ -170,7 +170,7 @@ Ext.define("TSTimeSheetApproval", {
         });
         
         var current_workspace_ref = this.getContext().getWorkspace()._ref;
-        var can_unlock = false;
+        var can_unapprove = false;
         
         this.logger.log('WS Admin list: ', workspace_admin_list);
         
@@ -179,13 +179,12 @@ Ext.define("TSTimeSheetApproval", {
                 console.log('comparing ', p._ref, current_workspace_ref);
                 
                 if (current_workspace_ref.replace(/\.js$/,'') == p._ref.replace(/\.js$/,'')) {
-                    can_unlock = true;
+                    can_unapprove = true;
                 }
             });
         }
         
-        this.logger.log('  ', can_unlock);
-        return can_unlock;
+        return can_unapprove;
     },
     
     _loadTimesheets: function() {
@@ -204,7 +203,7 @@ Ext.define("TSTimeSheetApproval", {
             filters.push({property:'WeekStartDate', operator: '<=', value:start_date});
         }
         
-        if ( ! this._currentUserCanUnlock() ) {
+        if ( ! this._currentUserCanUnapprove() ) {
             var current_user_name = this.getContext().getUser().UserName;
             filters.push({property:'User.' + this.getSetting('managerField'), value: current_user_name});
         }
@@ -378,7 +377,7 @@ Ext.define("TSTimeSheetApproval", {
     _getColumns: function() {
         var columns = [{
             xtype: 'tsrowactioncolumn',
-            canUnlock: this._currentUserCanUnlock()
+            canUnapprove: this._currentUserCanUnapprove()
         }];
         
         columns.push({dataIndex:'User',text:'User', renderer: function(v) { return v._refObjectName; }});
@@ -465,7 +464,7 @@ Ext.define("TSTimeSheetApproval", {
                     popup.down('#popup_right_box').add({
                         xtype:'rallybutton', 
                         text:'Unapprove',
-                        disabled: (status != "Approved" || !this._currentUserCanUnlock()),
+                        disabled: (status != "Approved" || !this._currentUserCanUnapprove()),
                         listeners: {
                             scope: this,
                             click: function() {

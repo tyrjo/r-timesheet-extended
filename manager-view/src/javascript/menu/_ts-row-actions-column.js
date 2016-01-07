@@ -68,7 +68,7 @@ Ext.define('Rally.technicalservices.grid.RowActionColumn', {
          */
         scope: null,
         
-        canUnlock: false
+        canUnapprove: false
     },
 
     constructor: function() {
@@ -118,7 +118,7 @@ Ext.define('Rally.technicalservices.grid.RowActionColumn', {
             records: checkedRecords,
             owningEl: el.parentElement,
             popoverPlacement: ['bottom', 'top'],
-            canUnlock: this.canUnlock
+            canUnapprove: this.canUnapprove
         };
 
         /*if (grid.enableBulkEdit && _.contains(checkedRecords, selectedRecord)) {

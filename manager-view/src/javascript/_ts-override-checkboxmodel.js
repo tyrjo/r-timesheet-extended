@@ -2,7 +2,7 @@ Ext.override(Ext.selection.CheckboxModel,{
     onHeaderClick: function(headerCt, header, e) {
         // force open all if checking.
         var view = this.view;
-        console.log('view:', view);
+
         view.features[0].expandAll();
         
         if (header.isCheckerHd) {

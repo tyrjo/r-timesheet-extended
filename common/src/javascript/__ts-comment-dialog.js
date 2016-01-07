@@ -182,7 +182,12 @@ Ext.define('Rally.technicalservices.CommentDialog',{
             xtype: 'rallytextfield',
             itemId: 'comment_field',
             flex: 1,
-            margin: 5
+            margin: 5,
+            listeners: {
+                afterrender: function(field) {
+                    field.focus(false, 1000);
+                }
+            }
         },
         {
             xtype:'rallybutton',
@@ -195,6 +200,12 @@ Ext.define('Rally.technicalservices.CommentDialog',{
             }
         }
         ];
+    },
+    
+    afterRender: function() {
+        this.down('#comment_field').focus(false,1000);
+        this.callParent(arguments);
+
     },
     
     _postComment: function() {
@@ -244,18 +255,12 @@ Ext.define('Rally.technicalservices.CommentDialog',{
             type: 'Preference',
             success: function(model) {
 
-                pref_config = {
+                var pref_config = {
                     Name: key,
                     Value: value,
                     Project: TSUtilities._getEditableProjectForCurrentUser()
                 }
 
-//                if ( Rally.getApp().isExternal() ) {
-//                    pref_config.Project = Rally.getApp().getContext().getProjectRef();
-//                } else {
-//                    pref_config.AppId = Rally.getApp().getAppId();
-//                }
-                
                 var pref = Ext.create(model, pref_config);
                 
                 pref.save({
@@ -264,7 +269,6 @@ Ext.define('Rally.technicalservices.CommentDialog',{
                             me.fireEvent('commentAdded',this,result);
                             deferred.resolve([result]);
                         } else {
-                            console.log(operation);
                             deferred.reject(operation.error.errors[0]);
                         }
                     }

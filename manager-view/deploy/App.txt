@@ -3,11 +3,11 @@
 <head>
     <title>Time Sheet Approval</title>
     <!--  (c) 2015 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Wed Jan 06 2016 16:31:53 GMT-0800 (PST) -->
+    <!--  Build Date: Thu Jan 07 2016 12:48:45 GMT-0800 (PST) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Wed Jan 06 2016 16:31:53 GMT-0800 (PST)";
-        var CHECKSUM = 229044165527;
+        var APP_BUILD_DATE = "Thu Jan 07 2016 12:48:45 GMT-0800 (PST)";
+        var CHECKSUM = 229141774543;
     </script>
     
     <script type="text/javascript" src="/apps/2.0/sdk.js"></script>
@@ -1146,7 +1146,12 @@ Ext.define('Rally.technicalservices.CommentDialog',{
             xtype: 'rallytextfield',
             itemId: 'comment_field',
             flex: 1,
-            margin: 5
+            margin: 5,
+            listeners: {
+                afterrender: function(field) {
+                    field.focus(false, 1000);
+                }
+            }
         },
         {
             xtype:'rallybutton',
@@ -1159,6 +1164,12 @@ Ext.define('Rally.technicalservices.CommentDialog',{
             }
         }
         ];
+    },
+    
+    afterRender: function() {
+        this.down('#comment_field').focus(false,1000);
+        this.callParent(arguments);
+
     },
     
     _postComment: function() {
@@ -1208,18 +1219,12 @@ Ext.define('Rally.technicalservices.CommentDialog',{
             type: 'Preference',
             success: function(model) {
 
-                pref_config = {
+                var pref_config = {
                     Name: key,
                     Value: value,
                     Project: TSUtilities._getEditableProjectForCurrentUser()
                 }
 
-//                if ( Rally.getApp().isExternal() ) {
-//                    pref_config.Project = Rally.getApp().getContext().getProjectRef();
-//                } else {
-//                    pref_config.AppId = Rally.getApp().getAppId();
-//                }
-                
                 var pref = Ext.create(model, pref_config);
                 
                 pref.save({
@@ -1228,7 +1233,6 @@ Ext.define('Rally.technicalservices.CommentDialog',{
                             me.fireEvent('commentAdded',this,result);
                             deferred.resolve([result]);
                         } else {
-                            console.log(operation);
                             deferred.reject(operation.error.errors[0]);
                         }
                     }
@@ -1594,9 +1598,7 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
     _isLocked: function (fieldName, newValue) {
         var release = this.get('__Release');
         var lock_field_name = this.get('_ReleaseLockFieldName');
-        
-        console.log('::', release, lock_field_name);
-        
+                
         if ( Ext.isEmpty(release) || Ext.isEmpty(lock_field_name) ) {
             return false;
         }
@@ -2236,11 +2238,11 @@ Ext.define('Rally.technicalservices.ApproveMenuItem', {
 });
 Ext.define('Rally.technicalservices.UnlockMenuItem', {
     extend: 'Rally.ui.menu.item.RecordMenuItem',
-    alias: 'widget.tsunlockmenuitem',
+    alias: 'widget.tsunapprovemenuitem',
 
 
     config: {
-        text: 'Unlock',
+        text: 'Unapprove',
         records: []
     },
 
@@ -2248,7 +2250,7 @@ Ext.define('Rally.technicalservices.UnlockMenuItem', {
         config = config || {};
 
         config.predicate = config.predicate || this.shouldShowMenuItem;
-        config.handler   = config.handler || this._unlockRecords;
+        config.handler   = config.handler || this._unapproveRecords;
         
         this.initConfig(config);
         this.callParent([config]);
@@ -2258,30 +2260,30 @@ Ext.define('Rally.technicalservices.UnlockMenuItem', {
         if ( this.records && this.records.length > 0 ) {
             var should_show = true;
             Ext.Array.each(this.records, function(r){
-                if ( !this._isUnlockable(r) ) {
+                if ( !this._isUnapprovable(r) ) {
                     should_show = false;
                 }
             },this);
             return should_show;
         }
-        return this._isUnlockable(record);
+        return this._isUnapprovable(record);
     },
     
-    _isUnlockable: function(record) {
+    _isUnapprovable: function(record) {
         return ( record.get('__Status') && record.get('__Status') == "Approved" );
     },
     
-    _unlockRecord: function() {
+    _unapproveRecord: function() {
         var record = this.record;
         if ( !record ) {
-            Ext.Msg.alert("Problem unlocking record", "Can't find record");
+            Ext.Msg.alert("Problem unapproving record", "Can't find record");
             return;
         }
         
-        record.unlock();
+        record.unapprove();
     },
     
-    _unlockRecords: function() {
+    _unapproveRecords: function() {
         var record = this.record;
         var records = this.records;
         
@@ -2290,7 +2292,7 @@ Ext.define('Rally.technicalservices.UnlockMenuItem', {
         }
         
         Ext.Array.each(records, function(record) {
-            this._unlockRecord(record);
+            this._unapproveRecord(record);
         },this);
     }
 });
@@ -2336,7 +2338,7 @@ Ext.define('Rally.technicalservices.TimeApprovalRecordMenu', {
                 records: records
             });
            
-            if ( this.canUnlock ) {
+            if ( this.canUnapprove ) {
                 items.push({
                     xtype: 'tsunlockmenuitem',
                     view: this.view,
@@ -2351,9 +2353,9 @@ Ext.define('Rally.technicalservices.TimeApprovalRecordMenu', {
                 record: record
             });
                     
-            if ( this.canUnlock ) {
+            if ( this.canUnapprove ) {
                 items.push({
-                    xtype: 'tsunlockmenuitem',
+                    xtype: 'tsunapprovemenuitem',
                     view: this.view,
                     record: record
                 });
@@ -2437,7 +2439,7 @@ Ext.define('Rally.technicalservices.grid.RowActionColumn', {
          */
         scope: null,
         
-        canUnlock: false
+        canUnapprove: false
     },
 
     constructor: function() {
@@ -2487,7 +2489,7 @@ Ext.define('Rally.technicalservices.grid.RowActionColumn', {
             records: checkedRecords,
             owningEl: el.parentElement,
             popoverPlacement: ['bottom', 'top'],
-            canUnlock: this.canUnlock
+            canUnapprove: this.canUnapprove
         };
 
         /*if (grid.enableBulkEdit && _.contains(checkedRecords, selectedRecord)) {
@@ -2537,7 +2539,7 @@ Ext.override(Ext.selection.CheckboxModel,{
     onHeaderClick: function(headerCt, header, e) {
         // force open all if checking.
         var view = this.view;
-        console.log('view:', view);
+
         view.features[0].expandAll();
         
         if (header.isCheckerHd) {
@@ -2624,8 +2626,7 @@ Ext.define('TSTimesheet',{
                     pref.save({
                         callback: function(result, operation) {
                             if(!operation.wasSuccessful()) {
-                                console.log(operation);
-                                Ext.Msg.alert("Problem saving status");
+                                Ext.Msg.alert("Problem saving status",operation.error.errors[0]);
                             }
                         }
                     });
@@ -2660,8 +2661,7 @@ Ext.define('TSTimesheet',{
                     pref.save({
                         callback: function(result, operation) {
                             if(!operation.wasSuccessful()) {
-                                console.log(operation);
-                                Ext.Msg.alert("Problem saving status");
+                                Ext.Msg.alert("Problem saving status", operation.error.errors[0]);
                             }
                         }
                     });
@@ -2708,24 +2708,26 @@ Ext.define('TSTimesheet',{
      */
     _makePreference: function(key,prefs) {
         var deferred = Ext.create('Deft.Deferred');
+        var me = this;
         if ( !Ext.isEmpty(prefs) && ( !Ext.isArray(prefs) || prefs.length > 0 )) {
             return prefs;
         }
         Rally.data.ModelFactory.getModel({
             type: 'Preference',
             success: function(model) {
+
                 var pref_config = {
                     Name: key,
-                    Value: 'Open'
-                };
-                
-                if ( Rally.getApp().isExternal() ) {
-                    pref_config.Project = Rally.getApp().getContext().getProjectRef();
-                } else {
-                    pref_config.AppId = Rally.getApp().getAppId();
+                    Value: 'Open',
+                    Project: TSUtilities._getEditableProjectForCurrentUser()
                 }
+
+//                if ( Rally.getApp().isExternal() ) {
+//                    pref_config.Project = Rally.getApp().getContext().getProjectRef();
+//                } else {
+//                    pref_config.AppId = Rally.getApp().getAppId();
+//                }
                 
-                console.log("Saving new pref: ", pref_config);
                 var pref = Ext.create(model, pref_config);
                 
                 pref.save({
@@ -2733,8 +2735,7 @@ Ext.define('TSTimesheet',{
                         if(operation.wasSuccessful()) {
                             deferred.resolve([result]);
                         } else {
-                            console.log(operation);
-                            deferred.reject('oops');
+                            deferred.reject(operation.error.errors[0]);
                         }
                     }
                 });
@@ -2900,8 +2901,8 @@ Ext.define("TSTimeSheetApproval", {
         });
     },
     
-    _currentUserCanUnlock: function() {
-        this.logger.log('_currentUserCanUnlock',this.getContext().getUser(), this.getContext().getUser().SubscriptionAdmin);
+    _currentUserCanUnapprove: function() {
+        this.logger.log('_currentUserCanUnapprove',this.getContext().getUser(), this.getContext().getUser().SubscriptionAdmin);
         if ( this.getContext().getUser().SubscriptionAdmin ) {
             return true;
         }
@@ -2916,7 +2917,7 @@ Ext.define("TSTimeSheetApproval", {
         });
         
         var current_workspace_ref = this.getContext().getWorkspace()._ref;
-        var can_unlock = false;
+        var can_unapprove = false;
         
         this.logger.log('WS Admin list: ', workspace_admin_list);
         
@@ -2925,13 +2926,12 @@ Ext.define("TSTimeSheetApproval", {
                 console.log('comparing ', p._ref, current_workspace_ref);
                 
                 if (current_workspace_ref.replace(/\.js$/,'') == p._ref.replace(/\.js$/,'')) {
-                    can_unlock = true;
+                    can_unapprove = true;
                 }
             });
         }
         
-        this.logger.log('  ', can_unlock);
-        return can_unlock;
+        return can_unapprove;
     },
     
     _loadTimesheets: function() {
@@ -2950,7 +2950,7 @@ Ext.define("TSTimeSheetApproval", {
             filters.push({property:'WeekStartDate', operator: '<=', value:start_date});
         }
         
-        if ( ! this._currentUserCanUnlock() ) {
+        if ( ! this._currentUserCanUnapprove() ) {
             var current_user_name = this.getContext().getUser().UserName;
             filters.push({property:'User.' + this.getSetting('managerField'), value: current_user_name});
         }
@@ -3124,7 +3124,7 @@ Ext.define("TSTimeSheetApproval", {
     _getColumns: function() {
         var columns = [{
             xtype: 'tsrowactioncolumn',
-            canUnlock: this._currentUserCanUnlock()
+            canUnapprove: this._currentUserCanUnapprove()
         }];
         
         columns.push({dataIndex:'User',text:'User', renderer: function(v) { return v._refObjectName; }});
@@ -3211,7 +3211,7 @@ Ext.define("TSTimeSheetApproval", {
                     popup.down('#popup_right_box').add({
                         xtype:'rallybutton', 
                         text:'Unapprove',
-                        disabled: (status != "Approved" || !this._currentUserCanUnlock()),
+                        disabled: (status != "Approved" || !this._currentUserCanUnapprove()),
                         listeners: {
                             scope: this,
                             click: function() {

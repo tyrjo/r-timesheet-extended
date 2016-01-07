@@ -65,8 +65,7 @@ Ext.define('TSTimesheet',{
                     pref.save({
                         callback: function(result, operation) {
                             if(!operation.wasSuccessful()) {
-                                console.log(operation);
-                                Ext.Msg.alert("Problem saving status");
+                                Ext.Msg.alert("Problem saving status",operation.error.errors[0]);
                             }
                         }
                     });
@@ -101,8 +100,7 @@ Ext.define('TSTimesheet',{
                     pref.save({
                         callback: function(result, operation) {
                             if(!operation.wasSuccessful()) {
-                                console.log(operation);
-                                Ext.Msg.alert("Problem saving status");
+                                Ext.Msg.alert("Problem saving status", operation.error.errors[0]);
                             }
                         }
                     });
@@ -149,24 +147,26 @@ Ext.define('TSTimesheet',{
      */
     _makePreference: function(key,prefs) {
         var deferred = Ext.create('Deft.Deferred');
+        var me = this;
         if ( !Ext.isEmpty(prefs) && ( !Ext.isArray(prefs) || prefs.length > 0 )) {
             return prefs;
         }
         Rally.data.ModelFactory.getModel({
             type: 'Preference',
             success: function(model) {
+
                 var pref_config = {
                     Name: key,
-                    Value: 'Open'
-                };
-                
-                if ( Rally.getApp().isExternal() ) {
-                    pref_config.Project = Rally.getApp().getContext().getProjectRef();
-                } else {
-                    pref_config.AppId = Rally.getApp().getAppId();
+                    Value: 'Open',
+                    Project: TSUtilities._getEditableProjectForCurrentUser()
                 }
+
+//                if ( Rally.getApp().isExternal() ) {
+//                    pref_config.Project = Rally.getApp().getContext().getProjectRef();
+//                } else {
+//                    pref_config.AppId = Rally.getApp().getAppId();
+//                }
                 
-                console.log("Saving new pref: ", pref_config);
                 var pref = Ext.create(model, pref_config);
                 
                 pref.save({
@@ -174,8 +174,7 @@ Ext.define('TSTimesheet',{
                         if(operation.wasSuccessful()) {
                             deferred.resolve([result]);
                         } else {
-                            console.log(operation);
-                            deferred.reject('oops');
+                            deferred.reject(operation.error.errors[0]);
                         }
                     }
                 });
