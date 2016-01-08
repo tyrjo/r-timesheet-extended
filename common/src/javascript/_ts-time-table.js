@@ -450,21 +450,31 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
             editor_config = null;
         }
         
-        columns.push({dataIndex:'__Sunday',   width: day_width, text:'Sun',   align: 'center',getEditor: editor_config, summaryType: 'sum'});
-        columns.push({dataIndex:'__Monday',   width: day_width, text:'Mon',   align: 'center',getEditor: editor_config, summaryType: 'sum'});
-        columns.push({dataIndex:'__Tuesday',  width: day_width, text:'Tue',   align: 'center',getEditor: editor_config, summaryType: 'sum'});
-        columns.push({dataIndex:'__Wednesday',width: day_width, text:'Wed',   align: 'center',getEditor: editor_config, summaryType: 'sum'});
-        columns.push({dataIndex:'__Thursday', width: day_width, text:'Thur',  align: 'center',getEditor: editor_config, summaryType: 'sum'});
-        columns.push({dataIndex:'__Friday',   width: day_width, text:'Fri',   align: 'center',getEditor: editor_config, summaryType: 'sum'});
-        columns.push({dataIndex:'__Saturday', width: day_width, text:'Sat',   align: 'center',getEditor: editor_config, summaryType: 'sum'});
-        
-        var total_renderer = function(v, meta, record) {
-            meta.tdCls = "totals";
-            return v;
+        var weekend_renderer = function(value, meta, record) {
+            meta.tdCls = "ts-weekend-cell";
+            return value;
         };
-        columns.push({dataIndex:'__Total',    width: day_width, text:'Total', align: 'center',editor: null,          summaryType: 'sum',
-            renderer: total_renderer
-        });
+        var total_renderer = function(value, meta, record) {
+            meta.tdCls = "ts-total-cell";
+            return value;
+        }; 
+        
+        columns.push({dataIndex:'__Sunday',   width: day_width, text:'Sun',   align: 'center',
+            getEditor: editor_config, summaryType: 'sum', renderer: weekend_renderer});
+        columns.push({dataIndex:'__Monday',   width: day_width, text:'Mon',   align: 'center',
+            getEditor: editor_config, summaryType: 'sum'});
+        columns.push({dataIndex:'__Tuesday',  width: day_width, text:'Tue',   align: 'center',
+            getEditor: editor_config, summaryType: 'sum'});
+        columns.push({dataIndex:'__Wednesday',width: day_width, text:'Wed',   align: 'center',
+            getEditor: editor_config, summaryType: 'sum'});
+        columns.push({dataIndex:'__Thursday', width: day_width, text:'Thur',  align: 'center',
+            getEditor: editor_config, summaryType: 'sum'});
+        columns.push({dataIndex:'__Friday',   width: day_width, text:'Fri',   align: 'center',
+            getEditor: editor_config, summaryType: 'sum'});
+        columns.push({dataIndex:'__Saturday', width: day_width, text:'Sat',   align: 'center',
+            getEditor: editor_config, summaryType: 'sum', renderer: weekend_renderer});
+        columns.push({dataIndex:'__Total',    width: day_width, text:'Total', align: 'center',
+            editor: null,summaryType: 'sum', renderer: total_renderer});
 
         
         return columns;

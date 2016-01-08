@@ -1,4 +1,4 @@
-.totals {
+td.ts-total-cell {
     background-color: #eee !important;
 }
 
@@ -12,4 +12,8 @@
 
 .x-border-layout-ct {
     background-color: #ffffff;
+}
+
+td.ts-weekend-cell {
+    background-color: #B0E0E6 !important;
 }
