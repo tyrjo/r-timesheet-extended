@@ -52,9 +52,9 @@ Ext.define('Rally.technicalservices.ApproveMenuItem', {
         if ( records.length === 0 ) {
             records = [record];
         }
-        
-        Ext.Array.each(records, function(record) {
-            this._approveRecord(record);
+                
+        Ext.Array.each(records, function(r) {
+            this._approveRecord(r);
         },this);
     }
 });

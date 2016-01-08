@@ -42,7 +42,7 @@ Ext.define('Rally.technicalservices.TimeApprovalRecordMenu', {
            
             if ( this.canUnapprove ) {
                 items.push({
-                    xtype: 'tsunlockmenuitem',
+                    xtype: 'tsunapprovemenuitem',
                     view: this.view,
                     record: record,
                     records: records

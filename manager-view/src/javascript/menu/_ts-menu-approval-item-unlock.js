@@ -35,8 +35,7 @@ Ext.define('Rally.technicalservices.UnlockMenuItem', {
         return ( record.get('__Status') && record.get('__Status') == "Approved" );
     },
     
-    _unapproveRecord: function() {
-        var record = this.record;
+    _unapproveRecord: function(record) {
         if ( !record ) {
             Ext.Msg.alert("Problem unapproving record", "Can't find record");
             return;
@@ -48,13 +47,13 @@ Ext.define('Rally.technicalservices.UnlockMenuItem', {
     _unapproveRecords: function() {
         var record = this.record;
         var records = this.records;
-        
+                
         if ( records.length === 0 ) {
             records = [record];
         }
-        
-        Ext.Array.each(records, function(record) {
-            this._unapproveRecord(record);
-        },this);
+        var me = this;
+        Ext.Array.each(records, function(r) {
+            me._unapproveRecord(r);
+        });
     }
 });

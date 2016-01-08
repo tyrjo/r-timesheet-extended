@@ -3,11 +3,11 @@
 <head>
     <title>Time Sheet Approval</title>
     <!--  (c) 2015 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Thu Jan 07 2016 17:37:21 GMT-0800 (PST) -->
+    <!--  Build Date: Fri Jan 08 2016 10:06:09 GMT-0800 (PST) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Thu Jan 07 2016 17:37:21 GMT-0800 (PST)";
-        var CHECKSUM = 229896620769;
+        var APP_BUILD_DATE = "Fri Jan 08 2016 10:06:09 GMT-0800 (PST)";
+        var CHECKSUM = 229696519780;
     </script>
     
     <script type="text/javascript" src="/apps/2.0/sdk.js"></script>
@@ -2231,9 +2231,9 @@ Ext.define('Rally.technicalservices.ApproveMenuItem', {
         if ( records.length === 0 ) {
             records = [record];
         }
-        
-        Ext.Array.each(records, function(record) {
-            this._approveRecord(record);
+                
+        Ext.Array.each(records, function(r) {
+            this._approveRecord(r);
         },this);
     }
 });
@@ -2274,8 +2274,7 @@ Ext.define('Rally.technicalservices.UnlockMenuItem', {
         return ( record.get('__Status') && record.get('__Status') == "Approved" );
     },
     
-    _unapproveRecord: function() {
-        var record = this.record;
+    _unapproveRecord: function(record) {
         if ( !record ) {
             Ext.Msg.alert("Problem unapproving record", "Can't find record");
             return;
@@ -2287,14 +2286,14 @@ Ext.define('Rally.technicalservices.UnlockMenuItem', {
     _unapproveRecords: function() {
         var record = this.record;
         var records = this.records;
-        
+                
         if ( records.length === 0 ) {
             records = [record];
         }
-        
-        Ext.Array.each(records, function(record) {
-            this._unapproveRecord(record);
-        },this);
+        var me = this;
+        Ext.Array.each(records, function(r) {
+            me._unapproveRecord(r);
+        });
     }
 });
 
@@ -2341,7 +2340,7 @@ Ext.define('Rally.technicalservices.TimeApprovalRecordMenu', {
            
             if ( this.canUnapprove ) {
                 items.push({
-                    xtype: 'tsunlockmenuitem',
+                    xtype: 'tsunapprovemenuitem',
                     view: this.view,
                     record: record,
                     records: records
