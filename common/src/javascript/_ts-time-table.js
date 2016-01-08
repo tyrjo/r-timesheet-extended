@@ -439,12 +439,16 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                 }
             };
             
-            if( record.isLocked() || ! me.editable ){
+            if( ( !Ext.isEmpty(record) && record.isLocked() ) || ! me.editable ){
                 return false;
             } 
             
             return config;
         };
+       
+        if ( ! this.editable ) {
+            editor_config = null;
+        }
         
         columns.push({dataIndex:'__Sunday',   width: day_width, text:'Sun',   align: 'center',getEditor: editor_config, summaryType: 'sum'});
         columns.push({dataIndex:'__Monday',   width: day_width, text:'Mon',   align: 'center',getEditor: editor_config, summaryType: 'sum'});
