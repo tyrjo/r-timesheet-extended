@@ -3,10 +3,10 @@
 <head>
     <title>Time Sheet Approval</title>
     <!--  (c) 2015 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Fri Jan 08 2016 13:24:24 GMT-0800 (PST) -->
+    <!--  Build Date: Fri Jan 08 2016 13:36:38 GMT-0800 (PST) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Fri Jan 08 2016 13:24:24 GMT-0800 (PST)";
+        var APP_BUILD_DATE = "Fri Jan 08 2016 13:36:38 GMT-0800 (PST)";
         var CHECKSUM = [%= checksum %];
     </script>
     
@@ -24,7 +24,7 @@
     
     <style type="text/css">
 
-.totals {
+td.ts-total-cell {
     background-color: #eee !important;
 }
 
@@ -38,6 +38,10 @@
 
 .x-border-layout-ct {
     background-color: #ffffff;
+}
+
+td.ts-weekend-cell {
+    background-color: #B0E0E6 !important;
 }
 .app {
 }
