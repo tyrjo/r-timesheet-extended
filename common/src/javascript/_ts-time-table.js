@@ -429,7 +429,14 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
             var config = {
                 xtype:'rallynumberfield',
                 minValue: 0,
-                maxValue: 24
+                maxValue: 24,
+                listeners: {
+                    change: function(field, new_value, old_value) {
+                        if ( Ext.isEmpty(new_value) ) {
+                            field.setValue(0);
+                        }
+                    }
+                }
             };
             
             if( record.isLocked() || ! me.editable ){
