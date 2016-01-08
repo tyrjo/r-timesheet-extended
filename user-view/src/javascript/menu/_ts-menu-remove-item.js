@@ -19,11 +19,9 @@ Ext.define('Rally.technicalservices.RemoveTimeEntryMenuItem', {
     },
     
     shouldShowMenuItem: function(record) {
-        return true;
+        return !record.isLocked();
     },
     _removeRecord: function(record) {
-        console.log('ok', record);
-        
         record.clearAndRemove();
     },
     

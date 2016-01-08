@@ -264,7 +264,10 @@ Ext.define("TSExtendedTimesheet", {
                 context: {
                     project: null
                 },
-                fetch: ['ObjectID','Name','FormattedID','WorkProduct','Project'],
+                fetch: Ext.Array.merge(
+                    Rally.technicalservices.TimeModelBuilder.getFetchFields(),
+                    ['ObjectID','Name','FormattedID','WorkProduct','Project']
+                ),
                 filters: [
                     {property:'Owner.ObjectID',value:this.getContext().getUser().ObjectID},
                     {property:'Iteration.StartDate',operator: '<=', value:Rally.util.DateTime.toIsoString(new Date())},
@@ -291,6 +294,14 @@ Ext.define("TSExtendedTimesheet", {
     
     _findAndAddTask: function() {
         var timetable = this.down('tstimetable');
+        
+        var fetch_fields = Ext.Array.merge(
+            Rally.technicalservices.TimeModelBuilder.getFetchFields(),
+            ['WorkProduct','Feature','Project']
+        );
+        
+        this.logger.log('fetch fields:', fetch_fields);
+        
         if (timetable) {
             Ext.create('Rally.technicalservices.ChooserDialog', {
                 artifactTypes: ['task'],
@@ -327,7 +338,7 @@ Ext.define("TSExtendedTimesheet", {
                         attributeName: 'State'
                     }
                 ],
-                fetchFields: ['WorkProduct','Feature','Project', 'ObjectID', 'Name', 'Release'],
+                fetchFields: fetch_fields,
                 listeners: {
                     artifactchosen: function(dialog, selectedRecords){
                         if ( !Ext.isArray(selectedRecords) ) {
@@ -378,7 +389,11 @@ Ext.define("TSExtendedTimesheet", {
                         attributeName: 'Owner'
                     }
                 ],
-                fetchFields: ['Feature','Project', 'ObjectID', 'Name', 'Release'],
+                
+                fetchFields: Ext.Array.merge(
+                    Rally.technicalservices.TimeModelBuilder.getFetchFields(),
+                    ['WorkProduct','Feature','Project', 'ObjectID', 'Name', 'Release']
+                ),
                 listeners: {
                     artifactchosen: function(dialog, selectedRecords){
                         if ( !Ext.isArray(selectedRecords) ) {

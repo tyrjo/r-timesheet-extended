@@ -228,6 +228,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
     addRowForItem: function(item) {
         var me = this;
         var week_start_date = this.weekStart;
+        console.log('adding ', item);
         
         var item_type = item.get('_type');
         
@@ -256,8 +257,10 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                     
                     var time_entry_item = Ext.create(model,config);
                     
+                    var fetch = Ext.Array.merge(Rally.technicalservices.TimeModelBuilder.getFetchFields(), this.time_entry_item_fetch);
+
                     time_entry_item.save({
-                        fetch: me.time_entry_item_fetch,
+                        fetch: fetch,
                         callback: function(result, operation) {
                             if(operation.wasSuccessful()) {
                                 var product = result.get('Project');
@@ -269,11 +272,11 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                                     feature = workproduct.Feature;
                                     product = feature.Project;
                                 }
-                                
+                                                                
                                 if ( !Ext.isEmpty(workproduct) && workproduct.Release ) {
                                     release = workproduct.Release;
                                 }
-                                
+                                                                
                                 var data = {
                                     __TimeEntryItem:result,
                                     __Feature: feature,

@@ -3,11 +3,11 @@
 <head>
     <title>Extended Timesheet</title>
     <!--  (c) 2015 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Wed Jan 06 2016 16:31:56 GMT-0800 (PST) -->
+    <!--  Build Date: Thu Jan 07 2016 16:38:14 GMT-0800 (PST) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Wed Jan 06 2016 16:31:56 GMT-0800 (PST)";
-        var CHECKSUM = 206019892065;
+        var APP_BUILD_DATE = "Thu Jan 07 2016 16:38:14 GMT-0800 (PST)";
+        var CHECKSUM = 208975307459;
     </script>
     
     <script type="text/javascript" src="/apps/2.0/sdk.js"></script>
@@ -1146,7 +1146,12 @@ Ext.define('Rally.technicalservices.CommentDialog',{
             xtype: 'rallytextfield',
             itemId: 'comment_field',
             flex: 1,
-            margin: 5
+            margin: 5,
+            listeners: {
+                afterrender: function(field) {
+                    field.focus(false, 1000);
+                }
+            }
         },
         {
             xtype:'rallybutton',
@@ -1159,6 +1164,12 @@ Ext.define('Rally.technicalservices.CommentDialog',{
             }
         }
         ];
+    },
+    
+    afterRender: function() {
+        this.down('#comment_field').focus(false,1000);
+        this.callParent(arguments);
+
     },
     
     _postComment: function() {
@@ -1208,18 +1219,12 @@ Ext.define('Rally.technicalservices.CommentDialog',{
             type: 'Preference',
             success: function(model) {
 
-                pref_config = {
+                var pref_config = {
                     Name: key,
                     Value: value,
                     Project: TSUtilities._getEditableProjectForCurrentUser()
                 }
 
-//                if ( Rally.getApp().isExternal() ) {
-//                    pref_config.Project = Rally.getApp().getContext().getProjectRef();
-//                } else {
-//                    pref_config.AppId = Rally.getApp().getAppId();
-//                }
-                
                 var pref = Ext.create(model, pref_config);
                 
                 pref.save({
@@ -1228,7 +1233,6 @@ Ext.define('Rally.technicalservices.CommentDialog',{
                             me.fireEvent('commentAdded',this,result);
                             deferred.resolve([result]);
                         } else {
-                            console.log(operation);
                             deferred.reject(operation.error.errors[0]);
                         }
                     }
@@ -1588,14 +1592,12 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
     },
     
     getFetchFields: function() {
-        return [ this.deploy_field ];
+        return [ 'ObjectID', 'Name', 'Release', this.deploy_field ];
     },
     
     _isLocked: function (fieldName, newValue) {
         var release = this.get('__Release');
         var lock_field_name = this.get('_ReleaseLockFieldName');
-        
-        console.log('::', release, lock_field_name);
         
         if ( Ext.isEmpty(release) || Ext.isEmpty(lock_field_name) ) {
             return false;
@@ -1925,6 +1927,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
     addRowForItem: function(item) {
         var me = this;
         var week_start_date = this.weekStart;
+        console.log('adding ', item);
         
         var item_type = item.get('_type');
         
@@ -1953,8 +1956,10 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                     
                     var time_entry_item = Ext.create(model,config);
                     
+                    var fetch = Ext.Array.merge(Rally.technicalservices.TimeModelBuilder.getFetchFields(), this.time_entry_item_fetch);
+
                     time_entry_item.save({
-                        fetch: me.time_entry_item_fetch,
+                        fetch: fetch,
                         callback: function(result, operation) {
                             if(operation.wasSuccessful()) {
                                 var product = result.get('Project');
@@ -1966,11 +1971,11 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                                     feature = workproduct.Feature;
                                     product = feature.Project;
                                 }
-                                
+                                                                
                                 if ( !Ext.isEmpty(workproduct) && workproduct.Release ) {
                                     release = workproduct.Release;
                                 }
-                                
+                                                                
                                 var data = {
                                     __TimeEntryItem:result,
                                     __Feature: feature,
@@ -2200,11 +2205,9 @@ Ext.define('Rally.technicalservices.RemoveTimeEntryMenuItem', {
     },
     
     shouldShowMenuItem: function(record) {
-        return true;
+        return !record.isLocked();
     },
     _removeRecord: function(record) {
-        console.log('ok', record);
-        
         record.clearAndRemove();
     },
     
@@ -2723,6 +2726,11 @@ Ext.define('Rally.technicalservices.ChooserDialog', {
         var store_config = this.storeConfig;
         store_config.context = { project: Rally.getApp().getContext().getProjectRef()};
         
+        var new_fetch = Ext.Array.merge(['ObjectID'],this.fetchFields);
+        var current_fetch = store_config.fetch || [];
+        
+        store_config.fetch = Ext.Array.merge(new_fetch,current_fetch);
+        
         var gridConfig = Ext.Object.merge({
             model: model,
             selModel: this.selectionModel,
@@ -2789,8 +2797,6 @@ Ext.define('Rally.technicalservices.ChooserDialog', {
         var terms = this.down('#searchTerms').getValue();
         var filterBy = this.down('#filterTypeComboBox').getValue();
         var filter;
-
-        var fetch_fields = Ext.Array.merge(['ObjectID'],this.fetchFields);
         
         var store_config = this.grid.storeConfig;
         
@@ -3109,7 +3115,10 @@ Ext.define("TSExtendedTimesheet", {
                 context: {
                     project: null
                 },
-                fetch: ['ObjectID','Name','FormattedID','WorkProduct','Project'],
+                fetch: Ext.Array.merge(
+                    Rally.technicalservices.TimeModelBuilder.getFetchFields(),
+                    ['ObjectID','Name','FormattedID','WorkProduct','Project']
+                ),
                 filters: [
                     {property:'Owner.ObjectID',value:this.getContext().getUser().ObjectID},
                     {property:'Iteration.StartDate',operator: '<=', value:Rally.util.DateTime.toIsoString(new Date())},
@@ -3136,6 +3145,14 @@ Ext.define("TSExtendedTimesheet", {
     
     _findAndAddTask: function() {
         var timetable = this.down('tstimetable');
+        
+        var fetch_fields = Ext.Array.merge(
+            Rally.technicalservices.TimeModelBuilder.getFetchFields(),
+            ['WorkProduct','Feature','Project']
+        );
+        
+        this.logger.log('fetch fields:', fetch_fields);
+        
         if (timetable) {
             Ext.create('Rally.technicalservices.ChooserDialog', {
                 artifactTypes: ['task'],
@@ -3172,7 +3189,7 @@ Ext.define("TSExtendedTimesheet", {
                         attributeName: 'State'
                     }
                 ],
-                fetchFields: ['WorkProduct','Feature','Project', 'ObjectID', 'Name', 'Release'],
+                fetchFields: fetch_fields,
                 listeners: {
                     artifactchosen: function(dialog, selectedRecords){
                         if ( !Ext.isArray(selectedRecords) ) {
@@ -3223,7 +3240,11 @@ Ext.define("TSExtendedTimesheet", {
                         attributeName: 'Owner'
                     }
                 ],
-                fetchFields: ['Feature','Project', 'ObjectID', 'Name', 'Release'],
+                
+                fetchFields: Ext.Array.merge(
+                    Rally.technicalservices.TimeModelBuilder.getFetchFields(),
+                    ['WorkProduct','Feature','Project', 'ObjectID', 'Name', 'Release']
+                ),
                 listeners: {
                     artifactchosen: function(dialog, selectedRecords){
                         if ( !Ext.isArray(selectedRecords) ) {

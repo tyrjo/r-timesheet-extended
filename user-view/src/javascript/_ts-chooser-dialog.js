@@ -307,6 +307,11 @@ Ext.define('Rally.technicalservices.ChooserDialog', {
         var store_config = this.storeConfig;
         store_config.context = { project: Rally.getApp().getContext().getProjectRef()};
         
+        var new_fetch = Ext.Array.merge(['ObjectID'],this.fetchFields);
+        var current_fetch = store_config.fetch || [];
+        
+        store_config.fetch = Ext.Array.merge(new_fetch,current_fetch);
+        
         var gridConfig = Ext.Object.merge({
             model: model,
             selModel: this.selectionModel,
@@ -373,8 +378,6 @@ Ext.define('Rally.technicalservices.ChooserDialog', {
         var terms = this.down('#searchTerms').getValue();
         var filterBy = this.down('#filterTypeComboBox').getValue();
         var filter;
-
-        var fetch_fields = Ext.Array.merge(['ObjectID'],this.fetchFields);
         
         var store_config = this.grid.storeConfig;
         
