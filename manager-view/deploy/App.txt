@@ -3,11 +3,11 @@
 <head>
     <title>Time Sheet Approval</title>
     <!--  (c) 2015 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Thu Jan 07 2016 12:48:45 GMT-0800 (PST) -->
+    <!--  Build Date: Thu Jan 07 2016 17:11:26 GMT-0800 (PST) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Thu Jan 07 2016 12:48:45 GMT-0800 (PST)";
-        var CHECKSUM = 229141774543;
+        var APP_BUILD_DATE = "Thu Jan 07 2016 17:11:26 GMT-0800 (PST)";
+        var CHECKSUM = 229896619654;
     </script>
     
     <script type="text/javascript" src="/apps/2.0/sdk.js"></script>
@@ -977,7 +977,9 @@ Ext.define('Rally.technicalservices.CommentDialog',{
         
         keyPrefix: null,
         
-        preferences: null
+        preferences: null,
+        
+        defaultFocus: 'comment_field'
     },
 
     constructor: function(config) {
@@ -1146,12 +1148,7 @@ Ext.define('Rally.technicalservices.CommentDialog',{
             xtype: 'rallytextfield',
             itemId: 'comment_field',
             flex: 1,
-            margin: 5,
-            listeners: {
-                afterrender: function(field) {
-                    field.focus(false, 1000);
-                }
-            }
+            margin: 5
         },
         {
             xtype:'rallybutton',
@@ -1164,12 +1161,6 @@ Ext.define('Rally.technicalservices.CommentDialog',{
             }
         }
         ];
-    },
-    
-    afterRender: function() {
-        this.down('#comment_field').focus(false,1000);
-        this.callParent(arguments);
-
     },
     
     _postComment: function() {
@@ -1592,13 +1583,13 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
     },
     
     getFetchFields: function() {
-        return [ this.deploy_field ];
+        return [ 'ObjectID', 'Name', 'Release', this.deploy_field ];
     },
     
     _isLocked: function (fieldName, newValue) {
         var release = this.get('__Release');
         var lock_field_name = this.get('_ReleaseLockFieldName');
-                
+        
         if ( Ext.isEmpty(release) || Ext.isEmpty(lock_field_name) ) {
             return false;
         }
@@ -1927,6 +1918,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
     addRowForItem: function(item) {
         var me = this;
         var week_start_date = this.weekStart;
+        console.log('adding ', item);
         
         var item_type = item.get('_type');
         
@@ -1955,8 +1947,10 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                     
                     var time_entry_item = Ext.create(model,config);
                     
+                    var fetch = Ext.Array.merge(Rally.technicalservices.TimeModelBuilder.getFetchFields(), this.time_entry_item_fetch);
+
                     time_entry_item.save({
-                        fetch: me.time_entry_item_fetch,
+                        fetch: fetch,
                         callback: function(result, operation) {
                             if(operation.wasSuccessful()) {
                                 var product = result.get('Project');
@@ -1968,11 +1962,11 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                                     feature = workproduct.Feature;
                                     product = feature.Project;
                                 }
-                                
+                                                                
                                 if ( !Ext.isEmpty(workproduct) && workproduct.Release ) {
                                     release = workproduct.Release;
                                 }
-                                
+                                                                
                                 var data = {
                                     __TimeEntryItem:result,
                                     __Feature: feature,
@@ -2125,7 +2119,14 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
             var config = {
                 xtype:'rallynumberfield',
                 minValue: 0,
-                maxValue: 24
+                maxValue: 24,
+                listeners: {
+                    change: function(field, new_value, old_value) {
+                        if ( Ext.isEmpty(new_value) ) {
+                            field.setValue(0);
+                        }
+                    }
+                }
             };
             
             if( record.isLocked() || ! me.editable ){

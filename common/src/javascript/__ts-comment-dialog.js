@@ -13,7 +13,9 @@ Ext.define('Rally.technicalservices.CommentDialog',{
         
         keyPrefix: null,
         
-        preferences: null
+        preferences: null,
+        
+        defaultFocus: 'comment_field'
     },
 
     constructor: function(config) {
@@ -182,12 +184,7 @@ Ext.define('Rally.technicalservices.CommentDialog',{
             xtype: 'rallytextfield',
             itemId: 'comment_field',
             flex: 1,
-            margin: 5,
-            listeners: {
-                afterrender: function(field) {
-                    field.focus(false, 1000);
-                }
-            }
+            margin: 5
         },
         {
             xtype:'rallybutton',
@@ -200,12 +197,6 @@ Ext.define('Rally.technicalservices.CommentDialog',{
             }
         }
         ];
-    },
-    
-    afterRender: function() {
-        this.down('#comment_field').focus(false,1000);
-        this.callParent(arguments);
-
     },
     
     _postComment: function() {

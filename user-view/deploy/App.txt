@@ -3,11 +3,11 @@
 <head>
     <title>Extended Timesheet</title>
     <!--  (c) 2015 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Thu Jan 07 2016 17:00:23 GMT-0800 (PST) -->
+    <!--  Build Date: Thu Jan 07 2016 17:11:20 GMT-0800 (PST) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Thu Jan 07 2016 17:00:23 GMT-0800 (PST)";
-        var CHECKSUM = 210077869078;
+        var APP_BUILD_DATE = "Thu Jan 07 2016 17:11:20 GMT-0800 (PST)";
+        var CHECKSUM = 209231621669;
     </script>
     
     <script type="text/javascript" src="/apps/2.0/sdk.js"></script>
@@ -977,7 +977,9 @@ Ext.define('Rally.technicalservices.CommentDialog',{
         
         keyPrefix: null,
         
-        preferences: null
+        preferences: null,
+        
+        defaultFocus: 'comment_field'
     },
 
     constructor: function(config) {
@@ -1146,12 +1148,7 @@ Ext.define('Rally.technicalservices.CommentDialog',{
             xtype: 'rallytextfield',
             itemId: 'comment_field',
             flex: 1,
-            margin: 5,
-            listeners: {
-                afterrender: function(field) {
-                    field.focus(false, 1000);
-                }
-            }
+            margin: 5
         },
         {
             xtype:'rallybutton',
@@ -1164,12 +1161,6 @@ Ext.define('Rally.technicalservices.CommentDialog',{
             }
         }
         ];
-    },
-    
-    afterRender: function() {
-        this.down('#comment_field').focus(false,1000);
-        this.callParent(arguments);
-
     },
     
     _postComment: function() {
