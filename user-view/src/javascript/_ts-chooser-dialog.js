@@ -57,18 +57,7 @@ Ext.define('Rally.technicalservices.ChooserDialog', {
          * @cfg {Ext.grid.Column}
          * List of columns that will be used in the chooser
          */
-        columns : [
-            {
-                text: 'ID',
-                dataIndex: 'FormattedID'
-            },
-            'Name',
-            'WorkProduct',
-            'Release',
-            'Project',
-            'Owner',
-            'State'
-        ],
+        columns : [],
 
         /**
          * @cfg [{String}]

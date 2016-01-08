@@ -3,11 +3,11 @@
 <head>
     <title>Extended Timesheet</title>
     <!--  (c) 2015 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Thu Jan 07 2016 16:56:43 GMT-0800 (PST) -->
+    <!--  Build Date: Thu Jan 07 2016 17:00:23 GMT-0800 (PST) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Thu Jan 07 2016 16:56:43 GMT-0800 (PST)";
-        var CHECKSUM = 209046801971;
+        var APP_BUILD_DATE = "Thu Jan 07 2016 17:00:23 GMT-0800 (PST)";
+        var CHECKSUM = 210077869078;
     </script>
     
     <script type="text/javascript" src="/apps/2.0/sdk.js"></script>
@@ -2483,18 +2483,7 @@ Ext.define('Rally.technicalservices.ChooserDialog', {
          * @cfg {Ext.grid.Column}
          * List of columns that will be used in the chooser
          */
-        columns : [
-            {
-                text: 'ID',
-                dataIndex: 'FormattedID'
-            },
-            'Name',
-            'WorkProduct',
-            'Release',
-            'Project',
-            'Owner',
-            'State'
-        ],
+        columns : [],
 
         /**
          * @cfg [{String}]
@@ -3188,6 +3177,18 @@ Ext.define("TSExtendedTimesheet", {
                         attributeName: 'State'
                     }
                 ],
+                columns: [
+                    {
+                        text: 'ID',
+                        dataIndex: 'FormattedID'
+                    },
+                    'Name',
+                    'WorkProduct',
+                    'Release',
+                    'Project',
+                    'Owner',
+                    'State'
+                ],
                 fetchFields: fetch_fields,
                 listeners: {
                     artifactchosen: function(dialog, selectedRecords){
@@ -3237,9 +3238,25 @@ Ext.define("TSExtendedTimesheet", {
                     {
                         displayName:'Owner',
                         attributeName: 'Owner'
+                    },
+                    {
+                        displayName:'State',
+                        attributeName: 'ScheduleState'
                     }
                 ],
-                
+                columns: [
+                    {
+                        text: 'ID',
+                        dataIndex: 'FormattedID'
+                    },
+                    'Name',
+                    'WorkProduct',
+                    'Release',
+                    'Project',
+                    'Owner',
+                    'ScheduleState'
+                ],
+        
                 fetchFields: Ext.Array.merge(
                     Rally.technicalservices.TimeModelBuilder.getFetchFields(),
                     ['WorkProduct','Feature','Project', 'ObjectID', 'Name', 'Release']

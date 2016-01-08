@@ -338,6 +338,18 @@ Ext.define("TSExtendedTimesheet", {
                         attributeName: 'State'
                     }
                 ],
+                columns: [
+                    {
+                        text: 'ID',
+                        dataIndex: 'FormattedID'
+                    },
+                    'Name',
+                    'WorkProduct',
+                    'Release',
+                    'Project',
+                    'Owner',
+                    'State'
+                ],
                 fetchFields: fetch_fields,
                 listeners: {
                     artifactchosen: function(dialog, selectedRecords){
@@ -387,9 +399,25 @@ Ext.define("TSExtendedTimesheet", {
                     {
                         displayName:'Owner',
                         attributeName: 'Owner'
+                    },
+                    {
+                        displayName:'State',
+                        attributeName: 'ScheduleState'
                     }
                 ],
-                
+                columns: [
+                    {
+                        text: 'ID',
+                        dataIndex: 'FormattedID'
+                    },
+                    'Name',
+                    'WorkProduct',
+                    'Release',
+                    'Project',
+                    'Owner',
+                    'ScheduleState'
+                ],
+        
                 fetchFields: Ext.Array.merge(
                     Rally.technicalservices.TimeModelBuilder.getFetchFields(),
                     ['WorkProduct','Feature','Project', 'ObjectID', 'Name', 'Release']
