@@ -66,7 +66,6 @@ Ext.define('TSLockedWeek',{
                     pref.save({
                         callback: function(result, operation) {
                             if(!operation.wasSuccessful()) {
-                                console.log(operation);
                                 Ext.Msg.alert("Problem saving status");
                             } else {
                                 deferred.resolve(result);
@@ -93,7 +92,7 @@ Ext.define('TSLockedWeek',{
                 }
             },
             failure: function(msg) {
-                Ext.Msg.alert("Failed to save approval state to " + pref_key, msg);
+                Ext.Msg.alert("Failed to save week unlock state to " + pref_key, msg);
             }
         });
         
@@ -158,8 +157,7 @@ Ext.define('TSLockedWeek',{
                         if(operation.wasSuccessful()) {
                             deferred.resolve([result]);
                         } else {
-                            console.log(operation);
-                            deferred.reject('oops');
+                            deferred.reject(operation.error.errors.join('. '));
                         }
                     }
                 });

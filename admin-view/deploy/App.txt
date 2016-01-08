@@ -3,11 +3,11 @@
 <head>
     <title>Timesheet Administration</title>
     <!--  (c) 2015 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Wed Jan 06 2016 05:52:30 GMT-0800 (PST) -->
+    <!--  Build Date: Thu Jan 07 2016 17:37:30 GMT-0800 (PST) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Wed Jan 06 2016 05:52:30 GMT-0800 (PST)";
-        var CHECKSUM = 150231060930;
+        var APP_BUILD_DATE = "Thu Jan 07 2016 17:37:30 GMT-0800 (PST)";
+        var CHECKSUM = 160521290545;
     </script>
     
     <script type="text/javascript" src="/apps/2.0/sdk.js"></script>
@@ -977,7 +977,9 @@ Ext.define('Rally.technicalservices.CommentDialog',{
         
         keyPrefix: null,
         
-        preferences: null
+        preferences: null,
+        
+        defaultFocus: 'comment_field'
     },
 
     constructor: function(config) {
@@ -1208,18 +1210,12 @@ Ext.define('Rally.technicalservices.CommentDialog',{
             type: 'Preference',
             success: function(model) {
 
-                pref_config = {
+                var pref_config = {
                     Name: key,
                     Value: value,
                     Project: TSUtilities._getEditableProjectForCurrentUser()
                 }
 
-//                if ( Rally.getApp().isExternal() ) {
-//                    pref_config.Project = Rally.getApp().getContext().getProjectRef();
-//                } else {
-//                    pref_config.AppId = Rally.getApp().getAppId();
-//                }
-                
                 var pref = Ext.create(model, pref_config);
                 
                 pref.save({
@@ -1228,7 +1224,6 @@ Ext.define('Rally.technicalservices.CommentDialog',{
                             me.fireEvent('commentAdded',this,result);
                             deferred.resolve([result]);
                         } else {
-                            console.log(operation);
                             deferred.reject(operation.error.errors[0]);
                         }
                     }
@@ -1479,6 +1474,8 @@ Ext.define('Rally.technicalservices.CommentButton',{
 Ext.define('Rally.technicalservices.TimeModelBuilder',{
     singleton: true,
 
+    deploy_field: 'c_isDeployed',
+    
     days: ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'],
     
     build: function(modelType, newModelName) {
@@ -1496,7 +1493,9 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
                     { name: '__Release',   type: 'object' },
                     { name: '__Product',   type: 'object' },
                     { name: '__Total',     type: 'float', defaultValue: 0 },
-                    { name: '__SecretKey', type:'auto', defaultValue: 1 }
+                    { name: '__SecretKey', type:'auto', defaultValue: 1 },
+                    { name: '_ReleaseLockFieldName',  type:'string', defaultValue: Rally.technicalservices.TimeModelBuilder.deploy_field }
+
                 ];
                 
                 var day_fields = this._getDayFields();
@@ -1566,7 +1565,8 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
                         },this);
                     },
                     getField: this.getField,
-                    clearAndRemove: this.clearAndRemove
+                    clearAndRemove: this.clearAndRemove,
+                    isLocked: this._isLocked
 //                    isUpdatable: function() { return true; },
 //                    canHaveTasks: function() { return false; },
 //                    canHaveDefects: function() { return false; },
@@ -1580,6 +1580,21 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
             }
         });
         return deferred;
+    },
+    
+    getFetchFields: function() {
+        return [ 'ObjectID', 'Name', 'Release', this.deploy_field ];
+    },
+    
+    _isLocked: function (fieldName, newValue) {
+        var release = this.get('__Release');
+        var lock_field_name = this.get('_ReleaseLockFieldName');
+        
+        if ( Ext.isEmpty(release) || Ext.isEmpty(lock_field_name) ) {
+            return false;
+        }
+        
+        return release[lock_field_name];
     },
     
     clearAndRemove: function() {
@@ -1673,6 +1688,12 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
         return Rally.util.DateTime.add(Rally.util.DateTime.add(js_date,'day',1),'second',-1);
     }
 });
+Ext.override(Rally.ui.grid.plugin.Validation,{
+    _onBeforeEdit: function(editor, object, eOpts) {
+        // clear this because it won't let us do the getEditor on cells
+    }
+});
+
 /**
  */
  
@@ -1724,6 +1745,7 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
         Rally.technicalservices.TimeModelBuilder.build('TimeEntryItem','TSTableRow').then({
             scope: this,
             success: function(model) {
+                this.row_model = model;
                 
                 var table_store = Ext.create('Rally.data.custom.Store',{
                     model: 'TSTableRow',
@@ -1819,13 +1841,13 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
         if ( !Ext.isEmpty(this.timesheet_user) ) {
             user_oid = this.timesheet_user.ObjectID;
         }
-        
+
         var config = {
             model: 'TimeEntryItem',
             context: {
                 project: null
             },
-            fetch: this.time_entry_item_fetch,
+            fetch: Ext.Array.merge(Rally.technicalservices.TimeModelBuilder.getFetchFields(), this.time_entry_item_fetch),
             filters: [
                 {property:'WeekStartDate',value:week_start},
                 {property:'User.ObjectID',value:user_oid}
@@ -1863,12 +1885,11 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
         this.removeAll();
         
         var me = this;
-        var columns = this._getColumns();
                 
         this.grid = this.add({ 
             xtype:'rallygrid', 
             store: table_store,
-            columnCfgs: columns,
+            columnCfgs: this._getColumns(),
             showPagingToolbar : false,
             showRowActionsColumn : false,
             sortableColumns: false,
@@ -1897,6 +1918,7 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
     addRowForItem: function(item) {
         var me = this;
         var week_start_date = this.weekStart;
+        console.log('adding ', item);
         
         var item_type = item.get('_type');
         
@@ -1925,8 +1947,10 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
                     
                     var time_entry_item = Ext.create(model,config);
                     
+                    var fetch = Ext.Array.merge(Rally.technicalservices.TimeModelBuilder.getFetchFields(), this.time_entry_item_fetch);
+
                     time_entry_item.save({
-                        fetch: me.time_entry_item_fetch,
+                        fetch: fetch,
                         callback: function(result, operation) {
                             if(operation.wasSuccessful()) {
                                 var product = result.get('Project');
@@ -1938,11 +1962,11 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
                                     feature = workproduct.Feature;
                                     product = feature.Project;
                                 }
-                                
+                                                                
                                 if ( !Ext.isEmpty(workproduct) && workproduct.Release ) {
                                     release = workproduct.Release;
                                 }
-                                
+                                                                
                                 var data = {
                                     __TimeEntryItem:result,
                                     __Feature: feature,
@@ -2021,8 +2045,12 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
                 text: 'Product',
                 flex: 1,
                 editor: null,
-                renderer: function(v) {
-                    return v._refObjectName;
+                renderer: function(value,meta,record) {
+                    if ( record.isLocked() ) {
+                        return "<span class='icon-lock'> </span>" + value._refObjectName;
+                    }
+
+                    return value._refObjectName;
                 },
                 summaryRenderer: function() {
                     return "Totals";
@@ -2033,16 +2061,29 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
                 text:  'Feature',
                 flex: 1,
                 editor: null,
-                renderer: function(v) {
-                    if ( Ext.isEmpty(v) ) { return ""; }
-                    return v._refObjectName;
+                renderer: function(value) {
+                    if ( Ext.isEmpty(value) ) { return ""; }
+                    return Ext.String.format("<a target='_blank' href='{0}'>{1}</a>",
+                        Rally.nav.Manager.getDetailUrl(value),
+                        value._refObjectName
+                    );;
                 }
             },
             {
-                dataIndex: 'WorkProductDisplayString',
+                dataIndex: 'WorkProduct',
                 text:  'Work Product',
                 flex: 1,
-                editor: null
+                editor: null,
+                renderer: function(value, meta, record) {
+                    if ( Ext.isEmpty(value) ) {
+                        return record.get('WorkProductDisplayString');
+                    }
+                    
+                    return Ext.String.format("<a target='_blank' href='{0}'>{1}</a>",
+                        Rally.nav.Manager.getDetailUrl(value),
+                        record.get('WorkProductDisplayString')
+                    );
+                }
             },
             {
                 dataIndex: '__Release',
@@ -2055,33 +2096,53 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
                 }
             },
             {
-                dataIndex: 'TaskDisplayString',
+                dataIndex: 'Task',
                 text:  'Task',
                 flex: 1,
-                editor: null
+                editor: null,
+                renderer: function(value, meta, record) {
+                    if ( Ext.isEmpty(value) ) {
+                        return record.get('TaskDisplayString');
+                    }
+                    
+                    return Ext.String.format("<a target='_blank' href='{0}'>{1}</a>",
+                        Rally.nav.Manager.getDetailUrl(value),
+                        record.get('TaskDisplayString')
+                    );
+                }
             }
         ]);
         
         var day_width = 50;
         
-        var editor_config = {
-            xtype:'rallynumberfield',
-            minValue: 0,
-            maxValue: 24
+        var editor_config = function(record,df){
+            var config = {
+                xtype:'rallynumberfield',
+                minValue: 0,
+                maxValue: 24,
+                listeners: {
+                    change: function(field, new_value, old_value) {
+                        if ( Ext.isEmpty(new_value) ) {
+                            field.setValue(0);
+                        }
+                    }
+                }
+            };
+            
+            if( record.isLocked() || ! me.editable ){
+                return false;
+            } 
+            
+            return config;
         };
         
-        if ( ! this.editable ) {
-            editor_config = null;
-        }
-        
-        
-        columns.push({dataIndex:'__Sunday',   width: day_width, text:'Sun',   align: 'center',editor: editor_config, summaryType: 'sum'});
-        columns.push({dataIndex:'__Monday',   width: day_width, text:'Mon',   align: 'center',editor: editor_config, summaryType: 'sum'});
-        columns.push({dataIndex:'__Tuesday',  width: day_width, text:'Tue',   align: 'center',editor: editor_config, summaryType: 'sum'});
-        columns.push({dataIndex:'__Wednesday',width: day_width, text:'Wed',   align: 'center',editor: editor_config, summaryType: 'sum'});
-        columns.push({dataIndex:'__Thursday', width: day_width, text:'Thur',  align: 'center',editor: editor_config, summaryType: 'sum'});
-        columns.push({dataIndex:'__Friday',   width: day_width, text:'Fri',   align: 'center',editor: editor_config, summaryType: 'sum'});
-        columns.push({dataIndex:'__Saturday', width: day_width, text:'Sat',   align: 'center',editor: editor_config, summaryType: 'sum'});
+        columns.push({dataIndex:'__Sunday',   width: day_width, text:'Sun',   align: 'center',getEditor: editor_config, summaryType: 'sum'});
+        columns.push({dataIndex:'__Monday',   width: day_width, text:'Mon',   align: 'center',getEditor: editor_config, summaryType: 'sum'});
+        columns.push({dataIndex:'__Tuesday',  width: day_width, text:'Tue',   align: 'center',getEditor: editor_config, summaryType: 'sum'});
+        columns.push({dataIndex:'__Wednesday',width: day_width, text:'Wed',   align: 'center',getEditor: editor_config, summaryType: 'sum'});
+        columns.push({dataIndex:'__Thursday', width: day_width, text:'Thur',  align: 'center',getEditor: editor_config, summaryType: 'sum'});
+        columns.push({dataIndex:'__Friday',   width: day_width, text:'Fri',   align: 'center',getEditor: editor_config, summaryType: 'sum'});
+        columns.push({dataIndex:'__Saturday', width: day_width, text:'Sat',   align: 'center',getEditor: editor_config, summaryType: 'sum'});
         
         var total_renderer = function(v, meta, record) {
             meta.tdCls = "totals";
@@ -2286,7 +2347,8 @@ Ext.define('TSLockedWeek',{
         { name: '__Status', type: 'string', defaultValue: 'Unknown' }, // Open, Approved, Locked
         { name: 'WeekStartDate', type: 'date' },
         { name: '__LastUpdateBy', type: 'object' },
-        { name: '__LastUpdateDate', type: 'date' }
+        { name: '__LastUpdateDate', type: 'date' },
+        { name: 'Preference', type: 'object'}
     ],
     
     isSelectable: function() {
@@ -2344,7 +2406,6 @@ Ext.define('TSLockedWeek',{
                     pref.save({
                         callback: function(result, operation) {
                             if(!operation.wasSuccessful()) {
-                                console.log(operation);
                                 Ext.Msg.alert("Problem saving status");
                             } else {
                                 deferred.resolve(result);
@@ -2371,7 +2432,7 @@ Ext.define('TSLockedWeek',{
                 }
             },
             failure: function(msg) {
-                Ext.Msg.alert("Failed to save approval state to " + pref_key, msg);
+                Ext.Msg.alert("Failed to save week unlock state to " + pref_key, msg);
             }
         });
         
@@ -2436,8 +2497,7 @@ Ext.define('TSLockedWeek',{
                         if(operation.wasSuccessful()) {
                             deferred.resolve([result]);
                         } else {
-                            console.log(operation);
-                            deferred.reject('oops');
+                            deferred.reject(operation.error.errors.join('. '));
                         }
                     }
                 });
@@ -2652,13 +2712,12 @@ Ext.define("TSAdmin", {
                 var locked_weeks =  Ext.Array.map(preferences, function(preference){
                     var status_object = Ext.JSON.decode(preference.get('Value'));
                     
-                    console.log('status_object', status_object);
-                    
                     var locked_week = Ext.create('TSLockedWeek',{
                         '__Status': status_object.status,
                         'WeekStartDate': status_object.week_start,
                         '__LastUpdateBy': status_object.status_owner,
-                        '__LastUpdateDate': status_object.status_date
+                        '__LastUpdateDate': status_object.status_date,
+                        'Preference': preference
                     });
                     return locked_week;
                 });
@@ -2697,8 +2756,31 @@ Ext.define("TSAdmin", {
     
     _getColumns: function() {
         var columns = [];
-        
-        return Ext.Array.merge([], [
+        columns.push({
+            xtype: 'tscommentrowactioncolumn',
+            rowActionsFn: function(record,view) {
+                return [
+                    {
+                        text: 'Unlock', 
+                        record: record, 
+                        view: view,
+                        handler: function(){
+                            var item = this.record;
+                            var pref = this.record.get('Preference');
+                            
+                            if ( pref ) {
+                                if ( this.view && this.view.getStore() ) {
+                                    this.view.getStore().remove(item);
+                                    this.view.getStore().fireEvent('recordRemoved',this.view.getStore(), item);
+                                }
+                                pref.destroy();
+                            }
+                        }}
+                ]
+            }
+        });
+                
+        return Ext.Array.merge(columns, [
             {dataIndex: 'WeekStartDate', text:'Week of', renderer: function(value) {
                 var start_date = value;
                 start_date = new Date(start_date.getUTCFullYear(), 
