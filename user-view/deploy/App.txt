@@ -3,11 +3,11 @@
 <head>
     <title>Extended Timesheet</title>
     <!--  (c) 2015 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Thu Jan 07 2016 16:50:32 GMT-0800 (PST) -->
+    <!--  Build Date: Thu Jan 07 2016 16:56:43 GMT-0800 (PST) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Thu Jan 07 2016 16:50:32 GMT-0800 (PST)";
-        var CHECKSUM = 209632755194;
+        var APP_BUILD_DATE = "Thu Jan 07 2016 16:56:43 GMT-0800 (PST)";
+        var CHECKSUM = 209046801971;
     </script>
     
     <script type="text/javascript" src="/apps/2.0/sdk.js"></script>
@@ -2477,16 +2477,7 @@ Ext.define('Rally.technicalservices.ChooserDialog', {
          *         attributeName: 'FormattedID'
          *     }
          */
-        filterableFields: [
-            {
-                displayName: 'Formatted ID',
-                attributeName: 'FormattedID'
-            },
-            {
-                displayName: 'Name',
-                attributeName: 'Name'
-            }
-        ],
+        filterableFields: [],
 
         /**
          * @cfg {Ext.grid.Column}
@@ -2498,10 +2489,11 @@ Ext.define('Rally.technicalservices.ChooserDialog', {
                 dataIndex: 'FormattedID'
             },
             'Name',
-            'ScheduleState',
-            'State',
+            'WorkProduct',
+            'Release',
+            'Project',
             'Owner',
-            'WorkProduct'
+            'State'
         ],
 
         /**

@@ -51,16 +51,7 @@ Ext.define('Rally.technicalservices.ChooserDialog', {
          *         attributeName: 'FormattedID'
          *     }
          */
-        filterableFields: [
-            {
-                displayName: 'Formatted ID',
-                attributeName: 'FormattedID'
-            },
-            {
-                displayName: 'Name',
-                attributeName: 'Name'
-            }
-        ],
+        filterableFields: [],
 
         /**
          * @cfg {Ext.grid.Column}
@@ -72,10 +63,11 @@ Ext.define('Rally.technicalservices.ChooserDialog', {
                 dataIndex: 'FormattedID'
             },
             'Name',
-            'ScheduleState',
-            'State',
+            'WorkProduct',
+            'Release',
+            'Project',
             'Owner',
-            'WorkProduct'
+            'State'
         ],
 
         /**
