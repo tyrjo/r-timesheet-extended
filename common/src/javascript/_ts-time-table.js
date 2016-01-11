@@ -229,10 +229,9 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
         var me = this;
         var week_start_date = this.weekStart;
         console.log('adding ', item);
-        
-        var item_type = item.get('_type');
-        
         if ( !this._hasRowForItem(item)) {
+            var item_type = item.get('_type');
+
             Rally.data.ModelFactory.getModel({
                 type: 'TimeEntryItem',
                 scope: this,
@@ -493,7 +492,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
         
         // determine what beginning of week is
         var start_of_week_js = date_in_week;
-        start_of_week_js.setDate( day_of_month - day_of_week );
+        start_of_week_js.setUTCDate( day_of_month - day_of_week );
         
         return Rally.util.DateTime.toIsoString(start_of_week_js,true).replace(/T.*$/,'T00:00:00.000Z');
        
