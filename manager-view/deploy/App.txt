@@ -3,11 +3,11 @@
 <head>
     <title>Time Sheet Approval</title>
     <!--  (c) 2015 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Thu Jan 14 2016 17:50:29 GMT-0800 (PST) -->
+    <!--  Build Date: Thu Jan 14 2016 18:28:54 GMT-0800 (PST) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Thu Jan 14 2016 17:50:29 GMT-0800 (PST)";
-        var CHECKSUM = 242797652230;
+        var APP_BUILD_DATE = "Thu Jan 14 2016 18:28:54 GMT-0800 (PST)";
+        var CHECKSUM = 250330660171;
     </script>
     
     <script type="text/javascript" src="/apps/2.0/sdk.js"></script>
@@ -834,7 +834,7 @@ Ext.define('Rally.technicalservices.FileUtilities', {
         csv.push('"' + headers.join('","') + '"');
 
         var number_of_records = store.getTotalCount();
-        
+        this.logger.log("Store:", store);
         this.logger.log("Number of records to export:", number_of_records);
         
         for (var i = 0; i < number_of_records; i++) {
@@ -854,6 +854,7 @@ Ext.define('Rally.technicalservices.FileUtilities', {
         var columns = grid.columns;
 
         Ext.Array.each(columns,function(column){
+            
             if ( column.dataIndex || column.renderer ) {
                 if ( column.csvText ) {
                     headers.push(column.csvText.replace('&nbsp;',' '));
@@ -1745,14 +1746,6 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
         Rally.technicalservices.TimeModelBuilder.build('TimeEntryItem','TSTableRow').then({
             scope: this,
             success: function(model) {
-                this.row_model = model;
-                
-                var table_store = Ext.create('Rally.data.custom.Store',{
-                    model: 'TSTableRow',
-                    groupField: '__SecretKey'
-                });
-                
-                this._makeGrid(table_store);
                 this._updateData();
             },
             failure: function(msg) {
@@ -1763,9 +1756,6 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
     
     _updateData: function() {
         this.setLoading('Loading time...');
-        var store = this.down('rallygrid').getStore();
-        
-        store.removeAll(true);
 
         Deft.Chain.sequence([
             this._loadTimeEntryItems,
@@ -1810,8 +1800,8 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                 this.logger.log('TEIs:', time_entry_items);
                 this.logger.log('Rows:', rows);
 
-                store.loadRecords(rows);
                 this.rows = rows;
+                this._makeGrid(rows);
                 this.setLoading(false);
             }
         });
@@ -1881,8 +1871,15 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
         return this._loadWsapiRecords(config);
     },
     
-    _makeGrid: function(table_store) {
+    _makeGrid: function(rows) {
         this.removeAll();
+
+        var table_store = Ext.create('Rally.data.custom.Store',{
+            model: 'TSTableRow',
+            groupField: '__SecretKey',
+            data: rows
+        });
+                
         
         var me = this;
                 
@@ -2051,6 +2048,9 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
 
                     return value._refObjectName;
                 },
+                exportRenderer: function(value,meta,record) {
+                    return value._refObjectName
+                },
                 summaryRenderer: function() {
                     return "Totals";
                 }
@@ -2066,6 +2066,10 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                         Rally.nav.Manager.getDetailUrl(value),
                         value._refObjectName
                     );;
+                },
+                exportRenderer: function(value,meta,record) {
+                    if ( Ext.isEmpty(value) ) { return ""; }
+                    return value._refObjectName
                 }
             },
             {
@@ -2082,6 +2086,9 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                         Rally.nav.Manager.getDetailUrl(value),
                         record.get('WorkProductDisplayString')
                     );
+                },
+                exportRenderer: function(value,meta,record) {
+                    return record.get('WorkProductDisplayString')
                 }
             },
             {
@@ -2108,6 +2115,9 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                         Rally.nav.Manager.getDetailUrl(value),
                         record.get('TaskDisplayString')
                     );
+                },
+                exportRenderer: function(value,meta,record) {
+                    return record.get('TaskDisplayString')
                 }
             }
         ]);
@@ -2167,6 +2177,10 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
 
         
         return columns;
+    },
+    
+    getGrid: function() {
+        return this.down('rallygrid');
     },
     
     /*
@@ -2763,9 +2777,10 @@ Ext.define('Rally.technicalservices.ManagerDetailDialog', {
     autoShow : true,
     closable : true,
     layout   : 'border',
+    
     config: {
         startDate: new Date(),
-        record: record,
+        record: null,
         commentKeyPrefix: ''
     },
 
@@ -2777,11 +2792,10 @@ Ext.define('Rally.technicalservices.ManagerDetailDialog', {
 
     initComponent: function() {
         this.callParent(arguments);
-
-        this.addCls(['chooserDialog', 'chooser-dialog']);
     },
     
     beforeRender: function() {
+        this.callParent(arguments);
         this.add({ 
             xtype:  'tstimetable',
             region: 'center',
@@ -2790,9 +2804,9 @@ Ext.define('Rally.technicalservices.ManagerDetailDialog', {
             editable: false,
             timesheet_user: this.record.get('User')
         });
-        this.add({
+        this.addDocked({
             xtype: 'container',
-            region: 'south',
+            dock: 'bottom',
             layout: 'hbox',
             itemId: 'popup_selector_box',
             padding: 10,
@@ -2807,6 +2821,7 @@ Ext.define('Rally.technicalservices.ManagerDetailDialog', {
     },
     
     _addSelectors: function() {
+        var start_date = this.startDate;
         var comment_start_date = Rally.util.DateTime.toIsoString(
             new Date(start_date.getUTCFullYear(), 
                 start_date.getUTCMonth(), 
@@ -2854,6 +2869,20 @@ Ext.define('Rally.technicalservices.ManagerDetailDialog', {
                 }
             }
         });
+        
+        this.down('#popup_right_box').add({
+            xtype:'rallybutton',
+            itemId:'export_button',
+            cls: 'secondary',
+            text: '<span class="icon-export"> </span>',
+            listeners: {
+                scope: this,
+                click: function() {
+                    this._export();
+                }
+            }
+        });
+        
     },
     
     _approveTimesheet: function(record) {
@@ -2862,6 +2891,30 @@ Ext.define('Rally.technicalservices.ManagerDetailDialog', {
     
     _unapproveTimesheet: function(record) {
         record.unapprove();
+    },
+    
+    _export: function(){
+        var grid = this.down('tstimetable').getGrid();
+        var me = this;
+        
+        if ( !grid ) { return; }
+        
+        var filename = Ext.String.format('manager-detail-report.csv');
+
+        this.setLoading("Generating CSV");
+        Deft.Chain.sequence([
+            function() { return Rally.technicalservices.FileUtilities.getCSVFromGrid(this,grid) } 
+        ]).then({
+            scope: this,
+            success: function(csv){
+                if (csv && csv.length > 0){
+                    Rally.technicalservices.FileUtilities.saveCSVToFile(csv,filename);
+                } else {
+                    Rally.ui.notify.Notifier.showWarning({message: 'No data to export'});
+                }
+                
+            }
+        }).always(function() { me.setLoading(false); });
     }
     
 });
@@ -3303,8 +3356,10 @@ Ext.define("TSTimeSheetApproval", {
             title    : Ext.String.format("{0}: {1} ({2})", user_name, Ext.Date.format(start_date,'j F Y'), status),
             autoShow : true,
             closable : true,
-            layout   : 'border',
-            commentKeyPrefix: this._commentKeyPrefix
+            autoCenter: true,
+            commentKeyPrefix: this._commentKeyPrefix,
+            record   : record,
+            startDate: start_date
         });
     },
     

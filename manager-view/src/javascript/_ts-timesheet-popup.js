@@ -95,6 +95,20 @@ Ext.define('Rally.technicalservices.ManagerDetailDialog', {
                 }
             }
         });
+        
+        this.down('#popup_right_box').add({
+            xtype:'rallybutton',
+            itemId:'export_button',
+            cls: 'secondary',
+            text: '<span class="icon-export"> </span>',
+            listeners: {
+                scope: this,
+                click: function() {
+                    this._export();
+                }
+            }
+        });
+        
     },
     
     _approveTimesheet: function(record) {
@@ -103,6 +117,30 @@ Ext.define('Rally.technicalservices.ManagerDetailDialog', {
     
     _unapproveTimesheet: function(record) {
         record.unapprove();
+    },
+    
+    _export: function(){
+        var grid = this.down('tstimetable').getGrid();
+        var me = this;
+        
+        if ( !grid ) { return; }
+        
+        var filename = Ext.String.format('manager-detail-report.csv');
+
+        this.setLoading("Generating CSV");
+        Deft.Chain.sequence([
+            function() { return Rally.technicalservices.FileUtilities.getCSVFromGrid(this,grid) } 
+        ]).then({
+            scope: this,
+            success: function(csv){
+                if (csv && csv.length > 0){
+                    Rally.technicalservices.FileUtilities.saveCSVToFile(csv,filename);
+                } else {
+                    Rally.ui.notify.Notifier.showWarning({message: 'No data to export'});
+                }
+                
+            }
+        }).always(function() { me.setLoading(false); });
     }
     
 });

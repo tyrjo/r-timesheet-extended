@@ -55,14 +55,6 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
         Rally.technicalservices.TimeModelBuilder.build('TimeEntryItem','TSTableRow').then({
             scope: this,
             success: function(model) {
-                this.row_model = model;
-                
-                var table_store = Ext.create('Rally.data.custom.Store',{
-                    model: 'TSTableRow',
-                    groupField: '__SecretKey'
-                });
-                
-                this._makeGrid(table_store);
                 this._updateData();
             },
             failure: function(msg) {
@@ -73,9 +65,6 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
     
     _updateData: function() {
         this.setLoading('Loading time...');
-        var store = this.down('rallygrid').getStore();
-        
-        store.removeAll(true);
 
         Deft.Chain.sequence([
             this._loadTimeEntryItems,
@@ -120,8 +109,8 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                 this.logger.log('TEIs:', time_entry_items);
                 this.logger.log('Rows:', rows);
 
-                store.loadRecords(rows);
                 this.rows = rows;
+                this._makeGrid(rows);
                 this.setLoading(false);
             }
         });
@@ -191,8 +180,15 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
         return this._loadWsapiRecords(config);
     },
     
-    _makeGrid: function(table_store) {
+    _makeGrid: function(rows) {
         this.removeAll();
+
+        var table_store = Ext.create('Rally.data.custom.Store',{
+            model: 'TSTableRow',
+            groupField: '__SecretKey',
+            data: rows
+        });
+                
         
         var me = this;
                 
@@ -361,6 +357,9 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
 
                     return value._refObjectName;
                 },
+                exportRenderer: function(value,meta,record) {
+                    return value._refObjectName
+                },
                 summaryRenderer: function() {
                     return "Totals";
                 }
@@ -376,6 +375,10 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                         Rally.nav.Manager.getDetailUrl(value),
                         value._refObjectName
                     );;
+                },
+                exportRenderer: function(value,meta,record) {
+                    if ( Ext.isEmpty(value) ) { return ""; }
+                    return value._refObjectName
                 }
             },
             {
@@ -392,6 +395,9 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                         Rally.nav.Manager.getDetailUrl(value),
                         record.get('WorkProductDisplayString')
                     );
+                },
+                exportRenderer: function(value,meta,record) {
+                    return record.get('WorkProductDisplayString')
                 }
             },
             {
@@ -418,6 +424,9 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                         Rally.nav.Manager.getDetailUrl(value),
                         record.get('TaskDisplayString')
                     );
+                },
+                exportRenderer: function(value,meta,record) {
+                    return record.get('TaskDisplayString')
                 }
             }
         ]);
@@ -477,6 +486,10 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
 
         
         return columns;
+    },
+    
+    getGrid: function() {
+        return this.down('rallygrid');
     },
     
     /*
