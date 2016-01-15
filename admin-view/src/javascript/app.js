@@ -178,9 +178,10 @@ Ext.define("TSAdmin", {
     },
     
     _addRowForItem: function(chosen_week) {
+        
         var week = Ext.create('TSLockedWeek',{
             '__Status': "Locked",
-            'WeekStartDate': chosen_week
+            'WeekStartDate': this._getStartOfWeek( chosen_week )
         });
         
         week.lock().then({
@@ -190,6 +191,21 @@ Ext.define("TSAdmin", {
         
     },
     
+    _getStartOfWeek: function(date_in_week){
+        if ( typeof(date_in_week) == 'undefined' ) {
+            date_in_week = new Date();
+        }
+
+        var day_of_week = date_in_week.getDay();
+        var day_of_month = date_in_week.getDate();
+        
+        // determine what beginning of week is
+        var start_of_week_js = date_in_week;
+        start_of_week_js.setUTCDate( day_of_month - day_of_week );
+        
+        return Rally.util.DateTime.toIsoString(start_of_week_js,true).replace(/T.*$/,'');
+       
+    },
 //    getOptions: function() {
 //        return [
 //            {
