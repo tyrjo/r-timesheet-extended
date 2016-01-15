@@ -3,11 +3,11 @@
 <head>
     <title>Time Sheet Approval</title>
     <!--  (c) 2015 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Thu Jan 14 2016 18:41:00 GMT-0800 (PST) -->
+    <!--  Build Date: Thu Jan 14 2016 18:59:42 GMT-0800 (PST) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Thu Jan 14 2016 18:41:00 GMT-0800 (PST)";
-        var CHECKSUM = 252617646708;
+        var APP_BUILD_DATE = "Thu Jan 14 2016 18:59:42 GMT-0800 (PST)";
+        var CHECKSUM = 252687876664;
     </script>
     
     <script type="text/javascript" src="/apps/2.0/sdk.js"></script>
@@ -2852,7 +2852,7 @@ Ext.define('Rally.technicalservices.ManagerDetailDialog', {
             listeners: {
                 scope: this,
                 click: function() {
-                    this._unapproveTimesheet(record);
+                    this._unapproveTimesheet(this.record);
                     this.close();
                 }
             }
@@ -2865,7 +2865,7 @@ Ext.define('Rally.technicalservices.ManagerDetailDialog', {
             listeners: {
                 scope: this,
                 click: function() {
-                    this._approveTimesheet(record);
+                    this._approveTimesheet(this.record);
                     this.close();
                 }
             }

@@ -167,7 +167,6 @@ Ext.define("TSExtendedTimesheet", {
                         editable = false;
                         status_box.add({xtype:'container',html:'Week Locked'});
                     }
-                    console.log('editable', editable);
                 }
 
                 this.time_table = display_box.add({ 
@@ -196,17 +195,25 @@ Ext.define("TSExtendedTimesheet", {
         });
     },
     
+    _getStartOfWeek: function(date_in_week){
+        if ( typeof(date_in_week) == 'undefined' ) {
+            date_in_week = new Date();
+        }
+
+        var day_of_week = date_in_week.getDay();
+        var day_of_month = date_in_week.getDate();
+        
+        // determine what beginning of week is
+        var start_of_week_js = date_in_week;
+        start_of_week_js.setUTCDate( day_of_month - day_of_week );
+        
+        return Rally.util.DateTime.toIsoString(start_of_week_js,true).replace(/T.*$/,'');
+       
+    },
+    
     _loadWeekStatusPreference: function() {
         var start_date = this.startDate;
-        start_date = Rally.util.DateTime.toIsoString(
-            new Date(start_date.getUTCFullYear(), 
-                start_date.getUTCMonth(), 
-                start_date.getUTCDate(),  
-                start_date.getUTCHours(), 
-                start_date.getUTCMinutes(), 
-                start_date.getUTCSeconds()
-            )
-        ).replace(/T.*$/,'');
+        start_date = this._getStartOfWeek(start_date);
         
         var key = Ext.String.format("{0}.{1}.{2}", 
             this._approvalKeyPrefix,
@@ -228,15 +235,7 @@ Ext.define("TSExtendedTimesheet", {
     
     _loadWeekLockPreference: function() {
         var start_date = this.startDate;
-        start_date = Rally.util.DateTime.toIsoString(
-            new Date(start_date.getUTCFullYear(), 
-                start_date.getUTCMonth(), 
-                start_date.getUTCDate(),  
-                start_date.getUTCHours(), 
-                start_date.getUTCMinutes(), 
-                start_date.getUTCSeconds()
-            )
-        ).replace(/T.*$/,'');
+        start_date = this._getStartOfWeek(start_date);
         
         var key = Ext.String.format("{0}.{1}", 
             this._timeLockKeyPrefix,

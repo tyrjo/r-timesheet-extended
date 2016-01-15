@@ -77,7 +77,7 @@ Ext.define('Rally.technicalservices.ManagerDetailDialog', {
             listeners: {
                 scope: this,
                 click: function() {
-                    this._unapproveTimesheet(record);
+                    this._unapproveTimesheet(this.record);
                     this.close();
                 }
             }
@@ -90,7 +90,7 @@ Ext.define('Rally.technicalservices.ManagerDetailDialog', {
             listeners: {
                 scope: this,
                 click: function() {
-                    this._approveTimesheet(record);
+                    this._approveTimesheet(this.record);
                     this.close();
                 }
             }
