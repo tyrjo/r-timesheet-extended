@@ -120,7 +120,8 @@ Ext.define("TSTimeSheetApproval", {
                         dp.setValue(week_start);
                     }
                     if ( new_value.getDay() === 0 ) {
-                        this._updateData();
+                        this.down('#go_button') && this.down('#go_button').setDisabled(false);
+//                        this._updateData();
                     }
                 }
             }
@@ -137,12 +138,26 @@ Ext.define("TSTimeSheetApproval", {
                     if ( week_start !== new_value ) {
                         dp.setValue(week_start);
                     }
+                    
                     if ( new_value.getDay() === 0 ) {
-                        this._updateData();
+                        this.down('#go_button') && this.down('#go_button').setDisabled(false);
+//                        this._updateData();
                     }
                 }
             }
         }).setValue(Rally.util.DateTime.add(new Date(), 'week', -1));
+        
+        container.add({
+            xtype:'rallybutton',
+            itemId: 'go_button',
+            text:'Go',
+            margin: '15 3 3 3',
+            disabled: false,
+            listeners: {
+                scope: this,
+                click: this._updateData
+            }
+        });
         
         container.add({xtype:'container',flex: 1});
 
@@ -154,6 +169,8 @@ Ext.define("TSTimeSheetApproval", {
     
     _updateData: function() {
         this.down('#display_box').removeAll();
+        this.down('#go_button').setDisabled(true);
+        
         if ( this.pipeline && this.pipeline.getState() === 'pending' ) {
             this.pipeline.cancel();
         }
