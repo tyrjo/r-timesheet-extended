@@ -22,7 +22,8 @@ Ext.define("TSTimeSheetApproval", {
     
     config: {
         defaultSettings: {
-            managerField: 'DisplayName'
+            managerField: 'DisplayName',
+            showAllForAdmins: false
         }
     },
     
@@ -156,14 +157,15 @@ Ext.define("TSTimeSheetApproval", {
     
     _currentUserCanUnapprove: function() {
         this.logger.log('_currentUserCanUnapprove',this.getContext().getUser(), this.getContext().getUser().SubscriptionAdmin);
+        
         if ( this.getContext().getUser().SubscriptionAdmin ) {
             return true;
         }
         
         var permissions = this.getContext().getPermissions().userPermissions;
         
-        this.logger.log('permissions', this.getContext().getPermissions());
-        this.logger.log('user permissions', permissions);
+//        this.logger.log('permissions', this.getContext().getPermissions());
+//        this.logger.log('user permissions', permissions);
 
         var workspace_admin_list = Ext.Array.filter(permissions, function(p) {
             return ( p.Role == "Workspace Admin" || p.Role == "Subscription Admin");
@@ -203,7 +205,7 @@ Ext.define("TSTimeSheetApproval", {
             filters.push({property:'WeekStartDate', operator: '<=', value:start_date});
         }
         
-        if ( ! this._currentUserCanUnapprove() ) {
+        if ( ! this.getSetting('showAllForAdmins') ){
             var current_user_name = this.getContext().getUser().UserName;
             filters.push({property:'User.' + this.getSetting('managerField'), value: current_user_name});
         }
@@ -551,6 +553,14 @@ Ext.define("TSTimeSheetApproval", {
         var me = this;
         
         return [{
+            name: 'showAllForAdmins',
+            xtype: 'rallycheckboxfield',
+            boxLabelAlign: 'after',
+            fieldLabel: '',
+            margin: '0 0 25 10',
+            boxLabel: 'Show All<br/><span style="color:#999999;"><i>Tick to show all timesheets regardless of manager for admins.</i></span>'
+        },
+        {
             name: 'managerField',
             xtype: 'rallyfieldcombobox',
             fieldLabel: 'User Manager Field',
