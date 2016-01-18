@@ -113,6 +113,10 @@ Ext.define('TSUtilities', {
         
         console.log('  ', can_unlock);
         return can_unlock;
+    },
+    
+    _currentUserCanUnapprove: function() {
+        return this._currentUserIsAdmin();
     }
     
 });

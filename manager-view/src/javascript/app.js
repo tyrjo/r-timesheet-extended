@@ -45,12 +45,17 @@ Ext.define("TSTimeSheetApproval", {
                     if ( button.expanded == true ) {
                         button.expanded = false;
                         button.setText('<span class="icon-expandall"> </span>');
-                        
-                        this.down('rallygrid').getView().features[0].collapseAll();
+                        var grid = this.down('rallygrid');
+                        if ( grid ) {
+                            grid.getView().features[0].collapseAll();
+                        }
                     } else {
                         button.expanded = true;
                         button.setText('<span class="icon-collapseall"> </span>');
-                        this.down('rallygrid').getView().features[0].expandAll();
+                        var grid = this.down('rallygrid');
+                        if ( grid ) {
+                            grid.getView().features[0].expandAll();
+                        }
                     }
                 }
             }
@@ -191,40 +196,6 @@ Ext.define("TSTimeSheetApproval", {
         });
     },
     
-    _currentUserCanUnapprove: function() {
-        this.logger.log('_currentUserCanUnapprove',this.getContext().getUser(), this.getContext().getUser().SubscriptionAdmin);
-        
-        if ( this.getContext().getUser().SubscriptionAdmin ) {
-            return true;
-        }
-        
-        var permissions = this.getContext().getPermissions().userPermissions;
-        
-//        this.logger.log('permissions', this.getContext().getPermissions());
-//        this.logger.log('user permissions', permissions);
-
-        var workspace_admin_list = Ext.Array.filter(permissions, function(p) {
-            return ( p.Role == "Workspace Admin" || p.Role == "Subscription Admin");
-        });
-        
-        var current_workspace_ref = this.getContext().getWorkspace()._ref;
-        var can_unapprove = false;
-        
-        this.logger.log('WS Admin list: ', workspace_admin_list);
-        
-        if ( workspace_admin_list.length > 0 ) {
-            Ext.Array.each(workspace_admin_list, function(p){
-                console.log('comparing ', p._ref, current_workspace_ref);
-                
-                if (current_workspace_ref.replace(/\.js$/,'') == p._ref.replace(/\.js$/,'')) {
-                    can_unapprove = true;
-                }
-            });
-        }
-        
-        return can_unapprove;
-    },
-    
     _loadTimesheets: function() {
         var deferred = Ext.create('Deft.Deferred');
         this.setLoading("Loading timesheets...");
@@ -317,17 +288,28 @@ Ext.define("TSTimeSheetApproval", {
         TSUtilities._loadWsapiRecords(config).then({
             scope: this,
             success: function(preferences) {
+                this.logger.log("Applying preferences", preferences);
                 var preferences_by_key = {};
                 
                 Ext.Array.each(preferences, function(pref){
                     preferences_by_key[pref.get('Name')] = pref;
                 });
                 
+                console.log('--');
                 Ext.Array.each(timesheets, function(timesheet){
-                    console.log(timesheet);
                     var key = timesheet.getPreferenceKey();
                     if (preferences_by_key[key]) {
-                        var status_object = Ext.JSON.decode(preferences_by_key[key].get('Value'));
+                        var value = preferences_by_key[key].get('Value');
+                        var status_object = {};
+                        if ( /{/.test(value) ) {
+                            status_object = Ext.JSON.decode(value);
+                        } else {
+                            status_object = {
+                                status: value,
+                                status_owner: { _refObjectName: '' }
+                            }
+                        }
+
                         timesheet.set('__Status', status_object.status || "Open");
                         timesheet.set('__LastUpdateBy', status_object.status_owner._refObjectName || "");
 
@@ -335,6 +317,8 @@ Ext.define("TSTimeSheetApproval", {
                         timesheet.set('__Status', 'Open');
                     }
                 });
+                
+                console.log('--');
                 
                 var filtered_timesheets = Ext.Array.filter(timesheets, function(timesheet){
                     if (stateFilter == "ALL") {
@@ -367,7 +351,7 @@ Ext.define("TSTimeSheetApproval", {
     },
 
     _addGrid: function(container, timesheets) {
-        this.logger.log(timesheets);
+        this.logger.log("_addGrid",timesheets);
         
         var store = Ext.create('Rally.data.custom.Store',{
             data:timesheets,
@@ -421,7 +405,7 @@ Ext.define("TSTimeSheetApproval", {
     _getColumns: function() {
         var columns = [{
             xtype: 'tsrowactioncolumn',
-            canUnapprove: this._currentUserCanUnapprove()
+            canUnapprove: TSUtilities._currentUserCanUnapprove()
         }];
         
         columns.push({dataIndex:'User',text:'User', renderer: function(v) { return v._refObjectName; }});

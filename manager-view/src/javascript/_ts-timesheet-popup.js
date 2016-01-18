@@ -47,6 +47,8 @@ Ext.define('Rally.technicalservices.ManagerDetailDialog', {
     },
     
     _addSelectors: function() {
+        var status = this.record.get('__Status');
+        
         var start_date = this.startDate;
         var comment_start_date = Rally.util.DateTime.toIsoString(
             new Date(start_date.getUTCFullYear(), 
@@ -73,7 +75,7 @@ Ext.define('Rally.technicalservices.ManagerDetailDialog', {
         this.down('#popup_right_box').add({
             xtype:'rallybutton', 
             text:'Unapprove',
-            disabled: (status != "Approved" || !this._currentUserCanUnapprove()),
+            disabled: (status != "Approved" || !TSUtilities._currentUserCanUnapprove()),
             listeners: {
                 scope: this,
                 click: function() {
