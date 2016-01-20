@@ -50,7 +50,6 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
                                     // the other record exists
                                     src.set('Hours', value);
                                     // TODO: check for errors on return 
-                                    // TODO: check for over 24 hours total
                                     src.save();
                                     me._updateTotal();
                                 } else {
@@ -94,11 +93,6 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
                     getField: this.getField,
                     clearAndRemove: this.clearAndRemove,
                     isLocked: this._isLocked
-//                    isUpdatable: function() { return true; },
-//                    canHaveTasks: function() { return false; },
-//                    canHaveDefects: function() { return false; },
-//                    canHaveTestCases: function() { return false; },
-//                    canHaveChildren: function() { return false; }
                 });
                 
                 this.model = new_model;

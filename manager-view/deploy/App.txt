@@ -3,11 +3,11 @@
 <head>
     <title>Time Sheet Approval</title>
     <!--  (c) 2015 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Tue Jan 19 2016 19:20:13 GMT-0800 (PST) -->
+    <!--  Build Date: Tue Jan 19 2016 19:33:19 GMT-0800 (PST) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Tue Jan 19 2016 19:20:13 GMT-0800 (PST)";
-        var CHECKSUM = 259530468453;
+        var APP_BUILD_DATE = "Tue Jan 19 2016 19:33:19 GMT-0800 (PST)";
+        var CHECKSUM = 260092079337;
     </script>
     
     <script type="text/javascript" src="/apps/2.0/sdk.js"></script>
@@ -1526,7 +1526,6 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
                                     // the other record exists
                                     src.set('Hours', value);
                                     // TODO: check for errors on return 
-                                    // TODO: check for over 24 hours total
                                     src.save();
                                     me._updateTotal();
                                 } else {
@@ -1570,11 +1569,6 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
                     getField: this.getField,
                     clearAndRemove: this.clearAndRemove,
                     isLocked: this._isLocked
-//                    isUpdatable: function() { return true; },
-//                    canHaveTasks: function() { return false; },
-//                    canHaveDefects: function() { return false; },
-//                    canHaveTestCases: function() { return false; },
-//                    canHaveChildren: function() { return false; }
                 });
                 
                 this.model = new_model;
@@ -1719,7 +1713,8 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
     config: {
         weekStart: new Date(),
         editable: true,
-        timesheet_user: null
+        timesheet_user: null,
+        timesheet_status: null
     },
     
     constructor: function (config) {
@@ -2062,9 +2057,20 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                 editor: null,
                 hidden: true,
                 renderer: function(value, meta, record) {
+                    console.log('record', record);
                     return record.isLocked() || false;
                 }
-            },
+            }]);
+            
+        if ( me.timesheet_status || me.timesheet_status === false ) {
+            Ext.Array.push(columns,[{
+                dataIndex: '__Product',
+                text: 'Status',
+                renderer: function(v) { return me.timesheet_status; }
+            }]);
+        }
+        
+        Ext.Array.push(columns, [
             {
                 dataIndex: '__Product',
                 text: 'Product',
@@ -3468,10 +3474,13 @@ Ext.define("TSTimeSheetApproval", {
             start_date.getUTCHours(), 
             start_date.getUTCMinutes(), 
             start_date.getUTCSeconds());
-                    
+            
+        console.log('ts:', timesheet);
+        
         var timetable = Ext.create('Rally.technicalservices.TimeTable',{
             weekStart: start_date,
             editable: false,
+            timesheet_status: timesheet.get('__Status'),
             timesheet_user: timesheet.get('User'),
             listeners: {
                 scope: this,

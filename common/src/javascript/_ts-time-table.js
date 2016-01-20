@@ -26,7 +26,8 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
     config: {
         weekStart: new Date(),
         editable: true,
-        timesheet_user: null
+        timesheet_user: null,
+        timesheet_status: null
     },
     
     constructor: function (config) {
@@ -369,9 +370,20 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                 editor: null,
                 hidden: true,
                 renderer: function(value, meta, record) {
+                    console.log('record', record);
                     return record.isLocked() || false;
                 }
-            },
+            }]);
+            
+        if ( me.timesheet_status || me.timesheet_status === false ) {
+            Ext.Array.push(columns,[{
+                dataIndex: '__Product',
+                text: 'Status',
+                renderer: function(v) { return me.timesheet_status; }
+            }]);
+        }
+        
+        Ext.Array.push(columns, [
             {
                 dataIndex: '__Product',
                 text: 'Product',

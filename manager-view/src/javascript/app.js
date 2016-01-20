@@ -516,10 +516,13 @@ Ext.define("TSTimeSheetApproval", {
             start_date.getUTCHours(), 
             start_date.getUTCMinutes(), 
             start_date.getUTCSeconds());
-                    
+            
+        console.log('ts:', timesheet);
+        
         var timetable = Ext.create('Rally.technicalservices.TimeTable',{
             weekStart: start_date,
             editable: false,
+            timesheet_status: timesheet.get('__Status'),
             timesheet_user: timesheet.get('User'),
             listeners: {
                 scope: this,
