@@ -208,7 +208,7 @@ Ext.define("TSTimeSheetApproval", {
         }
         
         if (this.down('#to_date_selector') ) {
-            var start_date = Rally.util.DateTime.toIsoString( this.down('#to_date_selector').getValue(),true).replace(/T.*$/,'T00:00:00.000Z');
+            var start_date = Rally.util.DateTime.toIsoString( this.down('#to_date_selector').getValue(),true);
             filters.push({property:'WeekStartDate', operator: '<=', value:start_date});
         }
         
@@ -422,7 +422,6 @@ Ext.define("TSTimeSheetApproval", {
     },
     
     _getUTCDate: function(date) {
-        console.log('date', date);
         return new Date(date.getUTCFullYear(), 
             date.getUTCMonth(), 
             date.getUTCDate(),  
