@@ -110,8 +110,8 @@ Ext.define('Rally.technicalservices.FileUtilities', {
     _getCSVFromCustomBackedGrid: function(grid) {
         var headers = this._getHeadersFromGrid(grid);
         
-        var columns = grid.columns;
-        var column_names = this._getColumnNamesFromGrid(grid);
+//        var columns = grid.columns;
+//        var column_names = this._getColumnNamesFromGrid(grid);
         var store = grid.getStore();
         
         var csv = [];
@@ -215,7 +215,7 @@ Ext.define('Rally.technicalservices.FileUtilities', {
         var columns = grid.columns;
         
         Ext.Array.each(columns, function (column) {
-            if (column.xtype != 'rallyrowactioncolumn') {
+            if (column.xtype != 'rallyrowactioncolumn'  && column.xtype != 'tsrowactioncolumn') {
                 if (column.dataIndex) {
                     var column_name = column.dataIndex;
                     

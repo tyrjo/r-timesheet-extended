@@ -3,11 +3,11 @@
 <head>
     <title>Time Sheet Approval</title>
     <!--  (c) 2015 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Tue Jan 19 2016 17:10:24 GMT-0800 (PST) -->
+    <!--  Build Date: Tue Jan 19 2016 17:25:25 GMT-0800 (PST) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Tue Jan 19 2016 17:10:24 GMT-0800 (PST)";
-        var CHECKSUM = 250174014492;
+        var APP_BUILD_DATE = "Tue Jan 19 2016 17:25:25 GMT-0800 (PST)";
+        var CHECKSUM = 251224424543;
     </script>
     
     <script type="text/javascript" src="/apps/2.0/sdk.js"></script>
@@ -830,8 +830,8 @@ Ext.define('Rally.technicalservices.FileUtilities', {
     _getCSVFromCustomBackedGrid: function(grid) {
         var headers = this._getHeadersFromGrid(grid);
         
-        var columns = grid.columns;
-        var column_names = this._getColumnNamesFromGrid(grid);
+//        var columns = grid.columns;
+//        var column_names = this._getColumnNamesFromGrid(grid);
         var store = grid.getStore();
         
         var csv = [];
@@ -935,7 +935,7 @@ Ext.define('Rally.technicalservices.FileUtilities', {
         var columns = grid.columns;
         
         Ext.Array.each(columns, function (column) {
-            if (column.xtype != 'rallyrowactioncolumn') {
+            if (column.xtype != 'rallyrowactioncolumn'  && column.xtype != 'tsrowactioncolumn') {
                 if (column.dataIndex) {
                     var column_name = column.dataIndex;
                     
@@ -3344,7 +3344,11 @@ Ext.define("TSTimeSheetApproval", {
             canUnapprove: TSUtilities._currentUserCanUnapprove()
         }];
         
-        columns.push({dataIndex:'User',text:'User', renderer: function(v) { return v._refObjectName; }});
+        columns.push({
+            dataIndex:'User',
+            text:'User',
+            renderer: function(v) { return v._refObjectName || value.UserName; }
+        });
         columns.push({dataIndex:'WeekStartDate',text:'Week Starting', align: 'center', renderer: function(v) { return Ext.util.Format.date(v,'m/d/y'); }});
         columns.push({dataIndex:'__Hours',text:'Hours', align: 'center'});
         columns.push({dataIndex:'__Status',text:'Status', align: 'center'});
@@ -3402,14 +3406,21 @@ Ext.define("TSTimeSheetApproval", {
         if ( !grid ) { return; }
         
         this.logger.log('_export',grid);
-        this.logger.log('--', grid.getSelectionModel().getSelection());
 
         var filename = Ext.String.format('manager-time-report.csv');
 
         this.setLoading("Generating CSV");
-        Deft.Chain.sequence([
-            function() { return Rally.technicalservices.FileUtilities.getCSVFromGrid(this,grid) } 
-        ]).then({
+        
+        var promises = [];
+        
+        var selected = grid.getSelectionModel().getSelection();
+        if ( !selected || selected.length == 0 ){
+            promises.push(function() {return Rally.technicalservices.FileUtilities.getCSVFromGrid(this,grid) });
+        }
+        
+        this.logger.log('--', selected);
+        
+        Deft.Chain.sequence(promises).then({
             scope: this,
             success: function(csv){
                 if (csv && csv.length > 0){
