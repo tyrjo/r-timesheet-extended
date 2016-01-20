@@ -295,7 +295,6 @@ Ext.define("TSTimeSheetApproval", {
                     preferences_by_key[pref.get('Name')] = pref;
                 });
                 
-                console.log('--');
                 Ext.Array.each(timesheets, function(timesheet){
                     var key = timesheet.getPreferenceKey();
                     if (preferences_by_key[key]) {
@@ -317,9 +316,7 @@ Ext.define("TSTimeSheetApproval", {
                         timesheet.set('__Status', 'Open');
                     }
                 });
-                
-                console.log('--');
-                
+                                
                 var filtered_timesheets = Ext.Array.filter(timesheets, function(timesheet){
                     if (stateFilter == "ALL") {
                         return true;
@@ -403,6 +400,7 @@ Ext.define("TSTimeSheetApproval", {
     },
     
     _getColumns: function() {
+        var me = this;
         var columns = [{
             xtype: 'tsrowactioncolumn',
             canUnapprove: TSUtilities._currentUserCanUnapprove()
@@ -413,12 +411,24 @@ Ext.define("TSTimeSheetApproval", {
             text:'User',
             renderer: function(v) { return v._refObjectName || value.UserName; }
         });
-        columns.push({dataIndex:'WeekStartDate',text:'Week Starting', align: 'center', renderer: function(v) { return Ext.util.Format.date(v,'m/d/y'); }});
+        columns.push({dataIndex:'WeekStartDate',text:'Week Starting', align: 'center', renderer: function(v) { 
+            return Ext.util.Format.date(me._getUTCDate(v),'m/d/y'); 
+        }});
         columns.push({dataIndex:'__Hours',text:'Hours', align: 'center'});
         columns.push({dataIndex:'__Status',text:'Status', align: 'center'});
         columns.push({dataIndex:'__LastUpdateBy',text:'Status Changed By', align: 'center'});
         
         return columns;
+    },
+    
+    _getUTCDate: function(date) {
+        console.log('date', date);
+        return new Date(date.getUTCFullYear(), 
+            date.getUTCMonth(), 
+            date.getUTCDate(),  
+            date.getUTCHours(), 
+            date.getUTCMinutes(), 
+            date.getUTCSeconds());
     },
     
     _popup: function(record){
