@@ -3,11 +3,11 @@
 <head>
     <title>Time Sheet Approval</title>
     <!--  (c) 2015 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Tue Jan 19 2016 19:13:35 GMT-0800 (PST) -->
+    <!--  Build Date: Tue Jan 19 2016 19:20:13 GMT-0800 (PST) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Tue Jan 19 2016 19:13:35 GMT-0800 (PST)";
-        var CHECKSUM = 257674040139;
+        var APP_BUILD_DATE = "Tue Jan 19 2016 19:20:13 GMT-0800 (PST)";
+        var CHECKSUM = 259530468453;
     </script>
     
     <script type="text/javascript" src="/apps/2.0/sdk.js"></script>
@@ -2045,6 +2045,24 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                 hidden: true,
                 renderer: function(value) {
                     return value.get('User').UserName;
+                }
+            },
+            {
+                dataIndex: '__TimeEntryItem',
+                text: 'Week Start',
+                editor: null,
+                hidden: true,
+                renderer: function(value) {
+                    return value.get('WeekStartDate');
+                }
+            },
+            {
+                dataIndex: '__Product',
+                text: 'Locked',
+                editor: null,
+                hidden: true,
+                renderer: function(value, meta, record) {
+                    return record.isLocked() || false;
                 }
             },
             {

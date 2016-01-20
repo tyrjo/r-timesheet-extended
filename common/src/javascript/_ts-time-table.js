@@ -355,6 +355,24 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                 }
             },
             {
+                dataIndex: '__TimeEntryItem',
+                text: 'Week Start',
+                editor: null,
+                hidden: true,
+                renderer: function(value) {
+                    return value.get('WeekStartDate');
+                }
+            },
+            {
+                dataIndex: '__Product',
+                text: 'Locked',
+                editor: null,
+                hidden: true,
+                renderer: function(value, meta, record) {
+                    return record.isLocked() || false;
+                }
+            },
+            {
                 dataIndex: '__Product',
                 text: 'Product',
                 flex: 1,
