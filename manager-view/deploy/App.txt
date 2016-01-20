@@ -3,11 +3,11 @@
 <head>
     <title>Time Sheet Approval</title>
     <!--  (c) 2015 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Mon Jan 18 2016 10:08:24 GMT-0800 (PST) -->
+    <!--  Build Date: Tue Jan 19 2016 17:10:24 GMT-0800 (PST) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Mon Jan 18 2016 10:08:24 GMT-0800 (PST)";
-        var CHECKSUM = 248790793834;
+        var APP_BUILD_DATE = "Tue Jan 19 2016 17:10:24 GMT-0800 (PST)";
+        var CHECKSUM = 250174014492;
     </script>
     
     <script type="text/javascript" src="/apps/2.0/sdk.js"></script>
@@ -1588,7 +1588,7 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
     },
     
     getFetchFields: function() {
-        return [ 'ObjectID', 'Name', 'Release', this.deploy_field ];
+        return [ 'ObjectID', 'Name', 'Release', 'User', 'UserName', this.deploy_field ];
     },
     
     _isLocked: function (fieldName, newValue) {
@@ -2040,6 +2040,15 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
         }
             
         Ext.Array.push(columns, [
+            {
+                dataIndex: '__TimeEntryItem',
+                text: 'User',
+                editor: null,
+                hidden: true,
+                renderer: function(value) {
+                    return value.get('User').UserName;
+                }
+            },
             {
                 dataIndex: '__Product',
                 text: 'Product',
@@ -3393,6 +3402,7 @@ Ext.define("TSTimeSheetApproval", {
         if ( !grid ) { return; }
         
         this.logger.log('_export',grid);
+        this.logger.log('--', grid.getSelectionModel().getSelection());
 
         var filename = Ext.String.format('manager-time-report.csv');
 

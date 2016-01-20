@@ -466,6 +466,7 @@ Ext.define("TSTimeSheetApproval", {
         if ( !grid ) { return; }
         
         this.logger.log('_export',grid);
+        this.logger.log('--', grid.getSelectionModel().getSelection());
 
         var filename = Ext.String.format('manager-time-report.csv');
 

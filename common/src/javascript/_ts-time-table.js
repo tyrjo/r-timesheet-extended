@@ -346,6 +346,15 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
             
         Ext.Array.push(columns, [
             {
+                dataIndex: '__TimeEntryItem',
+                text: 'User',
+                editor: null,
+                hidden: true,
+                renderer: function(value) {
+                    return value.get('User').UserName;
+                }
+            },
+            {
                 dataIndex: '__Product',
                 text: 'Product',
                 flex: 1,
