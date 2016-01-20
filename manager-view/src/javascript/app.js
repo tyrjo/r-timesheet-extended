@@ -436,12 +436,12 @@ Ext.define("TSTimeSheetApproval", {
                 
         Ext.create('Rally.technicalservices.ManagerDetailDialog', {
             id       : 'popup',
-            width    : Ext.getBody().getWidth() - 20,
-            height   : Ext.getBody().getHeight() - 50,
+            width    : Ext.getBody().getWidth() - 150,
+            height   : Ext.getBody().getHeight() - 150,
             title    : Ext.String.format("{0}: {1} ({2})", user_name, Ext.Date.format(start_date,'j F Y'), status),
             autoShow : true,
-            closable : true,
             autoCenter: true,
+            closable : true,
             commentKeyPrefix: this._commentKeyPrefix,
             record   : record,
             startDate: start_date
