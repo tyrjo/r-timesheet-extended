@@ -482,11 +482,17 @@ Ext.define("TSTimeSheetApproval", {
             promises.push(function() {return Rally.technicalservices.FileUtilities.getCSVFromGrid(this,grid) });
         }
         
-        this.logger.log('--', selected);
-        
+        Ext.Array.each(selected, function(item, idx){
+            promises.push(function(){ 
+                return me._getCSVFromTimesheet(item,(idx > 0) ); 
+            });
+        });
+                
         Deft.Chain.sequence(promises).then({
             scope: this,
-            success: function(csv){
+            success: function(results){
+                var csv = results.join('\r\n');
+                
                 if (csv && csv.length > 0){
                     Rally.technicalservices.FileUtilities.saveCSVToFile(csv,filename);
                 } else {
@@ -495,6 +501,41 @@ Ext.define("TSTimeSheetApproval", {
                 
             }
         }).always(function() { me.setLoading(false); });
+    },
+    
+    _getCSVFromTimesheet: function(timesheet,skip_headers) {
+        var deferred = Ext.create('Deft.Deferred');
+        var me = this;
+        
+        var status = timesheet.get('__Status');
+        
+        var start_date = timesheet.get('WeekStartDate');
+        start_date = new Date(start_date.getUTCFullYear(), 
+            start_date.getUTCMonth(), 
+            start_date.getUTCDate(),  
+            start_date.getUTCHours(), 
+            start_date.getUTCMinutes(), 
+            start_date.getUTCSeconds());
+                    
+        var timetable = Ext.create('Rally.technicalservices.TimeTable',{
+            weekStart: start_date,
+            editable: false,
+            timesheet_user: timesheet.get('User'),
+            listeners: {
+                scope: this,
+                gridReady: function(timetable, grid) {
+                    if ( grid.getStore().isLoading() ) {
+                        grid.getStore().on('load', function() {
+                            deferred.resolve(Rally.technicalservices.FileUtilities.getCSVFromGrid(me,grid,skip_headers));
+                        }, this, { single: true });
+                    } else {
+                        deferred.resolve(Rally.technicalservices.FileUtilities.getCSVFromGrid(this,grid,skip_headers));
+                    }
+                }
+            }
+        });
+        
+        return deferred.promise;
     },
     
     _launchInfo: function() {

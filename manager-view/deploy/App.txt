@@ -3,11 +3,11 @@
 <head>
     <title>Time Sheet Approval</title>
     <!--  (c) 2015 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Tue Jan 19 2016 17:25:25 GMT-0800 (PST) -->
+    <!--  Build Date: Tue Jan 19 2016 19:13:35 GMT-0800 (PST) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Tue Jan 19 2016 17:25:25 GMT-0800 (PST)";
-        var CHECKSUM = 251224424543;
+        var APP_BUILD_DATE = "Tue Jan 19 2016 19:13:35 GMT-0800 (PST)";
+        var CHECKSUM = 257674040139;
     </script>
     
     <script type="text/javascript" src="/apps/2.0/sdk.js"></script>
@@ -788,7 +788,7 @@ Ext.define('Rally.technicalservices.FileUtilities', {
         },this);
         return text;
     },
-    _getCSVFromWsapiBackedGrid: function(grid) {
+    _getCSVFromWsapiBackedGrid: function(grid,skip_headers) {
         var deferred = Ext.create('Deft.Deferred');
         var store = Ext.create('Rally.data.wsapi.Store',{
             fetch: grid.getStore().config.fetch,
@@ -798,8 +798,6 @@ Ext.define('Rally.technicalservices.FileUtilities', {
         });
         
         var columns = grid.columns;
-        var headers = this._getHeadersFromGrid(grid);
-        var column_names = this._getColumnNamesFromGrid(grid);
         
         var record_count = grid.getStore().getTotalCount(),
             page_size = grid.getStore().pageSize,
@@ -812,7 +810,9 @@ Ext.define('Rally.technicalservices.FileUtilities', {
         Deft.Promise.all(promises).then({
             success: function(csvs){
                 var csv = [];
-                csv.push('"' + headers.join('","') + '"');
+                if ( !skip_headers ) {
+                    csv.push('"' + this._getHeadersFromGrid(grid).join('","') + '"');
+                }
                 _.each(csvs, function(c){
                     _.each(c, function(line){
                         csv.push(line);
@@ -827,16 +827,14 @@ Ext.define('Rally.technicalservices.FileUtilities', {
     },
     
     // custom grid assumes there store is fully loaded
-    _getCSVFromCustomBackedGrid: function(grid) {
-        var headers = this._getHeadersFromGrid(grid);
-        
-//        var columns = grid.columns;
-//        var column_names = this._getColumnNamesFromGrid(grid);
+    _getCSVFromCustomBackedGrid: function(grid, skip_headers) {
         var store = grid.getStore();
         
         var csv = [];
-        csv.push('"' + headers.join('","') + '"');
 
+        if ( !skip_headers ) {
+            csv.push('"' + this._getHeadersFromGrid(grid).join('","') + '"');
+        }
         var number_of_records = store.getTotalCount();
         this.logger.log("Store:", store);
         this.logger.log("Number of records to export:", number_of_records);
@@ -887,14 +885,14 @@ Ext.define('Rally.technicalservices.FileUtilities', {
      * will render using your grid renderer.  If you want it to ignore the grid renderer, 
      * have the column set _csvIgnoreRender: true
      */
-    getCSVFromGrid:function(app, grid){
+    getCSVFromGrid:function(app, grid, skip_headers){
         this.logger.log("Exporting grid with store type:", Ext.getClassName(grid.getStore()));
         
         if ( Ext.getClassName(grid.getStore()) != "Rally.data.custom.Store" ) {
-            return this._getCSVFromWsapiBackedGrid(grid);
+            return this._getCSVFromWsapiBackedGrid(grid,skip_headers);
         }
         
-        return this._getCSVFromCustomBackedGrid(grid);
+        return this._getCSVFromCustomBackedGrid(grid,skip_headers);
     },
     loadStorePage: function(grid, store, columns, page, total_pages){
         var deferred = Ext.create('Deft.Deferred');
@@ -3418,11 +3416,17 @@ Ext.define("TSTimeSheetApproval", {
             promises.push(function() {return Rally.technicalservices.FileUtilities.getCSVFromGrid(this,grid) });
         }
         
-        this.logger.log('--', selected);
-        
+        Ext.Array.each(selected, function(item, idx){
+            promises.push(function(){ 
+                return me._getCSVFromTimesheet(item,(idx > 0) ); 
+            });
+        });
+                
         Deft.Chain.sequence(promises).then({
             scope: this,
-            success: function(csv){
+            success: function(results){
+                var csv = results.join('\r\n');
+                
                 if (csv && csv.length > 0){
                     Rally.technicalservices.FileUtilities.saveCSVToFile(csv,filename);
                 } else {
@@ -3431,6 +3435,41 @@ Ext.define("TSTimeSheetApproval", {
                 
             }
         }).always(function() { me.setLoading(false); });
+    },
+    
+    _getCSVFromTimesheet: function(timesheet,skip_headers) {
+        var deferred = Ext.create('Deft.Deferred');
+        var me = this;
+        
+        var status = timesheet.get('__Status');
+        
+        var start_date = timesheet.get('WeekStartDate');
+        start_date = new Date(start_date.getUTCFullYear(), 
+            start_date.getUTCMonth(), 
+            start_date.getUTCDate(),  
+            start_date.getUTCHours(), 
+            start_date.getUTCMinutes(), 
+            start_date.getUTCSeconds());
+                    
+        var timetable = Ext.create('Rally.technicalservices.TimeTable',{
+            weekStart: start_date,
+            editable: false,
+            timesheet_user: timesheet.get('User'),
+            listeners: {
+                scope: this,
+                gridReady: function(timetable, grid) {
+                    if ( grid.getStore().isLoading() ) {
+                        grid.getStore().on('load', function() {
+                            deferred.resolve(Rally.technicalservices.FileUtilities.getCSVFromGrid(me,grid,skip_headers));
+                        }, this, { single: true });
+                    } else {
+                        deferred.resolve(Rally.technicalservices.FileUtilities.getCSVFromGrid(this,grid,skip_headers));
+                    }
+                }
+            }
+        });
+        
+        return deferred.promise;
     },
     
     _launchInfo: function() {

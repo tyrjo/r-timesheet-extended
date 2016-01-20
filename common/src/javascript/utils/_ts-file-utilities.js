@@ -68,7 +68,7 @@ Ext.define('Rally.technicalservices.FileUtilities', {
         },this);
         return text;
     },
-    _getCSVFromWsapiBackedGrid: function(grid) {
+    _getCSVFromWsapiBackedGrid: function(grid,skip_headers) {
         var deferred = Ext.create('Deft.Deferred');
         var store = Ext.create('Rally.data.wsapi.Store',{
             fetch: grid.getStore().config.fetch,
@@ -78,8 +78,6 @@ Ext.define('Rally.technicalservices.FileUtilities', {
         });
         
         var columns = grid.columns;
-        var headers = this._getHeadersFromGrid(grid);
-        var column_names = this._getColumnNamesFromGrid(grid);
         
         var record_count = grid.getStore().getTotalCount(),
             page_size = grid.getStore().pageSize,
@@ -92,7 +90,9 @@ Ext.define('Rally.technicalservices.FileUtilities', {
         Deft.Promise.all(promises).then({
             success: function(csvs){
                 var csv = [];
-                csv.push('"' + headers.join('","') + '"');
+                if ( !skip_headers ) {
+                    csv.push('"' + this._getHeadersFromGrid(grid).join('","') + '"');
+                }
                 _.each(csvs, function(c){
                     _.each(c, function(line){
                         csv.push(line);
@@ -107,16 +107,14 @@ Ext.define('Rally.technicalservices.FileUtilities', {
     },
     
     // custom grid assumes there store is fully loaded
-    _getCSVFromCustomBackedGrid: function(grid) {
-        var headers = this._getHeadersFromGrid(grid);
-        
-//        var columns = grid.columns;
-//        var column_names = this._getColumnNamesFromGrid(grid);
+    _getCSVFromCustomBackedGrid: function(grid, skip_headers) {
         var store = grid.getStore();
         
         var csv = [];
-        csv.push('"' + headers.join('","') + '"');
 
+        if ( !skip_headers ) {
+            csv.push('"' + this._getHeadersFromGrid(grid).join('","') + '"');
+        }
         var number_of_records = store.getTotalCount();
         this.logger.log("Store:", store);
         this.logger.log("Number of records to export:", number_of_records);
@@ -167,14 +165,14 @@ Ext.define('Rally.technicalservices.FileUtilities', {
      * will render using your grid renderer.  If you want it to ignore the grid renderer, 
      * have the column set _csvIgnoreRender: true
      */
-    getCSVFromGrid:function(app, grid){
+    getCSVFromGrid:function(app, grid, skip_headers){
         this.logger.log("Exporting grid with store type:", Ext.getClassName(grid.getStore()));
         
         if ( Ext.getClassName(grid.getStore()) != "Rally.data.custom.Store" ) {
-            return this._getCSVFromWsapiBackedGrid(grid);
+            return this._getCSVFromWsapiBackedGrid(grid,skip_headers);
         }
         
-        return this._getCSVFromCustomBackedGrid(grid);
+        return this._getCSVFromCustomBackedGrid(grid,skip_headers);
     },
     loadStorePage: function(grid, store, columns, page, total_pages){
         var deferred = Ext.create('Deft.Deferred');
