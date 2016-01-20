@@ -3,11 +3,11 @@
 <head>
     <title>Time Sheet Approval</title>
     <!--  (c) 2015 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Tue Jan 19 2016 20:15:12 GMT-0800 (PST) -->
+    <!--  Build Date: Wed Jan 20 2016 10:48:23 GMT-0800 (PST) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Tue Jan 19 2016 20:15:12 GMT-0800 (PST)";
-        var CHECKSUM = 266037760284;
+        var APP_BUILD_DATE = "Wed Jan 20 2016 10:48:23 GMT-0800 (PST)";
+        var CHECKSUM = 266297045115;
     </script>
     
     <script type="text/javascript" src="/apps/2.0/sdk.js"></script>
@@ -3202,7 +3202,7 @@ Ext.define("TSTimeSheetApproval", {
             filters.push({property:'WeekStartDate', operator: '<=', value:start_date});
         }
         
-        if ( ! this.getSetting('showAllForAdmins') ){
+        if ( ! this.getSetting('showAllForAdmins') || !TSUtilities._currentUserIsAdmin() ){
             var current_user_name = this.getContext().getUser().UserName;
             filters.push({property:'User.' + this.getSetting('managerField'), value: current_user_name});
         }

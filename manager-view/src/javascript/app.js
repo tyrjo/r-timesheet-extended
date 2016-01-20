@@ -212,7 +212,7 @@ Ext.define("TSTimeSheetApproval", {
             filters.push({property:'WeekStartDate', operator: '<=', value:start_date});
         }
         
-        if ( ! this.getSetting('showAllForAdmins') ){
+        if ( ! this.getSetting('showAllForAdmins') || !TSUtilities._currentUserIsAdmin() ){
             var current_user_name = this.getContext().getUser().UserName;
             filters.push({property:'User.' + this.getSetting('managerField'), value: current_user_name});
         }
