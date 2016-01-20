@@ -3,10 +3,10 @@
 <head>
     <title>Extended Timesheet</title>
     <!--  (c) 2015 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Thu Jan 14 2016 18:59:47 GMT-0800 (PST) -->
+    <!--  Build Date: Wed Jan 20 2016 11:34:02 GMT-0800 (PST) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Thu Jan 14 2016 18:59:47 GMT-0800 (PST)";
+        var APP_BUILD_DATE = "Wed Jan 20 2016 11:34:02 GMT-0800 (PST)";
         var CHECKSUM = [%= checksum %];
     </script>
     

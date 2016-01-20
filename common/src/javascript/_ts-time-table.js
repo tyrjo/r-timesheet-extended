@@ -26,7 +26,8 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
     config: {
         weekStart: new Date(),
         editable: true,
-        timesheet_user: null
+        timesheet_user: null,
+        timesheet_status: null
     },
     
     constructor: function (config) {
@@ -205,7 +206,8 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                 listeners: {
                     itemupdate: function(row, row_index) {
                         me.logger.log('itemupdate', row);
-                    }
+                    },
+                    viewready: me._addTooltip
                 }
             },
             features: [{
@@ -219,6 +221,37 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
         
         this.fireEvent('gridReady', this, this.grid);
         
+    },
+    
+    _addTooltip: function(view) {
+        console.log(view);
+        this.toolTip = Ext.create('Ext.tip.ToolTip', {
+            target: view.el,
+            delegate: view.cellSelector,
+            trackMouse: true,
+            renderTo: Ext.getBody(),
+            listeners: {
+                beforeshow: function(tip) {
+                    var trigger = tip.triggerElement,
+                        parent = tip.triggerElement.parentElement,
+                        columnTitle = view.getHeaderByCell(trigger).text,
+                        columnDataIndex = view.getHeaderByCell(trigger).dataIndex;
+                    var record = view.getRecord(parent);
+                    var columnText = null;
+                    var value = record.get(columnDataIndex);
+                    
+                    if ( columnTitle == "Work Product" ) {
+                        columnText = value.Project._refObjectName;
+                    }
+                    
+                    if (!Ext.isEmpty(columnText)){
+                        tip.update("<b>Project:</b> " + columnText);
+                    } else {
+                        return false;
+                    }
+                }
+            }
+        });
     },
     
     addRowForItem: function(item) {
@@ -294,17 +327,28 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
         var item_type = item.get('_type');
         
         var hasRow = false;
-        Ext.Array.each(this.rows, function(row) {
-            if ( item_type == "task" ) {
-                if ( row.get('Task') && row.get('Task')._ref == item.get('_ref') ) {
-                    hasRow = true;
-                }
-            } else {
-                if ( Ext.isEmpty(row.get('Task')) && row.get('WorkProduct') && row.get('WorkProduct')._ref == item.get('_ref') ) {
-                    hasRow = true;
+        var rows = [];
+        var store_count = this.grid.getStore().getTotalCount();
+        
+        for ( var i=0; i<store_count; i++ ) {
+            rows.push(this.grid.getStore().getAt(i));
+        }
+        
+        Ext.Array.each(rows, function(row) {
+            if ( row ) { // when clear and remove, we get an undefined row
+                if ( item_type == "task" ) {
+                    if ( row.get('Task') && row.get('Task')._ref == item.get('_ref') ) {
+                        hasRow = true;
+                    }
+                } else {
+                    if ( Ext.isEmpty(row.get('Task')) && row.get('WorkProduct') && row.get('WorkProduct')._ref == item.get('_ref') ) {
+                        hasRow = true;
+                    }
                 }
             }
         });
+        
+        this.logger.log("hasRow", hasRow, item);
         return hasRow;
     },
     
@@ -344,6 +388,44 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
             });
         }
             
+        Ext.Array.push(columns, [
+            {
+                dataIndex: '__TimeEntryItem',
+                text: 'User',
+                editor: null,
+                hidden: true,
+                renderer: function(value) {
+                    return value.get('User').UserName;
+                }
+            },
+            {
+                dataIndex: '__TimeEntryItem',
+                text: 'Week Start',
+                editor: null,
+                hidden: true,
+                renderer: function(value) {
+                    return value.get('WeekStartDate');
+                }
+            },
+            {
+                dataIndex: '__Product',
+                text: 'Locked',
+                editor: null,
+                hidden: true,
+                renderer: function(value, meta, record) {
+                    console.log('record', record);
+                    return record.isLocked() || false;
+                }
+            }]);
+            
+        if ( me.timesheet_status || me.timesheet_status === false ) {
+            Ext.Array.push(columns,[{
+                dataIndex: '__Product',
+                text: 'Status',
+                renderer: function(v) { return me.timesheet_status; }
+            }]);
+        }
+        
         Ext.Array.push(columns, [
             {
                 dataIndex: '__Product',

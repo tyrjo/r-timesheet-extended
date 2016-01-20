@@ -158,7 +158,7 @@ Ext.define('TSTimesheet',{
                 var pref_config = {
                     Name: key,
                     Value: 'Open',
-                    Project: TSUtilities._getEditableProjectForCurrentUser()
+                    Project: TSUtilities.getEditableProjectForCurrentUser()
                 }
 
 //                if ( Rally.getApp().isExternal() ) {

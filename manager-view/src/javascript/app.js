@@ -208,11 +208,11 @@ Ext.define("TSTimeSheetApproval", {
         }
         
         if (this.down('#to_date_selector') ) {
-            var start_date = Rally.util.DateTime.toIsoString( this.down('#to_date_selector').getValue(),true).replace(/T.*$/,'T00:00:00.000Z');
+            var start_date = Rally.util.DateTime.toIsoString( this.down('#to_date_selector').getValue(),true);
             filters.push({property:'WeekStartDate', operator: '<=', value:start_date});
         }
         
-        if ( ! this.getSetting('showAllForAdmins') ){
+        if ( ! this.getSetting('showAllForAdmins') || !TSUtilities.currentUserIsAdmin() ){
             var current_user_name = this.getContext().getUser().UserName;
             filters.push({property:'User.' + this.getSetting('managerField'), value: current_user_name});
         }
@@ -295,7 +295,6 @@ Ext.define("TSTimeSheetApproval", {
                     preferences_by_key[pref.get('Name')] = pref;
                 });
                 
-                console.log('--');
                 Ext.Array.each(timesheets, function(timesheet){
                     var key = timesheet.getPreferenceKey();
                     if (preferences_by_key[key]) {
@@ -317,9 +316,7 @@ Ext.define("TSTimeSheetApproval", {
                         timesheet.set('__Status', 'Open');
                     }
                 });
-                
-                console.log('--');
-                
+                                
                 var filtered_timesheets = Ext.Array.filter(timesheets, function(timesheet){
                     if (stateFilter == "ALL") {
                         return true;
@@ -403,18 +400,34 @@ Ext.define("TSTimeSheetApproval", {
     },
     
     _getColumns: function() {
+        var me = this;
         var columns = [{
             xtype: 'tsrowactioncolumn',
             canUnapprove: TSUtilities._currentUserCanUnapprove()
         }];
         
-        columns.push({dataIndex:'User',text:'User', renderer: function(v) { return v._refObjectName; }});
-        columns.push({dataIndex:'WeekStartDate',text:'Week Starting', align: 'center', renderer: function(v) { return Ext.util.Format.date(v,'m/d/y'); }});
+        columns.push({
+            dataIndex:'User',
+            text:'User',
+            renderer: function(v) { return v._refObjectName || value.UserName; }
+        });
+        columns.push({dataIndex:'WeekStartDate',text:'Week Starting', align: 'center', renderer: function(v) { 
+            return Ext.util.Format.date(me._getUTCDate(v),'m/d/y'); 
+        }});
         columns.push({dataIndex:'__Hours',text:'Hours', align: 'center'});
         columns.push({dataIndex:'__Status',text:'Status', align: 'center'});
         columns.push({dataIndex:'__LastUpdateBy',text:'Status Changed By', align: 'center'});
         
         return columns;
+    },
+    
+    _getUTCDate: function(date) {
+        return new Date(date.getUTCFullYear(), 
+            date.getUTCMonth(), 
+            date.getUTCDate(),  
+            date.getUTCHours(), 
+            date.getUTCMinutes(), 
+            date.getUTCSeconds());
     },
     
     _popup: function(record){
@@ -432,12 +445,12 @@ Ext.define("TSTimeSheetApproval", {
                 
         Ext.create('Rally.technicalservices.ManagerDetailDialog', {
             id       : 'popup',
-            width    : Ext.getBody().getWidth() - 20,
-            height   : Ext.getBody().getHeight() - 50,
+            width    : Ext.getBody().getWidth() - 150,
+            height   : Ext.getBody().getHeight() - 150,
             title    : Ext.String.format("{0}: {1} ({2})", user_name, Ext.Date.format(start_date,'j F Y'), status),
             autoShow : true,
-            closable : true,
             autoCenter: true,
+            closable : true,
             commentKeyPrefix: this._commentKeyPrefix,
             record   : record,
             startDate: start_date
@@ -470,11 +483,25 @@ Ext.define("TSTimeSheetApproval", {
         var filename = Ext.String.format('manager-time-report.csv');
 
         this.setLoading("Generating CSV");
-        Deft.Chain.sequence([
-            function() { return Rally.technicalservices.FileUtilities.getCSVFromGrid(this,grid) } 
-        ]).then({
+        
+        var promises = [];
+        
+        var selected = grid.getSelectionModel().getSelection();
+        if ( !selected || selected.length == 0 ){
+            promises.push(function() {return Rally.technicalservices.FileUtilities.getCSVFromGrid(this,grid) });
+        }
+        
+        Ext.Array.each(selected, function(item, idx){
+            promises.push(function(){ 
+                return me._getCSVFromTimesheet(item,(idx > 0) ); 
+            });
+        });
+                
+        Deft.Chain.sequence(promises).then({
             scope: this,
-            success: function(csv){
+            success: function(results){
+                var csv = results.join('\r\n');
+                
                 if (csv && csv.length > 0){
                     Rally.technicalservices.FileUtilities.saveCSVToFile(csv,filename);
                 } else {
@@ -483,6 +510,44 @@ Ext.define("TSTimeSheetApproval", {
                 
             }
         }).always(function() { me.setLoading(false); });
+    },
+    
+    _getCSVFromTimesheet: function(timesheet,skip_headers) {
+        var deferred = Ext.create('Deft.Deferred');
+        var me = this;
+        
+        var status = timesheet.get('__Status');
+        
+        var start_date = timesheet.get('WeekStartDate');
+        start_date = new Date(start_date.getUTCFullYear(), 
+            start_date.getUTCMonth(), 
+            start_date.getUTCDate(),  
+            start_date.getUTCHours(), 
+            start_date.getUTCMinutes(), 
+            start_date.getUTCSeconds());
+            
+        console.log('ts:', timesheet);
+        
+        var timetable = Ext.create('Rally.technicalservices.TimeTable',{
+            weekStart: start_date,
+            editable: false,
+            timesheet_status: timesheet.get('__Status'),
+            timesheet_user: timesheet.get('User'),
+            listeners: {
+                scope: this,
+                gridReady: function(timetable, grid) {
+                    if ( grid.getStore().isLoading() ) {
+                        grid.getStore().on('load', function() {
+                            deferred.resolve(Rally.technicalservices.FileUtilities.getCSVFromGrid(me,grid,skip_headers));
+                        }, this, { single: true });
+                    } else {
+                        deferred.resolve(Rally.technicalservices.FileUtilities.getCSVFromGrid(this,grid,skip_headers));
+                    }
+                }
+            }
+        });
+        
+        return deferred.promise;
     },
     
     _launchInfo: function() {

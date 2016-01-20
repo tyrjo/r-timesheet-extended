@@ -3,11 +3,11 @@
 <head>
     <title>Timesheet Administration</title>
     <!--  (c) 2015 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Fri Jan 15 2016 08:36:03 GMT+0530 (IST) -->
+    <!--  Build Date: Wed Jan 20 2016 11:14:27 GMT-0800 (PST) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Fri Jan 15 2016 08:36:03 GMT+0530 (IST)";
-        var CHECKSUM = 166290162471;
+        var APP_BUILD_DATE = "Wed Jan 20 2016 11:14:27 GMT-0800 (PST)";
+        var CHECKSUM = 172701662394;
     </script>
     
     <script type="text/javascript" src="/apps/2.0/sdk.js"></script>
@@ -550,6 +550,10 @@ Ext.define('TSUtilities', {
         
         console.log('  ', can_unlock);
         return can_unlock;
+    },
+    
+    _currentUserCanUnapprove: function() {
+        return this._currentUserIsAdmin();
     }
     
 });
@@ -784,7 +788,7 @@ Ext.define('Rally.technicalservices.FileUtilities', {
         },this);
         return text;
     },
-    _getCSVFromWsapiBackedGrid: function(grid) {
+    _getCSVFromWsapiBackedGrid: function(grid,skip_headers) {
         var deferred = Ext.create('Deft.Deferred');
         var store = Ext.create('Rally.data.wsapi.Store',{
             fetch: grid.getStore().config.fetch,
@@ -794,8 +798,6 @@ Ext.define('Rally.technicalservices.FileUtilities', {
         });
         
         var columns = grid.columns;
-        var headers = this._getHeadersFromGrid(grid);
-        var column_names = this._getColumnNamesFromGrid(grid);
         
         var record_count = grid.getStore().getTotalCount(),
             page_size = grid.getStore().pageSize,
@@ -808,7 +810,9 @@ Ext.define('Rally.technicalservices.FileUtilities', {
         Deft.Promise.all(promises).then({
             success: function(csvs){
                 var csv = [];
-                csv.push('"' + headers.join('","') + '"');
+                if ( !skip_headers ) {
+                    csv.push('"' + this._getHeadersFromGrid(grid).join('","') + '"');
+                }
                 _.each(csvs, function(c){
                     _.each(c, function(line){
                         csv.push(line);
@@ -823,16 +827,14 @@ Ext.define('Rally.technicalservices.FileUtilities', {
     },
     
     // custom grid assumes there store is fully loaded
-    _getCSVFromCustomBackedGrid: function(grid) {
-        var headers = this._getHeadersFromGrid(grid);
-        
-        var columns = grid.columns;
-        var column_names = this._getColumnNamesFromGrid(grid);
+    _getCSVFromCustomBackedGrid: function(grid, skip_headers) {
         var store = grid.getStore();
         
         var csv = [];
-        csv.push('"' + headers.join('","') + '"');
 
+        if ( !skip_headers ) {
+            csv.push('"' + this._getHeadersFromGrid(grid).join('","') + '"');
+        }
         var number_of_records = store.getTotalCount();
         this.logger.log("Store:", store);
         this.logger.log("Number of records to export:", number_of_records);
@@ -883,14 +885,14 @@ Ext.define('Rally.technicalservices.FileUtilities', {
      * will render using your grid renderer.  If you want it to ignore the grid renderer, 
      * have the column set _csvIgnoreRender: true
      */
-    getCSVFromGrid:function(app, grid){
+    getCSVFromGrid:function(app, grid, skip_headers){
         this.logger.log("Exporting grid with store type:", Ext.getClassName(grid.getStore()));
         
         if ( Ext.getClassName(grid.getStore()) != "Rally.data.custom.Store" ) {
-            return this._getCSVFromWsapiBackedGrid(grid);
+            return this._getCSVFromWsapiBackedGrid(grid,skip_headers);
         }
         
-        return this._getCSVFromCustomBackedGrid(grid);
+        return this._getCSVFromCustomBackedGrid(grid,skip_headers);
     },
     loadStorePage: function(grid, store, columns, page, total_pages){
         var deferred = Ext.create('Deft.Deferred');
@@ -931,7 +933,7 @@ Ext.define('Rally.technicalservices.FileUtilities', {
         var columns = grid.columns;
         
         Ext.Array.each(columns, function (column) {
-            if (column.xtype != 'rallyrowactioncolumn') {
+            if (column.xtype != 'rallyrowactioncolumn'  && column.xtype != 'tsrowactioncolumn') {
                 if (column.dataIndex) {
                     var column_name = column.dataIndex;
                     
@@ -1524,7 +1526,6 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
                                     // the other record exists
                                     src.set('Hours', value);
                                     // TODO: check for errors on return 
-                                    // TODO: check for over 24 hours total
                                     src.save();
                                     me._updateTotal();
                                 } else {
@@ -1568,11 +1569,6 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
                     getField: this.getField,
                     clearAndRemove: this.clearAndRemove,
                     isLocked: this._isLocked
-//                    isUpdatable: function() { return true; },
-//                    canHaveTasks: function() { return false; },
-//                    canHaveDefects: function() { return false; },
-//                    canHaveTestCases: function() { return false; },
-//                    canHaveChildren: function() { return false; }
                 });
                 
                 this.model = new_model;
@@ -1584,7 +1580,7 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
     },
     
     getFetchFields: function() {
-        return [ 'ObjectID', 'Name', 'Release', this.deploy_field ];
+        return [ 'ObjectID', 'Name', 'Release', 'User', 'UserName', this.deploy_field ];
     },
     
     _isLocked: function (fieldName, newValue) {
@@ -1717,7 +1713,8 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
     config: {
         weekStart: new Date(),
         editable: true,
-        timesheet_user: null
+        timesheet_user: null,
+        timesheet_status: null
     },
     
     constructor: function (config) {
@@ -1896,7 +1893,8 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                 listeners: {
                     itemupdate: function(row, row_index) {
                         me.logger.log('itemupdate', row);
-                    }
+                    },
+                    viewready: me._addTooltip
                 }
             },
             features: [{
@@ -1910,6 +1908,37 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
         
         this.fireEvent('gridReady', this, this.grid);
         
+    },
+    
+    _addTooltip: function(view) {
+        console.log(view);
+        this.toolTip = Ext.create('Ext.tip.ToolTip', {
+            target: view.el,
+            delegate: view.cellSelector,
+            trackMouse: true,
+            renderTo: Ext.getBody(),
+            listeners: {
+                beforeshow: function(tip) {
+                    var trigger = tip.triggerElement,
+                        parent = tip.triggerElement.parentElement,
+                        columnTitle = view.getHeaderByCell(trigger).text,
+                        columnDataIndex = view.getHeaderByCell(trigger).dataIndex;
+                    var record = view.getRecord(parent);
+                    var columnText = null;
+                    var value = record.get(columnDataIndex);
+                    
+                    if ( columnTitle == "Work Product" ) {
+                        columnText = value.Project._refObjectName;
+                    }
+                    
+                    if (!Ext.isEmpty(columnText)){
+                        tip.update("<b>Project:</b> " + columnText);
+                    } else {
+                        return false;
+                    }
+                }
+            }
+        });
     },
     
     addRowForItem: function(item) {
@@ -2035,6 +2064,44 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
             });
         }
             
+        Ext.Array.push(columns, [
+            {
+                dataIndex: '__TimeEntryItem',
+                text: 'User',
+                editor: null,
+                hidden: true,
+                renderer: function(value) {
+                    return value.get('User').UserName;
+                }
+            },
+            {
+                dataIndex: '__TimeEntryItem',
+                text: 'Week Start',
+                editor: null,
+                hidden: true,
+                renderer: function(value) {
+                    return value.get('WeekStartDate');
+                }
+            },
+            {
+                dataIndex: '__Product',
+                text: 'Locked',
+                editor: null,
+                hidden: true,
+                renderer: function(value, meta, record) {
+                    console.log('record', record);
+                    return record.isLocked() || false;
+                }
+            }]);
+            
+        if ( me.timesheet_status || me.timesheet_status === false ) {
+            Ext.Array.push(columns,[{
+                dataIndex: '__Product',
+                text: 'Status',
+                renderer: function(v) { return me.timesheet_status; }
+            }]);
+        }
+        
         Ext.Array.push(columns, [
             {
                 dataIndex: '__Product',

@@ -21,7 +21,7 @@ Ext.define('TSUtilities', {
         return deferred.promise;
     },
     
-    _getEditableProjectForCurrentUser: function() {
+    getEditableProjectForCurrentUser: function() {
         var app = Rally.getApp();
         if ( this._currentUserCanWrite() ) {
             return app.getContext().getProjectRef();
@@ -57,7 +57,7 @@ Ext.define('TSUtilities', {
     },
     
     // true if sub or workspace admin
-    _currentUserIsAdmin: function(){
+    currentUserIsAdmin: function(){
         var app = Rally.getApp();
         
         if ( app.getContext().getUser().SubscriptionAdmin ) {
@@ -116,7 +116,7 @@ Ext.define('TSUtilities', {
     },
     
     _currentUserCanUnapprove: function() {
-        return this._currentUserIsAdmin();
+        return this.currentUserIsAdmin();
     }
     
 });
