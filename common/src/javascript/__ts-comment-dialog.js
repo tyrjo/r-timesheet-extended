@@ -170,7 +170,7 @@ Ext.define('Rally.technicalservices.CommentDialog',{
     },
     
     _getAddBoxItems: function() {
-        var can_post = TSUtilities._getEditableProjectForCurrentUser();
+        var can_post = TSUtilities.getEditableProjectForCurrentUser();
 
         var tooltip_text = "Posting requires Edit rights in at least one project";
         
@@ -249,7 +249,7 @@ Ext.define('Rally.technicalservices.CommentDialog',{
                 var pref_config = {
                     Name: key,
                     Value: value,
-                    Project: TSUtilities._getEditableProjectForCurrentUser()
+                    Project: TSUtilities.getEditableProjectForCurrentUser()
                 }
 
                 var pref = Ext.create(model, pref_config);

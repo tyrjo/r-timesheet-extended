@@ -3,11 +3,11 @@
 <head>
     <title>Time Sheet Approval</title>
     <!--  (c) 2015 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Wed Jan 20 2016 11:15:23 GMT-0800 (PST) -->
+    <!--  Build Date: Wed Jan 20 2016 11:22:02 GMT-0800 (PST) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Wed Jan 20 2016 11:15:23 GMT-0800 (PST)";
-        var CHECKSUM = 266297043200;
+        var APP_BUILD_DATE = "Wed Jan 20 2016 11:22:02 GMT-0800 (PST)";
+        var CHECKSUM = 266247218864;
     </script>
     
     <script type="text/javascript" src="/apps/2.0/sdk.js"></script>
@@ -458,7 +458,7 @@ Ext.define('TSUtilities', {
         return deferred.promise;
     },
     
-    _getEditableProjectForCurrentUser: function() {
+    getEditableProjectForCurrentUser: function() {
         var app = Rally.getApp();
         if ( this._currentUserCanWrite() ) {
             return app.getContext().getProjectRef();
@@ -494,7 +494,7 @@ Ext.define('TSUtilities', {
     },
     
     // true if sub or workspace admin
-    _currentUserIsAdmin: function(){
+    currentUserIsAdmin: function(){
         var app = Rally.getApp();
         
         if ( app.getContext().getUser().SubscriptionAdmin ) {
@@ -553,7 +553,7 @@ Ext.define('TSUtilities', {
     },
     
     _currentUserCanUnapprove: function() {
-        return this._currentUserIsAdmin();
+        return this.currentUserIsAdmin();
     }
     
 });
@@ -1137,7 +1137,7 @@ Ext.define('Rally.technicalservices.CommentDialog',{
     },
     
     _getAddBoxItems: function() {
-        var can_post = TSUtilities._getEditableProjectForCurrentUser();
+        var can_post = TSUtilities.getEditableProjectForCurrentUser();
 
         var tooltip_text = "Posting requires Edit rights in at least one project";
         
@@ -1216,7 +1216,7 @@ Ext.define('Rally.technicalservices.CommentDialog',{
                 var pref_config = {
                     Name: key,
                     Value: value,
-                    Project: TSUtilities._getEditableProjectForCurrentUser()
+                    Project: TSUtilities.getEditableProjectForCurrentUser()
                 }
 
                 var pref = Ext.create(model, pref_config);
@@ -2814,7 +2814,7 @@ Ext.define('TSTimesheet',{
                 var pref_config = {
                     Name: key,
                     Value: 'Open',
-                    Project: TSUtilities._getEditableProjectForCurrentUser()
+                    Project: TSUtilities.getEditableProjectForCurrentUser()
                 }
 
 //                if ( Rally.getApp().isExternal() ) {
@@ -3202,7 +3202,7 @@ Ext.define("TSTimeSheetApproval", {
             filters.push({property:'WeekStartDate', operator: '<=', value:start_date});
         }
         
-        if ( ! this.getSetting('showAllForAdmins') || !TSUtilities._currentUserIsAdmin() ){
+        if ( ! this.getSetting('showAllForAdmins') || !TSUtilities.currentUserIsAdmin() ){
             var current_user_name = this.getContext().getUser().UserName;
             filters.push({property:'User.' + this.getSetting('managerField'), value: current_user_name});
         }
