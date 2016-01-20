@@ -206,7 +206,8 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                 listeners: {
                     itemupdate: function(row, row_index) {
                         me.logger.log('itemupdate', row);
-                    }
+                    },
+                    viewready: me._addTooltip
                 }
             },
             features: [{
@@ -220,6 +221,37 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
         
         this.fireEvent('gridReady', this, this.grid);
         
+    },
+    
+    _addTooltip: function(view) {
+        console.log(view);
+        this.toolTip = Ext.create('Ext.tip.ToolTip', {
+            target: view.el,
+            delegate: view.cellSelector,
+            trackMouse: true,
+            renderTo: Ext.getBody(),
+            listeners: {
+                beforeshow: function(tip) {
+                    var trigger = tip.triggerElement,
+                        parent = tip.triggerElement.parentElement,
+                        columnTitle = view.getHeaderByCell(trigger).text,
+                        columnDataIndex = view.getHeaderByCell(trigger).dataIndex;
+                    var record = view.getRecord(parent);
+                    var columnText = null;
+                    var value = record.get(columnDataIndex);
+                    
+                    if ( columnTitle == "Work Product" ) {
+                        columnText = value.Project._refObjectName;
+                    }
+                    
+                    if (!Ext.isEmpty(columnText)){
+                        tip.update("<b>Project:</b> " + columnText);
+                    } else {
+                        return false;
+                    }
+                }
+            }
+        });
     },
     
     addRowForItem: function(item) {

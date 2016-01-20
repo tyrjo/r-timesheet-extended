@@ -3,11 +3,11 @@
 <head>
     <title>Time Sheet Approval</title>
     <!--  (c) 2015 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Tue Jan 19 2016 19:33:19 GMT-0800 (PST) -->
+    <!--  Build Date: Tue Jan 19 2016 20:15:12 GMT-0800 (PST) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Tue Jan 19 2016 19:33:19 GMT-0800 (PST)";
-        var CHECKSUM = 260092079337;
+        var APP_BUILD_DATE = "Tue Jan 19 2016 20:15:12 GMT-0800 (PST)";
+        var CHECKSUM = 266037760284;
     </script>
     
     <script type="text/javascript" src="/apps/2.0/sdk.js"></script>
@@ -1893,7 +1893,8 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                 listeners: {
                     itemupdate: function(row, row_index) {
                         me.logger.log('itemupdate', row);
-                    }
+                    },
+                    viewready: me._addTooltip
                 }
             },
             features: [{
@@ -1907,6 +1908,37 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
         
         this.fireEvent('gridReady', this, this.grid);
         
+    },
+    
+    _addTooltip: function(view) {
+        console.log(view);
+        this.toolTip = Ext.create('Ext.tip.ToolTip', {
+            target: view.el,
+            delegate: view.cellSelector,
+            trackMouse: true,
+            renderTo: Ext.getBody(),
+            listeners: {
+                beforeshow: function(tip) {
+                    var trigger = tip.triggerElement,
+                        parent = tip.triggerElement.parentElement,
+                        columnTitle = view.getHeaderByCell(trigger).text,
+                        columnDataIndex = view.getHeaderByCell(trigger).dataIndex;
+                    var record = view.getRecord(parent);
+                    var columnText = null;
+                    var value = record.get(columnDataIndex);
+                    
+                    if ( columnTitle == "Work Product" ) {
+                        columnText = value.Project._refObjectName;
+                    }
+                    
+                    if (!Ext.isEmpty(columnText)){
+                        tip.update("<b>Project:</b> " + columnText);
+                    } else {
+                        return false;
+                    }
+                }
+            }
+        });
     },
     
     addRowForItem: function(item) {
@@ -3166,7 +3198,7 @@ Ext.define("TSTimeSheetApproval", {
         }
         
         if (this.down('#to_date_selector') ) {
-            var start_date = Rally.util.DateTime.toIsoString( this.down('#to_date_selector').getValue(),true).replace(/T.*$/,'T00:00:00.000Z');
+            var start_date = Rally.util.DateTime.toIsoString( this.down('#to_date_selector').getValue(),true);
             filters.push({property:'WeekStartDate', operator: '<=', value:start_date});
         }
         
@@ -3253,7 +3285,6 @@ Ext.define("TSTimeSheetApproval", {
                     preferences_by_key[pref.get('Name')] = pref;
                 });
                 
-                console.log('--');
                 Ext.Array.each(timesheets, function(timesheet){
                     var key = timesheet.getPreferenceKey();
                     if (preferences_by_key[key]) {
@@ -3275,9 +3306,7 @@ Ext.define("TSTimeSheetApproval", {
                         timesheet.set('__Status', 'Open');
                     }
                 });
-                
-                console.log('--');
-                
+                                
                 var filtered_timesheets = Ext.Array.filter(timesheets, function(timesheet){
                     if (stateFilter == "ALL") {
                         return true;
@@ -3361,6 +3390,7 @@ Ext.define("TSTimeSheetApproval", {
     },
     
     _getColumns: function() {
+        var me = this;
         var columns = [{
             xtype: 'tsrowactioncolumn',
             canUnapprove: TSUtilities._currentUserCanUnapprove()
@@ -3371,12 +3401,23 @@ Ext.define("TSTimeSheetApproval", {
             text:'User',
             renderer: function(v) { return v._refObjectName || value.UserName; }
         });
-        columns.push({dataIndex:'WeekStartDate',text:'Week Starting', align: 'center', renderer: function(v) { return Ext.util.Format.date(v,'m/d/y'); }});
+        columns.push({dataIndex:'WeekStartDate',text:'Week Starting', align: 'center', renderer: function(v) { 
+            return Ext.util.Format.date(me._getUTCDate(v),'m/d/y'); 
+        }});
         columns.push({dataIndex:'__Hours',text:'Hours', align: 'center'});
         columns.push({dataIndex:'__Status',text:'Status', align: 'center'});
         columns.push({dataIndex:'__LastUpdateBy',text:'Status Changed By', align: 'center'});
         
         return columns;
+    },
+    
+    _getUTCDate: function(date) {
+        return new Date(date.getUTCFullYear(), 
+            date.getUTCMonth(), 
+            date.getUTCDate(),  
+            date.getUTCHours(), 
+            date.getUTCMinutes(), 
+            date.getUTCSeconds());
     },
     
     _popup: function(record){
@@ -3394,12 +3435,12 @@ Ext.define("TSTimeSheetApproval", {
                 
         Ext.create('Rally.technicalservices.ManagerDetailDialog', {
             id       : 'popup',
-            width    : Ext.getBody().getWidth() - 20,
-            height   : Ext.getBody().getHeight() - 50,
+            width    : Ext.getBody().getWidth() - 150,
+            height   : Ext.getBody().getHeight() - 150,
             title    : Ext.String.format("{0}: {1} ({2})", user_name, Ext.Date.format(start_date,'j F Y'), status),
             autoShow : true,
-            closable : true,
             autoCenter: true,
+            closable : true,
             commentKeyPrefix: this._commentKeyPrefix,
             record   : record,
             startDate: start_date
@@ -3617,6 +3658,9 @@ td.ts-weekend-cell {
     cursor: pointer;
 }
 
+.x-window {
+    border: 2px solid black !important;
+}
     </style>
 
 </head>
