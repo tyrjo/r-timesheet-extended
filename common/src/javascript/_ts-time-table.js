@@ -327,17 +327,28 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
         var item_type = item.get('_type');
         
         var hasRow = false;
-        Ext.Array.each(this.rows, function(row) {
-            if ( item_type == "task" ) {
-                if ( row.get('Task') && row.get('Task')._ref == item.get('_ref') ) {
-                    hasRow = true;
-                }
-            } else {
-                if ( Ext.isEmpty(row.get('Task')) && row.get('WorkProduct') && row.get('WorkProduct')._ref == item.get('_ref') ) {
-                    hasRow = true;
+        var rows = [];
+        var store_count = this.grid.getStore().getTotalCount();
+        
+        for ( var i=0; i<store_count; i++ ) {
+            rows.push(this.grid.getStore().getAt(i));
+        }
+        
+        Ext.Array.each(rows, function(row) {
+            if ( row ) { // when clear and remove, we get an undefined row
+                if ( item_type == "task" ) {
+                    if ( row.get('Task') && row.get('Task')._ref == item.get('_ref') ) {
+                        hasRow = true;
+                    }
+                } else {
+                    if ( Ext.isEmpty(row.get('Task')) && row.get('WorkProduct') && row.get('WorkProduct')._ref == item.get('_ref') ) {
+                        hasRow = true;
+                    }
                 }
             }
         });
+        
+        this.logger.log("hasRow", hasRow, item);
         return hasRow;
     },
     
