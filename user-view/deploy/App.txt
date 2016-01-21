@@ -3,11 +3,11 @@
 <head>
     <title>Extended Timesheet</title>
     <!--  (c) 2015 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Wed Jan 20 2016 11:34:02 GMT-0800 (PST) -->
+    <!--  Build Date: Thu Jan 21 2016 13:45:08 GMT-0800 (PST) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Wed Jan 20 2016 11:34:02 GMT-0800 (PST)";
-        var CHECKSUM = 221878162217;
+        var APP_BUILD_DATE = "Thu Jan 21 2016 13:45:08 GMT-0800 (PST)";
+        var CHECKSUM = 223400653274;
     </script>
     
     <script type="text/javascript" src="/apps/2.0/sdk.js"></script>
@@ -554,6 +554,15 @@ Ext.define('TSUtilities', {
     
     _currentUserCanUnapprove: function() {
         return this.currentUserIsAdmin();
+    },
+    
+    getUTCDate: function(date) {
+        return new Date(date.getUTCFullYear(), 
+            date.getUTCMonth(), 
+            date.getUTCDate(),  
+            date.getUTCHours(), 
+            date.getUTCMinutes(), 
+            date.getUTCSeconds());
     }
     
 });
@@ -3162,8 +3171,9 @@ Ext.define("TSExtendedTimesheet", {
             model:'Preference',
             limit: 1,
             pageSize: 1,
-            filters: [{property:'Name',value:key}],
-            fetch: ['Name','Value']
+            filters: [{property:'Name',operator: 'contains', value:key}],
+            fetch: ['Name','Value'],
+            sorters: [{property:'CreationDate', direction: 'DESC'}]
         };
         
         return TSUtilities._loadWsapiRecords(config);

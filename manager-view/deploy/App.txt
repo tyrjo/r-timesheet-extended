@@ -3,11 +3,11 @@
 <head>
     <title>Time Sheet Approval</title>
     <!--  (c) 2015 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Wed Jan 20 2016 11:22:02 GMT-0800 (PST) -->
+    <!--  Build Date: Thu Jan 21 2016 13:45:11 GMT-0800 (PST) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Wed Jan 20 2016 11:22:02 GMT-0800 (PST)";
-        var CHECKSUM = 266247218864;
+        var APP_BUILD_DATE = "Thu Jan 21 2016 13:45:11 GMT-0800 (PST)";
+        var CHECKSUM = 268223706032;
     </script>
     
     <script type="text/javascript" src="/apps/2.0/sdk.js"></script>
@@ -554,6 +554,15 @@ Ext.define('TSUtilities', {
     
     _currentUserCanUnapprove: function() {
         return this.currentUserIsAdmin();
+    },
+    
+    getUTCDate: function(date) {
+        return new Date(date.getUTCFullYear(), 
+            date.getUTCMonth(), 
+            date.getUTCDate(),  
+            date.getUTCHours(), 
+            date.getUTCMinutes(), 
+            date.getUTCSeconds());
     }
     
 });
@@ -2014,17 +2023,28 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
         var item_type = item.get('_type');
         
         var hasRow = false;
-        Ext.Array.each(this.rows, function(row) {
-            if ( item_type == "task" ) {
-                if ( row.get('Task') && row.get('Task')._ref == item.get('_ref') ) {
-                    hasRow = true;
-                }
-            } else {
-                if ( Ext.isEmpty(row.get('Task')) && row.get('WorkProduct') && row.get('WorkProduct')._ref == item.get('_ref') ) {
-                    hasRow = true;
+        var rows = [];
+        var store_count = this.grid.getStore().getTotalCount();
+        
+        for ( var i=0; i<store_count; i++ ) {
+            rows.push(this.grid.getStore().getAt(i));
+        }
+        
+        Ext.Array.each(rows, function(row) {
+            if ( row ) { // when clear and remove, we get an undefined row
+                if ( item_type == "task" ) {
+                    if ( row.get('Task') && row.get('Task')._ref == item.get('_ref') ) {
+                        hasRow = true;
+                    }
+                } else {
+                    if ( Ext.isEmpty(row.get('Task')) && row.get('WorkProduct') && row.get('WorkProduct')._ref == item.get('_ref') ) {
+                        hasRow = true;
+                    }
                 }
             }
         });
+        
+        this.logger.log("hasRow", hasRow, item);
         return hasRow;
     },
     
@@ -2689,10 +2709,11 @@ Ext.define('TSTimesheet',{
     
     getPreferenceKey: function() {
         // get or create and then update pref
-        return Ext.String.format("{0}.{1}.{2}", 
+        return Ext.String.format("{0}.{1}.{2}.{3}", 
             this._approvalKeyPrefix,
             this.getWeekStart(),
-            this.get('User').ObjectID
+            this.get('User').ObjectID,
+            TSUtilities.getUTCDate(new Date()).getTime()
         );
     },
     
@@ -3402,22 +3423,13 @@ Ext.define("TSTimeSheetApproval", {
             renderer: function(v) { return v._refObjectName || value.UserName; }
         });
         columns.push({dataIndex:'WeekStartDate',text:'Week Starting', align: 'center', renderer: function(v) { 
-            return Ext.util.Format.date(me._getUTCDate(v),'m/d/y'); 
+            return Ext.util.Format.date(TSUtilities.getUTCDate(v),'m/d/y'); 
         }});
         columns.push({dataIndex:'__Hours',text:'Hours', align: 'center'});
         columns.push({dataIndex:'__Status',text:'Status', align: 'center'});
         columns.push({dataIndex:'__LastUpdateBy',text:'Status Changed By', align: 'center'});
         
         return columns;
-    },
-    
-    _getUTCDate: function(date) {
-        return new Date(date.getUTCFullYear(), 
-            date.getUTCMonth(), 
-            date.getUTCDate(),  
-            date.getUTCHours(), 
-            date.getUTCMinutes(), 
-            date.getUTCSeconds());
     },
     
     _popup: function(record){

@@ -117,6 +117,15 @@ Ext.define('TSUtilities', {
     
     _currentUserCanUnapprove: function() {
         return this.currentUserIsAdmin();
+    },
+    
+    getUTCDate: function(date) {
+        return new Date(date.getUTCFullYear(), 
+            date.getUTCMonth(), 
+            date.getUTCDate(),  
+            date.getUTCHours(), 
+            date.getUTCMinutes(), 
+            date.getUTCSeconds());
     }
     
 });

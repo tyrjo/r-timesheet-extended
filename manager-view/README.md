@@ -3,7 +3,10 @@
 ## Development Notes
 
 * Approval status (and who/when) is saved in a preference where the key is
-the week start and the user OID.  
+the week start and the user OID and the number of millisconds since 1970. 
+(rally.technicalservices.timesheet.status.2016-01-03.1127100000033.1453440772000)
+* A preference is saved for each approval/unapproval so that we can audit approvals
+and re-openings.
 
 ### First Load
 
