@@ -21,6 +21,25 @@ Ext.define('TSUtilities', {
         return deferred.promise;
     },
     
+    loadWsapiRecords: function(config){
+        var deferred = Ext.create('Deft.Deferred');
+        var me = this;
+        var default_config = {
+            model: 'Defect',
+            fetch: ['ObjectID']
+        };
+        Ext.create('Rally.data.wsapi.Store', Ext.Object.merge(default_config,config)).load({
+            callback : function(records, operation, successful) {
+                if (successful){
+                    deferred.resolve(records);
+                } else {
+                    deferred.reject('Problem loading: ' + operation.error.errors.join('. '));
+                }
+            }
+        });
+        return deferred.promise;
+    },
+    
     getEditableProjectForCurrentUser: function() {
         var app = Rally.getApp();
         if ( this._currentUserCanWrite() ) {
@@ -43,7 +62,6 @@ Ext.define('TSUtilities', {
             return ( permission.Role == "Editor" || permission.Role == "ProjectAdmin");
         },this);
         
-        console.log('perms:', editor_permissions);
         
         if ( editor_permissions.length > 0 ) {
             return editor_permissions[0]._ref;
@@ -111,7 +129,6 @@ Ext.define('TSUtilities', {
             });
         }
         
-        console.log('  ', can_unlock);
         return can_unlock;
     },
     

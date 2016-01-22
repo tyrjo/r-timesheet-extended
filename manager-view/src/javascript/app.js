@@ -285,7 +285,7 @@ Ext.define("TSTimeSheetApproval", {
             fetch: ['Name','Value']
         };
         
-        TSUtilities._loadWsapiRecords(config).then({
+        TSUtilities.loadWsapiRecords(config).then({
             scope: this,
             success: function(preferences) {
                 this.logger.log("Applying preferences", preferences);

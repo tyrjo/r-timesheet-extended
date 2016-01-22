@@ -1,0 +1,150 @@
+Ext.define("TSTimeSheetAudit", {
+    extend: 'Rally.app.App',
+    componentCls: 'app',
+    layout: 'border',
+    logger: new Rally.technicalservices.Logger(),
+    //defaults: { margin: 10 },
+    items: [
+        {
+            xtype: 'tabpanel',
+            id   : 'tabPanel',
+            region: 'center',
+            diabled: true,
+            border: false,
+            tabBar: {
+                //height: 28,
+                itemId: 'tabBar',
+                items: [{
+                    xtype: 'container',
+                    flex : 1
+                }]
+            },
+            defaults: {
+                //border : false,
+                layout : 'fit'
+            },
+            items: [{
+                xtype: 'tsapprovalhistorytab',
+                title: 'Approvals'
+            },{
+                xtype: 'tslockhistorytab',
+                title: 'Locks'
+            }]
+        }
+    ],
+        
+    launch: function() {
+        this._addSelectors();
+    },
+    
+    _addSelectors: function() {
+        var container = this.down('#tabBar');
+        
+        container.add({
+            xtype:'rallydatefield',
+            itemId:'from_date_selector',
+            fieldLabel: 'From Week',
+            labelWidth: 65,
+            listeners: {
+                scope: this,
+                change: function(dp, new_value) {
+//                    var week_start = this._getBeginningOfWeek(new_value);
+//                    if ( week_start !== new_value ) {
+//                        dp.setValue(week_start);
+//                    }
+                    
+                    this._enableGoButton();
+                }
+            }
+        });
+        
+        container.add({
+            xtype:'rallydatefield',
+            itemId:'to_date_selector',
+            fieldLabel: 'Through Week',
+            labelWidth: 85,
+            margin: '0 0 0 5',
+            
+            listeners: {
+                scope: this,
+                change: function(dp, new_value) {
+//                    var week_start = this._getBeginningOfWeek(new_value);
+//                    if ( week_start !== new_value ) {
+//                        dp.setValue(week_start);
+//                    }
+                    this._enableGoButton();
+                }
+            }
+        });
+        
+        container.add({
+            xtype:'rallybutton',
+            itemId: 'go_button',
+            text:'Go',
+            margin: '0 3 0 3',
+            disabled: true,
+            listeners: {
+                scope: this,
+                click: this._updateData
+            }
+        });
+        
+        container.add({type:'container', html: '&nbsp;&nbsp;&nbsp;', border: 0});
+    },
+    
+    _enableGoButton: function() {
+        var start_date = null;
+        var end_date = null;
+        
+        start_date = this.down('#from_date_selector').getValue();
+        end_date   = this.down('#to_date_selector').getValue();
+        
+        var button = this.down('#go_button');
+        
+        if ( button ) {
+            button.setDisabled(true);
+            if ( start_date && end_date ) {
+                button.setDisabled(false);
+            }
+        }
+    },
+    
+    _updateData: function() {
+        this.start_date = Rally.util.DateTime.toIsoString(this.down('#from_date_selector').getValue(),false).replace(/T.*$/,'T00:00:00.000Z');
+        this.end_date = Rally.util.DateTime.toIsoString( this.down('#to_date_selector').getValue(),true);
+
+        var tabPanel  = Ext.getCmp('tabPanel');
+        var activeTab = tabPanel.getActiveTab();
+        activeTab.updateContent(this);
+    },
+    
+    _getBeginningOfWeek: function(js_date){
+        var start_of_week_here = Ext.Date.add(js_date, Ext.Date.DAY, -1 * js_date.getDay());
+        return start_of_week_here;
+    },
+//    getOptions: function() {
+//        return [
+//            {
+//                text: 'About...',
+//                handler: this._launchInfo,
+//                scope: this
+//            }
+//        ];
+//    },
+    
+    _launchInfo: function() {
+        if ( this.about_dialog ) { this.about_dialog.destroy(); }
+        this.about_dialog = Ext.create('Rally.technicalservices.InfoLink',{});
+    },
+    
+    isExternal: function(){
+        return typeof(this.getAppId()) == 'undefined';
+    },
+    
+    //onSettingsUpdate:  Override
+    onSettingsUpdate: function (settings){
+        this.logger.log('onSettingsUpdate',settings);
+        // Ext.apply(this, settings);
+        this.launch();
+    }
+});
