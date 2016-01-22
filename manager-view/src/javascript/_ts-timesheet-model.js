@@ -33,10 +33,11 @@ Ext.define('TSTimesheet',{
     
     getPreferenceKey: function() {
         // get or create and then update pref
-        return Ext.String.format("{0}.{1}.{2}", 
+        return Ext.String.format("{0}.{1}.{2}.{3}", 
             this._approvalKeyPrefix,
             this.getWeekStart(),
-            this.get('User').ObjectID
+            this.get('User').ObjectID,
+            TSUtilities.getUTCDate(new Date()).getTime()
         );
     },
     

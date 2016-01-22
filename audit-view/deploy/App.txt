@@ -1,13 +1,13 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Time Sheet Approval</title>
+    <title>TS Time Sheet Audit</title>
     <!--  (c) 2015 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Thu Jan 21 2016 13:45:11 GMT-0800 (PST) -->
+    <!--  Build Date: Thu Jan 21 2016 17:10:27 GMT-0800 (PST) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Thu Jan 21 2016 13:45:11 GMT-0800 (PST)";
-        var CHECKSUM = 268223706032;
+        var APP_BUILD_DATE = "Thu Jan 21 2016 17:10:27 GMT-0800 (PST)";
+        var CHECKSUM = 157575086596;
     </script>
     
     <script type="text/javascript" src="/apps/2.0/sdk.js"></script>
@@ -458,6 +458,25 @@ Ext.define('TSUtilities', {
         return deferred.promise;
     },
     
+    loadWsapiRecords: function(config){
+        var deferred = Ext.create('Deft.Deferred');
+        var me = this;
+        var default_config = {
+            model: 'Defect',
+            fetch: ['ObjectID']
+        };
+        Ext.create('Rally.data.wsapi.Store', Ext.Object.merge(default_config,config)).load({
+            callback : function(records, operation, successful) {
+                if (successful){
+                    deferred.resolve(records);
+                } else {
+                    deferred.reject('Problem loading: ' + operation.error.errors.join('. '));
+                }
+            }
+        });
+        return deferred.promise;
+    },
+    
     getEditableProjectForCurrentUser: function() {
         var app = Rally.getApp();
         if ( this._currentUserCanWrite() ) {
@@ -480,7 +499,6 @@ Ext.define('TSUtilities', {
             return ( permission.Role == "Editor" || permission.Role == "ProjectAdmin");
         },this);
         
-        console.log('perms:', editor_permissions);
         
         if ( editor_permissions.length > 0 ) {
             return editor_permissions[0]._ref;
@@ -548,7 +566,6 @@ Ext.define('TSUtilities', {
             });
         }
         
-        console.log('  ', can_unlock);
         return can_unlock;
     },
     
@@ -2292,1178 +2309,465 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
 
 });
 
-Ext.define('Rally.technicalservices.ApproveMenuItem', {
-    extend: 'Rally.ui.menu.item.RecordMenuItem',
-    alias: 'widget.tsapprovemenuitem',
+/**
+ * A link that pops up a version dialog box
+ */
 
-
-    config: {
-        text: 'Approve',
-        records: []
-    },
-
-    constructor: function(config) {
-        config = config || {};
-
-        config.predicate = config.predicate || this.shouldShowMenuItem;
-        config.handler   = config.handler || this._approveRecords;
-        
-        this.initConfig(config);
-        this.callParent([config]);
-    },
-    
-    shouldShowMenuItem: function(record) {
-
-        if ( this.records && this.records.length > 0 ) {
-            var should_show = true;
-            Ext.Array.each(this.records, function(r){
-                if ( !this._isApprovable(r) ) {
-                    should_show = false;
-                }
-            },this);
-            return should_show;
-        }
-        return this._isApprovable(record);
-    },
-    
-    _isApprovable: function(record) {
-        return ( record.get('__Status') && record.get('__Status') != "Approved" );
-    },
-    
-    _approveRecord: function(record) {
-        if ( !record ) {
-            Ext.Msg.alert("Problem approving record", "Can't find record");
-            return;
-        }
-        
-        record.approve();
-    },
-    
-    _approveRecords: function() {
-        var record = this.record;
-        var records = this.records;
-        
-        if ( records.length === 0 ) {
-            records = [record];
-        }
-                
-        Ext.Array.each(records, function(r) {
-            this._approveRecord(r);
-        },this);
-    }
-});
-Ext.define('Rally.technicalservices.UnlockMenuItem', {
-    extend: 'Rally.ui.menu.item.RecordMenuItem',
-    alias: 'widget.tsunapprovemenuitem',
-
-
-    config: {
-        text: 'Unapprove',
-        records: []
-    },
-
-    constructor: function(config) {
-        config = config || {};
-
-        config.predicate = config.predicate || this.shouldShowMenuItem;
-        config.handler   = config.handler || this._unapproveRecords;
-        
-        this.initConfig(config);
-        this.callParent([config]);
-    },
-    
-    shouldShowMenuItem: function(record) {
-        if ( this.records && this.records.length > 0 ) {
-            var should_show = true;
-            Ext.Array.each(this.records, function(r){
-                if ( !this._isUnapprovable(r) ) {
-                    should_show = false;
-                }
-            },this);
-            return should_show;
-        }
-        return this._isUnapprovable(record);
-    },
-    
-    _isUnapprovable: function(record) {
-        return ( record.get('__Status') && record.get('__Status') == "Approved" );
-    },
-    
-    _unapproveRecord: function(record) {
-        if ( !record ) {
-            Ext.Msg.alert("Problem unapproving record", "Can't find record");
-            return;
-        }
-        
-        record.unapprove();
-    },
-    
-    _unapproveRecords: function() {
-        var record = this.record;
-        var records = this.records;
-                
-        if ( records.length === 0 ) {
-            records = [record];
-        }
-        var me = this;
-        Ext.Array.each(records, function(r) {
-            me._unapproveRecord(r);
-        });
-    }
-});
-
-Ext.define('Rally.technicalservices.TimeApprovalRecordMenu', {
-    extend: 'Rally.ui.menu.RecordMenu',
-    alias: 'widget.tstimeapprovalrecordmenu',
-
-    config: {
-
-        /**
-         * @cfg {Rally.data.Model} record (required)
-         * The record to build the menu for
-         */
-        record: null,
-
-        /**
-         * @cfg {Ext.Element|HTMLElement} (optional) owningEl
-         * The element this menu item is being invoked against.
-         */
-        owningEl: undefined
-
-    },
-
-    initComponent: function() {
-        this.items = this._getMenuItems();
-        
-        this.callParent(arguments);
-    },
-
-    _getMenuItems: function() {
-        var record = this.getRecord(),
-            records = this.records || [],
-            items = [],
-            popoverPlacement = this.popoverPlacement || Rally.ui.popover.Popover.DEFAULT_PLACEMENT;
-
-        if ( records && records.length > 0 ) {
-            // bulk edit
-            items.push({
-                xtype: 'tsapprovemenuitem',
-                view: this.view,
-                record: record,
-                records: records
-            });
-           
-            if ( this.canUnapprove ) {
-                items.push({
-                    xtype: 'tsunapprovemenuitem',
-                    view: this.view,
-                    record: record,
-                    records: records
-                });
-            }
-        } else {
-            items.push({
-                xtype: 'tsapprovemenuitem',
-                view: this.view,
-                record: record
-            });
-                    
-            if ( this.canUnapprove ) {
-                items.push({
-                    xtype: 'tsunapprovemenuitem',
-                    view: this.view,
-                    record: record
-                });
-            }
-        }
-        return items;
-    }
-});
-Ext.override(Rally.ui.grid.CheckboxModel, {
-    _recordIsSelectable: function(record) {
-        return true;
-    }
-});
-Ext.define('Rally.technicalservices.grid.RowActionColumn', {
-    extend: 'Ext.grid.column.Column',
-    alias: 'widget.tsrowactioncolumn',
-
-    inheritableStatics: {
-        getRequiredFetchFields: function(grid) {
-            return (grid.enableBulkEdit && ['Project', 'Tags']) || [];
-        }
-    },
-    
-    /**
-     * @property {Boolean} sortable False to disable sorting of this column
-     *
-     */
-    sortable: false,
-    /**
-     * @property {Boolean} hideable False to disable hiding of column
-     *
-     */
-    hideable: false,
-    /**
-     * @property {Boolean} resizable False to disable resizing of column
-     *
-     */
-    resizable: false,
-    /**
-     * @property {Boolean} draggable False to disable reordering of a column
-     *
-     */
-    draggable: false,
-    /**
-     * @property {Boolean} menuDisabled True to disable the column header menu containing sort/hide options
-     *
-     */
-    menuDisabled: true,
-    /**
-     * @property {Number}
-     *
-     */
-    flex: -1,
-    minWidth: Ext.isIE9 ? 22 : 26,
-    maxWidth: Ext.isIE9 ? 22 : 26,
-
-    /**
-     * @property {Boolean}
-     * This column should not show up on print pages that include a printable grid
-     */
-    printable: false,
-
-    tdCls: 'rally-cell-row-action',
-    cls: 'row-action-column-header',
-
-    config: {
-        /**
-         * @cfg {Function} rowActionsFn
-         * @params record {Ext.data.Record} The record to be assigned to record menu items
-         * A list of Rally.ui.menu.Menu#items objects that will be used as the row action options
-         * Each row action can contain a predicate property which will be evaluated to see if the row action should be included
-         * Usage:
-         *      [
-         *          {text: 'Move...', record: record, handler: function(){  // move this.record  }}
-         *      ]
-         */
-        rowActionsFn: null,
-
-        /**
-         * @cfg {Object} scope The scope that the rowActionsFn is called with
-         */
-        scope: null,
-        
-        canUnapprove: false
-    },
-
-    constructor: function() {
-        this.callParent(arguments);
-        this.renderer = this._renderGearIcon;
-    },
-
-    initComponent: function() {
-        this.callParent(arguments);
-        this.on('click', this._showMenu, this);
-    },
-
-    onDestroy: function() {
-        if (this.menu) {
-            this.menu.destroy();
-            delete this.menu;
-        }
-
-        this.callParent(arguments);
-    },
-
-    /**
-     * @private
-     * @param value
-     * @param metaData
-     * @param record
-     */
-    _renderGearIcon: function(value, metaData, record) {
-        metaData.tdCls = Rally.util.Test.toBrowserTestCssClass('row-action', Rally.util.Ref.getOidFromRef(record.get('_ref')));
-        return '<div class="row-action-icon icon-gear"/>';
-    },
-
-    /**
-     * @private
-     * @param view
-     * @param el
-     */
-    _showMenu: function(view, el) {
-        var selectedRecord = view.getRecord(Ext.fly(el).parent("tr")),
-            checkedRecords = view.getSelectionModel().getSelection(),
-            grid = view.panel,
-            defaultOptions;
-
-        defaultOptions = {
-            view: view,
-            record: selectedRecord,
-            records: checkedRecords,
-            owningEl: el.parentElement,
-            popoverPlacement: ['bottom', 'top'],
-            canUnapprove: this.canUnapprove
-        };
-
-        /*if (grid.enableBulkEdit && _.contains(checkedRecords, selectedRecord)) {
-            this.menu = Ext.create('Rally.technicalservices.TimeApprovalRecordMenu', Ext.apply({
-                context: grid.getContext(),
-                records: checkedRecords,
-                store: grid.store,
-                onBeforeAction: function() {
-                    if (view.loadMask && _.isFunction(view.loadMask.disable)) {
-                        view.loadMask.disable();
-                    }
-                    grid.setLoading('Updating...');
-                },
-                onActionComplete: function(successfulRecords, unsuccessfulRecords, changes) {
-                    grid.refreshAfterBulkAction(successfulRecords, changes).then({
-                        success: function() {
-                            grid.setLoading(false);
-                            if (view.loadMask && _.isFunction(view.loadMask.enable)) {
-                                view.loadMask.enable();
-                            }
-                            grid.getSelectionModel().deselect(successfulRecords);
-                            grid.getSelectionModel().select(unsuccessfulRecords);
-                            _.each(successfulRecords, grid.highlightRowForRecord, grid);
-                            grid.publish(Rally.Message.bulkUpdate, successfulRecords, changes, grid);
-                        }
-                    });
-                }
-            }, grid.bulkEditConfig));
-        } else*/ if (this.rowActionsFn) {
-            this.menu = Ext.create('Rally.technicalservices.TimeApprovalRecordMenu', Ext.apply({
-                items: this.rowActionsFn.call(this.scope || this, selectedRecord)
-            }, defaultOptions));
-        } else {
-            this.menu = this._getDefaultRecordMenu(selectedRecord, defaultOptions);
-        }
-
-        this.menu.showBy(Ext.fly(el).down(".row-action-icon"));
-    },
-
-    _getDefaultRecordMenu: function(selectedRecord, defaultOptions) {
-        var menu;
-        var menuOptions = Ext.merge(defaultOptions, this.menuOptions || {});
-        return Ext.create('Rally.technicalservices.TimeApprovalRecordMenu', menuOptions);
-    }
-});
-Ext.override(Ext.selection.CheckboxModel,{
-    onHeaderClick: function(headerCt, header, e) {
-        // force open all if checking.
-        var view = this.view;
-
-        view.features[0].expandAll();
-        
-        if (header.isCheckerHd) {
-            e.stopEvent();
-            var me = this,
-                isChecked = header.el.hasCls(Ext.baseCSSPrefix + 'grid-hd-checker-on');
-                
-            // Prevent focus changes on the view, since we're selecting/deselecting all records
-            me.preventFocus = true;
-            if (isChecked) {
-                me.deselectAll();
-            } else {
-                me.selectAll();
-            }
-            delete me.preventFocus;
-        }
-    }
-});
-
-Ext.define('TSTimesheet',{
-    extend: 'Ext.data.Model',
-    
-    _approvalKeyPrefix: 'rally.technicalservices.timesheet.status',
-    
-    fields: [
-        { name: '__UserName', type:'object' },
-        { name: '__Hours',  type: 'float',  defaultValue: 0 },
-        { name: '__Status', type: 'string', defaultValue: 'Unknown' }, // Open, Approved, Locked
-        { name: 'User', type: 'object' },
-        { name: 'WeekStartDate', type: 'date' },
-        { name: '__LastUpdateBy', type: 'object' },
-        { name: '__LastUpdateDate', type: 'date' }
-    ],
-    
-    isSelectable: function() {
-        return true;
-    },
-    
-    getWeekStart: function() {
-        var start_date = this.get('WeekStartDate');
-        start_date = Rally.util.DateTime.toIsoString(
-            new Date(start_date.getUTCFullYear(), 
-                start_date.getUTCMonth(), 
-                start_date.getUTCDate(),  
-                start_date.getUTCHours(), 
-                start_date.getUTCMinutes(), 
-                start_date.getUTCSeconds()
-            )
-        ).replace(/T.*$/,'');
-        return start_date;
-    },
-    
-    getPreferenceKey: function() {
-        // get or create and then update pref
-        return Ext.String.format("{0}.{1}.{2}.{3}", 
-            this._approvalKeyPrefix,
-            this.getWeekStart(),
-            this.get('User').ObjectID,
-            TSUtilities.getUTCDate(new Date()).getTime()
-        );
-    },
-    
-    approve: function() {
-        var current_user = Rally.getApp().getContext().getUser();
-        var status_owner = { _type: 'User', '_ref': current_user._ref, '_refObjectName': current_user._refObjectName }
-        
-        this.set('__Status', "Approved");
-        this.set('__LastUpdateBy', status_owner._refObjectName);
-        
-        var pref_key = this.getPreferenceKey();
-        
-        this._findOrCreatePreference(pref_key).then({
-            scope: this,
-            success: function(results) {
-                if ( results.length > 0 ) {
-                    var pref = results[0];
-                    
-                    var status_object = {
-                        status: "Approved",
-                        status_date: new Date(),
-                        status_owner: status_owner
-                    };
-                    
-                    pref.set('Value', Ext.JSON.encode(status_object));
-                    pref.save({
-                        callback: function(result, operation) {
-                            if(!operation.wasSuccessful()) {
-                                Ext.Msg.alert("Problem saving status",operation.error.errors[0]);
-                            }
-                        }
-                    });
-                }
-            },
-            failure: function(msg) {
-                Ext.Msg.alert("Failed to save approval state to " + pref_key, msg);
-            }
-        });
-        
-    },
-    
-    unapprove: function() {
-        this.set('__Status', "Open");
-
-        var pref_key = this.getPreferenceKey();
-        
-        this._findOrCreatePreference(pref_key).then({
-            scope: this,
-            success: function(results) {
-                if ( results.length > 0 ) {
-                    var pref = results[0];
-                    var current_user = Rally.getApp().getContext().getUser();
-                    
-                    var status_object = {
-                        status: "Open",
-                        status_date: new Date(),
-                        status_owner: { _type: 'User', '_ref': current_user._ref, '_refObjectName': current_user._refObjectName }
-                    };
-                    
-                    pref.set('Value', Ext.JSON.encode(status_object));
-                    pref.save({
-                        callback: function(result, operation) {
-                            if(!operation.wasSuccessful()) {
-                                Ext.Msg.alert("Problem saving status", operation.error.errors[0]);
-                            }
-                        }
-                    });
-                }
-            },
-            failure: function(msg) {
-                Ext.Msg.alert("Failed to save approval state to " + pref_key, msg);
-            }
-        });
-        
-    },
-    
-    _findOrCreatePreference: function(key) {
-        var deferred = Ext.create('Deft.Deferred');
-        
-        Deft.Chain.pipeline([
-            function() { return this._findPreference(key); },
-            function(pref) { return this._makePreference(key,pref); }
-        ],this).then({
-            scope: this,
-            success: function(results) {
-                deferred.resolve(results);
-            },
-            failure: function(msg) {
-                deferred.reject(msg);
-            }
-        });
-        
-        return deferred.promise;
-    },
-    
-    _findPreference: function(key) {
-        var config = {
-            model:'Preference',
-            filters: [{property: 'Name', value: key}]
-        };
-        
-        return TSUtilities._loadWsapiRecords(config);
-    },
-    
-    /* leave prefs is null or empty array to create a pref because
-     * this is pipelined from the search for a pref.  So we might have
-     * gotten something and just want to pass it through
-     */
-    _makePreference: function(key,prefs) {
-        var deferred = Ext.create('Deft.Deferred');
-        var me = this;
-        if ( !Ext.isEmpty(prefs) && ( !Ext.isArray(prefs) || prefs.length > 0 )) {
-            return prefs;
-        }
-        Rally.data.ModelFactory.getModel({
-            type: 'Preference',
-            success: function(model) {
-
-                var pref_config = {
-                    Name: key,
-                    Value: 'Open',
-                    Project: TSUtilities.getEditableProjectForCurrentUser()
-                }
-
-//                if ( Rally.getApp().isExternal() ) {
-//                    pref_config.Project = Rally.getApp().getContext().getProjectRef();
-//                } else {
-//                    pref_config.AppId = Rally.getApp().getAppId();
-//                }
-                
-                var pref = Ext.create(model, pref_config);
-                
-                pref.save({
-                    callback: function(result, operation) {
-                        if(operation.wasSuccessful()) {
-                            deferred.resolve([result]);
-                        } else {
-                            deferred.reject(operation.error.errors[0]);
-                        }
-                    }
-                });
-            }
-        });
-        return deferred.promise;
-    }
-    
-});
-Ext.define('Rally.technicalservices.ManagerDetailDialog', {
+Ext.define('Rally.technicalservices.InfoLink',{
     extend: 'Rally.ui.dialog.Dialog',
-    autoShow : true,
-    closable : true,
-    layout   : 'border',
+    alias: 'widget.tsinfolink',
     
-    config: {
-        startDate: new Date(),
-        record: null,
-        commentKeyPrefix: ''
-    },
+    /**
+     * @cfg {String} informationHtml
+     * Additional text to be displayed on the popup dialog (for exmaple,
+     * to add a description of the app's use or functionality)
+     */
+    informationHtml: null,
+    
+    /**
+     * 
+     * cfg {String} title
+     * The title for the dialog box
+     */
+    title: "Build Information",
+    
+    defaults: { padding: 5, margin: 5 },
 
-    constructor: function(config) {
-        this.mergeConfig(config);
+    closable: true,
+     
+    draggable: true,
 
-        this.callParent([this.config]);
-    },
-
+    autoShow: true,
+   
+    width: 350, 
+    
     initComponent: function() {
+        var id = Ext.id(this);
+        this.title =  "<span class='icon-help'> </span>" + this.title;
+        this.callParent(arguments);
+    },
+    
+    _generateChecksum: function(string){
+        var chk = 0x12345678,
+            i;
+        string = string.replace(/var CHECKSUM = .*;/,"");
+        string = string.replace(/\s/g,"");  //Remove all whitespace from the string.
+        
+        for (i = 0; i < string.length; i++) {
+            chk += (string.charCodeAt(i) * i);
+        }
+    
+        return chk;
+    },
+    
+    _checkChecksum: function(container) {
+        var deferred = Ext.create('Deft.Deferred');
+        console.log("_checkChecksum", container);
+        var me = this;
+        
+        Ext.Ajax.request({
+            url: document.URL,
+            params: {
+                id: 1
+            },
+            success: function (response) {
+                text = response.responseText;
+                if ( CHECKSUM ) {
+                    if ( CHECKSUM !== me._generateChecksum(text) ) {
+                        console.log("Checksums don't match!");
+                        deferred.resolve(false);
+                        return;
+                    }
+                }
+                deferred.resolve(true);
+            }
+        });
+        
+        return deferred.promise;
+    },
+    
+    afterRender: function() {
+        var app = Rally.getApp();
+        
+        if (! app.isExternal() ) {
+                
+            this._checkChecksum(app).then({
+                scope: this,
+                success: function(result){
+                    if ( !result ) {
+                        this.addDocked({
+                            xtype:'container',
+                            cls: 'build-info',
+                            padding: 2,
+                            html:'<span class="icon-warning"> </span>Checksums do not match'
+                        });
+                    }
+                },
+                failure: function(msg){
+                    console.log("oops:",msg);
+                }
+            });
+        } else {
+            this.addDocked({
+                xtype:'container',
+                cls: 'build-info',
+                padding: 2,
+                html:'... Running externally'
+            });
+        }
         this.callParent(arguments);
     },
     
     beforeRender: function() {
+        var me = this;
         this.callParent(arguments);
-        this.add({ 
-            xtype:  'tstimetable',
-            region: 'center',
-            layout: 'fit',
-            weekStart: this.startDate,
-            editable: false,
-            timesheet_user: this.record.get('User')
-        });
+
+        if (this.informationHtml) {
+            this.addDocked({
+                xtype: 'component',
+                componentCls: 'intro-panel',
+                padding: 2,
+                html: this.informationHtml
+            });
+        }
+        
         this.addDocked({
-            xtype: 'container',
-            dock: 'bottom',
-            layout: 'hbox',
-            itemId: 'popup_selector_box',
-            padding: 10,
-            items: [
-                {xtype:'container', itemId:'popup_left_box'},
-                {xtype:'container',  flex: 1},
-                {xtype:'container', itemId:'popup_right_box'}
-            ]
+            xtype:'container',
+            cls: 'build-info',
+            padding: 2,
+            html:"This app was created by the Rally Technical Services Team."
         });
         
+        if ( APP_BUILD_DATE ) {
+            this.addDocked({
+                xtype:'container',
+                cls: 'build-info',
+                padding: 2,
+                html:'Build date/time: ' + APP_BUILD_DATE
+            });
+        }
+    }
+});
+
+/*
+ */
+Ext.define('Rally.technicalservices.Logger',{
+    constructor: function(config){
+        Ext.apply(this,config);
+    },
+    log: function(args){
+        var timestamp = "[ " + Ext.util.Format.date(new Date(), "Y-m-d H:i:s.u") + " ]";
+        //var output_args = arguments;
+        //output_args.unshift( [ "[ " + timestamp + " ]" ] );
+        //output_args = Ext.Array.push(output_args,arguments);
+        
+        var output_args = [];
+        output_args = Ext.Array.push(output_args,[timestamp]);
+        output_args = Ext.Array.push(output_args, Ext.Array.slice(arguments,0));
+
+        window.console && console.log.apply(console,output_args);
+    }
+
+});
+
+Ext.define('Rally.technicalservices.ApprovalHistoryTab',{
+    extend: 'Ext.panel.Panel',
+    alias : 'widget.tsapprovalhistorytab',
+    
+    _approvalKeyPrefix: 'rally.technicalservices.timesheet.status',
+    
+    initComponent: function() {
+        this.callParent();
+        this.add(this._getGridConfig());
+    },
+    
+    updateContent: function(app) {
+        this.app = app;
+        var me = this;
+        
+        Deft.Chain.sequence([
+            this._loadPreferences,
+            this._loadUsers
+        ],this).then({
+            success: function(results) {
+                var preferences = results[0];
+                var users = results[1];
+                
+                var users_by_oid = {};
+                Ext.Array.each(users, function(user) {
+                    users_by_oid[user.get('ObjectID')] = user;
+                });
+                
+                var rows = Ext.Array.map(preferences, function(preference){
+                    var value = preference.get('Value');
+                    var status_object = Ext.JSON.decode(value);
+                    var name_array = preference.get('Name').split('.');
+                    
+                    var week_start = name_array[4];
+                    var user_oid = name_array[5];
+                    
+                    return {
+                        WeekStartDate: week_start,
+                        Status: status_object.status,
+                        Changer: status_object.status_owner._refObjectName,
+                        ChangeDate: preference.get('CreationDate'),
+                        User: users_by_oid[user_oid] || "unavailable"
+                    };
+                });
+                
+                var calculated_store = Ext.create('Rally.data.custom.Store',{
+                    pageSize: 1000,
+                    data: rows
+                });
+                me.items.getAt(0).bindStore(calculated_store);
+                me.app.setLoading(false);
+            },
+            failure: function(msg) {
+                Ext.Msg.alert('Problem loading', msg);
+            }
+        });
+    },
+    
+    _loadPreferences: function() {
+        this.app.setLoading("Loading statuses...");
+
+        var start_date = this.app.start_date;
+        var end_date = this.app.end_date;
+        
+        var filters = [
+            {property:'Name',operator:'contains',value:this._approvalKeyPrefix},
+            {property:'CreationDate', operator: '>=', value: start_date },
+            {property:'CreationDate', operator: '<=', value: end_date }
+        ];
+        var config = {
+            model:'Preference',
+            limit: 'Infinity',
+            filters: filters,
+            fetch: ['Name','Value','CreationDate'],
+            sorters: [{property:'CreationDate',direction:'DESC'}]
+        };
+
+        return TSUtilities.loadWsapiRecords(config);
+    },
+    
+    _loadUsers: function() {
+        this.app.setLoading("Loading users...");
+
+        var filters = [{property:'ObjectID',operator:'>',value:-1}];
+        var config = {
+            model:'User',
+            limit: 'Infinity',
+            filters: filters,
+            fetch: ['UserName','DisplayName','ObjectID']
+        };
+
+        return TSUtilities.loadWsapiRecords(config);
+    },
+    
+    _getGridConfig: function() {
+        return {
+            xtype                : 'rallygrid',
+            sortableColumns      : false,
+            showRowActionsColumn : false,
+            showPagingToolbar    : false,
+            columnCfgs           : this._getColumns(),
+            store                : Ext.create('Rally.data.custom.Store', this._getStoreConfig())
+        }
+    },
+    
+    _getColumns: function() {
+        var columns = [];
+        
+        columns.push({dataIndex:'User',text:'User', renderer: function(v) {
+            if ( Ext.isString(v) ) { return v; }
+            return v.get('DisplayName') || v.get('UserName');
+        }});
+        columns.push({dataIndex:'WeekStartDate',text:'Week Start'});
+        columns.push({dataIndex:'Status',text:'Status'});
+        columns.push({dataIndex:'Changer',text:'Changed By'});
+        columns.push({dataIndex:'ChangeDate',text:'Change Date', flex: 1});
+        
+        return columns;
+    },
+    
+    _getStoreConfig: function() {
+        return {
+            data: [{ 
+                Status: '',
+                Changer: '',
+                ChangeDate: '',
+                User: '',
+                WeekStartDate: ''
+            }]
+        }
+    }
+});
+Ext.define('Rally.technicalservices.LockHistoryTab',{
+    extend: 'Ext.panel.Panel',
+    alias : 'widget.tslockhistorytab',
+    
+    initComponent: function() {
+        this.callParent();
+        
+        //this.add(this._getGridConfig());
+    },
+    
+    updateContent: function(app) {
+        this.app = app;
+        
+    },
+    
+    _getGridConfig: function() {
+        return {
+            xtype                : 'rallygrid',
+            sortableColumns      : false,
+            showRowActionsColumn : false,
+            showPagingToolbar    : false,
+            columnCfgs           : this._getColumns(),
+            store                : Ext.create('Rally.data.custom.Store', this._getStoreConfig())
+        }
+    },
+    
+    _getColumns: function() {
+        var columns = [];
+        
+        columns.push({dataIndex:'Name',text:'Name'});
+        
+        return columns;
+    },
+    
+    _getStoreConfig: function() {
+        return {
+            data: [{ 
+                Name: ''
+            }]
+        }
+    }
+});
+Ext.define("TSTimeSheetAudit", {
+    extend: 'Rally.app.App',
+    componentCls: 'app',
+    layout: 'border',
+    logger: new Rally.technicalservices.Logger(),
+    //defaults: { margin: 10 },
+    items: [
+        {
+            xtype: 'tabpanel',
+            id   : 'tabPanel',
+            region: 'center',
+            diabled: true,
+            border: false,
+            tabBar: {
+                //height: 28,
+                itemId: 'tabBar',
+                items: [{
+                    xtype: 'container',
+                    flex : 1
+                }]
+            },
+            defaults: {
+                //border : false,
+                layout : 'fit'
+            },
+            items: [{
+                xtype: 'tsapprovalhistorytab',
+                title: 'Approvals'
+            },{
+                xtype: 'tslockhistorytab',
+                title: 'Locks'
+            }]
+        }
+    ],
+        
+    launch: function() {
         this._addSelectors();
     },
     
     _addSelectors: function() {
-        var status = this.record.get('__Status');
-        
-        var start_date = this.startDate;
-        var comment_start_date = Rally.util.DateTime.toIsoString(
-            new Date(start_date.getUTCFullYear(), 
-                start_date.getUTCMonth(), 
-                start_date.getUTCDate(),  
-                start_date.getUTCHours(), 
-                start_date.getUTCMinutes(), 
-                start_date.getUTCSeconds()
-            )
-        ).replace(/T.*$/,'');
-        
-        var comment_key = Ext.String.format("{0}.{1}.{2}", 
-            this.commentKeyPrefix,
-            comment_start_date,
-            this.record.get('User').ObjectID
-        );
-        
-        this.down('#popup_left_box').add({
-            xtype:'tscommentbutton',
-            toolTipText: 'Read/Add Comments',
-            keyPrefix: comment_key
-        });
-
-        this.down('#popup_right_box').add({
-            xtype:'rallybutton', 
-            text:'Unapprove',
-            disabled: (status != "Approved" || !TSUtilities._currentUserCanUnapprove()),
-            listeners: {
-                scope: this,
-                click: function() {
-                    this._unapproveTimesheet(this.record);
-                    this.close();
-                }
-            }
-        });
-        
-        this.down('#popup_right_box').add({
-            xtype:'rallybutton', 
-            text:'Approve',
-            disabled: (status == "Approved"),
-            listeners: {
-                scope: this,
-                click: function() {
-                    this._approveTimesheet(this.record);
-                    this.close();
-                }
-            }
-        });
-        
-        this.down('#popup_right_box').add({
-            xtype:'rallybutton',
-            itemId:'export_button',
-            cls: 'secondary',
-            text: '<span class="icon-export"> </span>',
-            listeners: {
-                scope: this,
-                click: function() {
-                    this._export();
-                }
-            }
-        });
-        
-    },
-    
-    _approveTimesheet: function(record) {
-        record.approve();
-    },
-    
-    _unapproveTimesheet: function(record) {
-        record.unapprove();
-    },
-    
-    _export: function(){
-        var grid = this.down('tstimetable').getGrid();
-        var me = this;
-        
-        if ( !grid ) { return; }
-        
-        var filename = Ext.String.format('manager-detail-report.csv');
-
-        this.setLoading("Generating CSV");
-        Deft.Chain.sequence([
-            function() { return Rally.technicalservices.FileUtilities.getCSVFromGrid(this,grid) } 
-        ]).then({
-            scope: this,
-            success: function(csv){
-                if (csv && csv.length > 0){
-                    Rally.technicalservices.FileUtilities.saveCSVToFile(csv,filename);
-                } else {
-                    Rally.ui.notify.Notifier.showWarning({message: 'No data to export'});
-                }
-                
-            }
-        }).always(function() { me.setLoading(false); });
-    }
-    
-});
-Ext.define("TSTimeSheetApproval", {
-    extend: 'Rally.app.App',
-    componentCls: 'app',
-    logger: new Rally.technicalservices.Logger(),
-    defaults: { margin: 10 },
-    
-    layout: 'border', 
-    
-    items: [
-        {xtype:'container', itemId:'selector_box', region: 'north',  layout: { type:'hbox' }},
-        {xtype:'container', itemId:'display_box' , region: 'center', layout: { type: 'fit'} }
-    ],
-
-    _commentKeyPrefix: 'rally.technicalservices.timesheet.comment',
-    _approvalKeyPrefix: 'rally.technicalservices.timesheet.status',
-
-    integrationHeaders : {
-        name : "TSTimeSheetApproval"
-    },
-    
-    stateFilterValue: 'Open',
-    
-    config: {
-        defaultSettings: {
-            managerField: 'DisplayName',
-            showAllForAdmins: true
-        }
-    },
-    
-    launch: function() {
-        this._addSelectors(this.down('#selector_box'));
-    },
-    
-    _addSelectors: function(container) {
-        container.removeAll();
+        var container = this.down('#tabBar');
         
         container.add({
-            xtype:'rallybutton',
-            cls: 'secondary',
-            text: '<span class="icon-expandall"> </span>',
-            expanded: false,
-            listeners: {
-                scope: this,
-                click: function(button) {
-                    if ( button.expanded == true ) {
-                        button.expanded = false;
-                        button.setText('<span class="icon-expandall"> </span>');
-                        var grid = this.down('rallygrid');
-                        if ( grid ) {
-                            grid.getView().features[0].collapseAll();
-                        }
-                    } else {
-                        button.expanded = true;
-                        button.setText('<span class="icon-collapseall"> </span>');
-                        var grid = this.down('rallygrid');
-                        if ( grid ) {
-                            grid.getView().features[0].expandAll();
-                        }
-                    }
-                }
-            }
-        });
-        
-        container.add({
-            xtype:'rallybutton',
-            itemId:'export_button',
-            cls: 'secondary',
-            text: '<span class="icon-export"> </span>',
-            disabled: true,
-            listeners: {
-                scope: this,
-                click: function() {
-                    this._export();
-                }
-            }
-        });
-        
-        var state_store = Ext.create('Ext.data.Store',{
-            fields: ['displayName','value'],
-            data: [
-                {displayName:'All',  value:'ALL'},
-                {displayName:'Open', value:'Open'},
-                {displayName:'Approved', value:'Approved'}
-            ]
-        });
-
-        container.add({xtype:'container',flex: 1});
-        
-        container.add({
-            xtype:'combobox',
-            value: this.stateFilterValue,
-            fieldLabel: 'Timesheet State:',
-            store: state_store,
-            queryMode: 'local',
-            displayField: 'displayName',
-            valueField: 'value',
-            margin: 10,
-            width: 200,
-            listeners: {
-                scope: this,
-                change: function(cb) {
-                    this.stateFilterValue = cb.getValue();
-                    this._updateData();
-                }
-            }
-        });
-        
-        var date_container = container.add({
-            xtype:'container',
-            layout: 'vbox',
-            margin: 3
-        });
-        
-        var week_start = this._getBeginningOfWeek(Rally.util.DateTime.add(new Date(), 'week', -4));
-        
-        date_container.add({
             xtype:'rallydatefield',
             itemId:'from_date_selector',
             fieldLabel: 'From Week',
+            labelWidth: 65,
             listeners: {
                 scope: this,
                 change: function(dp, new_value) {
-                    var week_start = this._getBeginningOfWeek(new_value);
-                    if ( week_start !== new_value ) {
-                        dp.setValue(week_start);
-                    }
-                    if ( new_value.getDay() === 0 ) {
-                        this.down('#go_button') && this.down('#go_button').setDisabled(false);
-//                        this._updateData();
-                    }
+//                    var week_start = this._getBeginningOfWeek(new_value);
+//                    if ( week_start !== new_value ) {
+//                        dp.setValue(week_start);
+//                    }
+                    
+                    this._enableGoButton();
                 }
             }
-        }).setValue(week_start)
+        });
         
-        date_container.add({
+        container.add({
             xtype:'rallydatefield',
             itemId:'to_date_selector',
             fieldLabel: 'Through Week',
+            labelWidth: 85,
+            margin: '0 0 0 5',
+            
             listeners: {
                 scope: this,
                 change: function(dp, new_value) {
-                    var week_start = this._getBeginningOfWeek(new_value);
-                    if ( week_start !== new_value ) {
-                        dp.setValue(week_start);
-                    }
-                    
-                    if ( new_value.getDay() === 0 ) {
-                        this.down('#go_button') && this.down('#go_button').setDisabled(false);
-//                        this._updateData();
-                    }
+//                    var week_start = this._getBeginningOfWeek(new_value);
+//                    if ( week_start !== new_value ) {
+//                        dp.setValue(week_start);
+//                    }
+                    this._enableGoButton();
                 }
             }
-        }).setValue(Rally.util.DateTime.add(new Date(), 'week', -1));
+        });
         
         container.add({
             xtype:'rallybutton',
             itemId: 'go_button',
             text:'Go',
-            margin: '15 3 3 3',
-            disabled: false,
+            margin: '0 3 0 3',
+            disabled: true,
             listeners: {
                 scope: this,
                 click: this._updateData
             }
         });
         
-        container.add({xtype:'container',flex: 1});
-
-        //if ( this.isExternal() ) {
-            container.add({type:'container', html: '&nbsp;&nbsp;&nbsp;', border: 0, padding: 10});
-        //}
+        container.add({type:'container', html: '&nbsp;&nbsp;&nbsp;', border: 0});
+    },
+    
+    _enableGoButton: function() {
+        var start_date = null;
+        var end_date = null;
         
+        start_date = this.down('#from_date_selector').getValue();
+        end_date   = this.down('#to_date_selector').getValue();
+        
+        var button = this.down('#go_button');
+        
+        if ( button ) {
+            button.setDisabled(true);
+            if ( start_date && end_date ) {
+                button.setDisabled(false);
+            }
+        }
     },
     
     _updateData: function() {
-        this.down('#display_box').removeAll();
-        this.down('#go_button').setDisabled(true);
-        
-        if ( this.pipeline && this.pipeline.getState() === 'pending' ) {
-            this.pipeline.cancel();
-        }
-        
-        this.pipeline = Deft.Chain.pipeline([
-            this._loadTimesheets,
-            this._loadPreferences
-        ],this);
-        
-        this.pipeline.then({
-            scope: this,
-            success: function(timesheets) {
-                this._addGrid(this.down('#display_box'), timesheets);
-            },
-            failure: function(msg) {
-                Ext.Msg.alert('Problem loading users with timesheets', msg);
-            }
-        });
-    },
-    
-    _loadTimesheets: function() {
-        var deferred = Ext.create('Deft.Deferred');
-        this.setLoading("Loading timesheets...");
-        
-        var filters = [{property:'ObjectID', operator: '>', value: 0 }];
-        
-        if (this.down('#from_date_selector') ) {
-            var start_date = Rally.util.DateTime.toIsoString( this.down('#from_date_selector').getValue(),false).replace(/T.*$/,'T00:00:00.000Z');
-            filters.push({property:'WeekStartDate', operator: '>=', value:start_date});
-        }
-        
-        if (this.down('#to_date_selector') ) {
-            var start_date = Rally.util.DateTime.toIsoString( this.down('#to_date_selector').getValue(),true);
-            filters.push({property:'WeekStartDate', operator: '<=', value:start_date});
-        }
-        
-        if ( ! this.getSetting('showAllForAdmins') || !TSUtilities.currentUserIsAdmin() ){
-            var current_user_name = this.getContext().getUser().UserName;
-            filters.push({property:'User.' + this.getSetting('managerField'), value: current_user_name});
-        }
-        
-        var config = {
-            model:'TimeEntryItem',
-            limit: 'Infinity',
-            filters: filters,
-            context: {
-                project: null
-            },
-            fetch: ['User','WeekStartDate','ObjectID', 'UserName','Values:summary[Hours]']
-        };
-        
-        TSUtilities._loadWsapiRecords(config).then({
-            scope: this,
-            success: function(results) {
-                var timesheets = {};
-                
-                Ext.Array.each(results, function(item){
-                    var key = Ext.String.format("{0}_{1}",
-                        item.get('User').ObjectID,
-                        Rally.util.DateTime.toIsoString(item.get('WeekStartDate'))
-                    );
-                    
-                    if ( ! timesheets[key] ) {
-                        timesheets[key] = Ext.Object.merge( item.getData(), { 
-                            __UserName: item.get('User').UserName,
-                            __Hours: 0,
-                            __Status: "Unknown"
-                        });
-                    }
-                    
-                    var hours = timesheets[key].__Hours || 0;
-                    
-                    timesheets[key].__Hours = this._addHoursFromTimeEntryItem(hours,item);
-                    
-                },this);
-                
-                deferred.resolve( Ext.Array.map(Ext.Object.getValues(timesheets), function(timesheet){
-                    return Ext.create('TSTimesheet',timesheet);
-                }));
-                
-                this.setLoading(false);
-                
-            },
-            failure: function(msg){
-                deferred.reject(msg);
-            }
-        });
-        return deferred.promise;
-    },
-    
-    _loadPreferences: function(timesheets) {
-        var deferred = Ext.create('Deft.Deferred');
-        this.setLoading("Loading statuses...");
-        var stateFilter = this.stateFilterValue;
-        
-        var filters = [{property:'Name',operator:'contains',value:this._approvalKeyPrefix}];
-        
-        // Open might be because there hasn't been a preference created yet
-        if ( stateFilter && stateFilter != "ALL" && stateFilter != "Open" ) {
-            filters.push({property:'Value', operator:'contains', value:stateFilter});
-        }
-        
-        var config = {
-            model:'Preference',
-            limit: 'Infinity',
-            filters: filters,
-            fetch: ['Name','Value']
-        };
-        
-        TSUtilities._loadWsapiRecords(config).then({
-            scope: this,
-            success: function(preferences) {
-                this.logger.log("Applying preferences", preferences);
-                var preferences_by_key = {};
-                
-                Ext.Array.each(preferences, function(pref){
-                    preferences_by_key[pref.get('Name')] = pref;
-                });
-                
-                Ext.Array.each(timesheets, function(timesheet){
-                    var key = timesheet.getPreferenceKey();
-                    if (preferences_by_key[key]) {
-                        var value = preferences_by_key[key].get('Value');
-                        var status_object = {};
-                        if ( /{/.test(value) ) {
-                            status_object = Ext.JSON.decode(value);
-                        } else {
-                            status_object = {
-                                status: value,
-                                status_owner: { _refObjectName: '' }
-                            }
-                        }
+        this.start_date = Rally.util.DateTime.toIsoString(this.down('#from_date_selector').getValue(),false).replace(/T.*$/,'T00:00:00.000Z');
+        this.end_date = Rally.util.DateTime.toIsoString( this.down('#to_date_selector').getValue(),true);
 
-                        timesheet.set('__Status', status_object.status || "Open");
-                        timesheet.set('__LastUpdateBy', status_object.status_owner._refObjectName || "");
-
-                    } else { 
-                        timesheet.set('__Status', 'Open');
-                    }
-                });
-                                
-                var filtered_timesheets = Ext.Array.filter(timesheets, function(timesheet){
-                    if (stateFilter == "ALL") {
-                        return true;
-                    }
-                    
-                    return ( timesheet.get('__Status') == stateFilter );
-                });
-                
-                this.setLoading(false);
-                deferred.resolve(filtered_timesheets);
-                
-            },
-            failure: function(msg){
-                deferred.reject(msg);
-            }
-        });
-        return deferred.promise;
-    },
-    
-    _addHoursFromTimeEntryItem: function(hours,item){
-        var summary = item.get('Summary');
-        if ( summary && summary.Values && summary.Values.Hours ) {
-            var hour_summary = summary.Values.Hours;
-            Ext.Object.each(hour_summary, function(key,value){
-                hours = hours + ( key * value ) ;
-            });
-        }
-        return hours;
-    },
-
-    _addGrid: function(container, timesheets) {
-        this.logger.log("_addGrid",timesheets);
-        
-        var store = Ext.create('Rally.data.custom.Store',{
-            data:timesheets,
-            groupField: 'User',
-            groupDir: 'ASC',
-            pageSize: 50000,
-            model: 'TSTimesheet',
-            sorters: [{property:'__UserName'}, {property:'WeekStartDate', direction: 'DESC'}],
-            getGroupString: function(record) {
-                var owner = record.get('User');
-                return (owner && owner._refObjectName) || 'No Owner';
-            }
-        });
-        
-        var columns = this._getColumns();
-        
-        container.add({
-            xtype:'rallygrid',
-            store: store,
-            columnCfgs: columns,
-            enableEditing: false,
-            showRowActionsColumn: false,
-            enableBulkEdit: true,
-            showPagingToolbar: false,
-            features: [{
-                ftype: 'groupingsummary',
-                startCollapsed: true,
-                groupHeaderTpl: '{name} ({rows.length})'
-            }],
-            _recordIsSelectable: function(record) {
-                return true;
-            },
-            listeners: {
-                scope: this,
-                itemclick: function(grid, record, item, index, evt) {
-                    var column = grid.getPositionByEvent(evt).column;
-                    if ( column > 1 ) {
-                        this._popup(record);
-                    }
-                },
-                viewready: function() {
-                    this.down('#export_button') && this.down('#export_button').setDisabled(false);
-                },
-                destroy: function() {
-                    this.down('#export_button') && this.down('#export_button').setDisabled(true);
-                }
-            }
-        });
-    },
-    
-    _getColumns: function() {
-        var me = this;
-        var columns = [{
-            xtype: 'tsrowactioncolumn',
-            canUnapprove: TSUtilities._currentUserCanUnapprove()
-        }];
-        
-        columns.push({
-            dataIndex:'User',
-            text:'User',
-            renderer: function(v) { return v._refObjectName || value.UserName; }
-        });
-        columns.push({dataIndex:'WeekStartDate',text:'Week Starting', align: 'center', renderer: function(v) { 
-            return Ext.util.Format.date(TSUtilities.getUTCDate(v),'m/d/y'); 
-        }});
-        columns.push({dataIndex:'__Hours',text:'Hours', align: 'center'});
-        columns.push({dataIndex:'__Status',text:'Status', align: 'center'});
-        columns.push({dataIndex:'__LastUpdateBy',text:'Status Changed By', align: 'center'});
-        
-        return columns;
-    },
-    
-    _popup: function(record){
-        var user_name = record.get('User')._refObjectName;
-        var status = record.get('__Status');
-        this.logger.log("_popup", user_name, status, record);
-        
-        var start_date = record.get('WeekStartDate');
-        start_date = new Date(start_date.getUTCFullYear(), 
-            start_date.getUTCMonth(), 
-            start_date.getUTCDate(),  
-            start_date.getUTCHours(), 
-            start_date.getUTCMinutes(), 
-            start_date.getUTCSeconds());
-                
-        Ext.create('Rally.technicalservices.ManagerDetailDialog', {
-            id       : 'popup',
-            width    : Ext.getBody().getWidth() - 150,
-            height   : Ext.getBody().getHeight() - 150,
-            title    : Ext.String.format("{0}: {1} ({2})", user_name, Ext.Date.format(start_date,'j F Y'), status),
-            autoShow : true,
-            autoCenter: true,
-            closable : true,
-            commentKeyPrefix: this._commentKeyPrefix,
-            record   : record,
-            startDate: start_date
-        });
+        var tabPanel  = Ext.getCmp('tabPanel');
+        var activeTab = tabPanel.getActiveTab();
+        activeTab.updateContent(this);
     },
     
     _getBeginningOfWeek: function(js_date){
         var start_of_week_here = Ext.Date.add(js_date, Ext.Date.DAY, -1 * js_date.getDay());
         return start_of_week_here;
     },
-    
 //    getOptions: function() {
 //        return [
 //            {
@@ -3474,84 +2778,6 @@ Ext.define("TSTimeSheetApproval", {
 //        ];
 //    },
     
-    _export: function(){
-        var grid = this.down('rallygrid');
-        var me = this;
-        
-        if ( !grid ) { return; }
-        
-        this.logger.log('_export',grid);
-
-        var filename = Ext.String.format('manager-time-report.csv');
-
-        this.setLoading("Generating CSV");
-        
-        var promises = [];
-        
-        var selected = grid.getSelectionModel().getSelection();
-        if ( !selected || selected.length == 0 ){
-            promises.push(function() {return Rally.technicalservices.FileUtilities.getCSVFromGrid(this,grid) });
-        }
-        
-        Ext.Array.each(selected, function(item, idx){
-            promises.push(function(){ 
-                return me._getCSVFromTimesheet(item,(idx > 0) ); 
-            });
-        });
-                
-        Deft.Chain.sequence(promises).then({
-            scope: this,
-            success: function(results){
-                var csv = results.join('\r\n');
-                
-                if (csv && csv.length > 0){
-                    Rally.technicalservices.FileUtilities.saveCSVToFile(csv,filename);
-                } else {
-                    Rally.ui.notify.Notifier.showWarning({message: 'No data to export'});
-                }
-                
-            }
-        }).always(function() { me.setLoading(false); });
-    },
-    
-    _getCSVFromTimesheet: function(timesheet,skip_headers) {
-        var deferred = Ext.create('Deft.Deferred');
-        var me = this;
-        
-        var status = timesheet.get('__Status');
-        
-        var start_date = timesheet.get('WeekStartDate');
-        start_date = new Date(start_date.getUTCFullYear(), 
-            start_date.getUTCMonth(), 
-            start_date.getUTCDate(),  
-            start_date.getUTCHours(), 
-            start_date.getUTCMinutes(), 
-            start_date.getUTCSeconds());
-            
-        console.log('ts:', timesheet);
-        
-        var timetable = Ext.create('Rally.technicalservices.TimeTable',{
-            weekStart: start_date,
-            editable: false,
-            timesheet_status: timesheet.get('__Status'),
-            timesheet_user: timesheet.get('User'),
-            listeners: {
-                scope: this,
-                gridReady: function(timetable, grid) {
-                    if ( grid.getStore().isLoading() ) {
-                        grid.getStore().on('load', function() {
-                            deferred.resolve(Rally.technicalservices.FileUtilities.getCSVFromGrid(me,grid,skip_headers));
-                        }, this, { single: true });
-                    } else {
-                        deferred.resolve(Rally.technicalservices.FileUtilities.getCSVFromGrid(this,grid,skip_headers));
-                    }
-                }
-            }
-        });
-        
-        return deferred.promise;
-    },
-    
     _launchInfo: function() {
         if ( this.about_dialog ) { this.about_dialog.destroy(); }
         this.about_dialog = Ext.create('Rally.technicalservices.InfoLink',{});
@@ -3559,61 +2785,6 @@ Ext.define("TSTimeSheetApproval", {
     
     isExternal: function(){
         return typeof(this.getAppId()) == 'undefined';
-    },
-    
-    _filterOutExceptStrings: function(store) {
-        var app = Rally.getApp();
-        app.logger.log('_filterOutExceptChoices');
-        
-        store.filter([{
-            filterFn:function(field){ 
-                var attribute_definition = field.get('fieldDefinition').attributeDefinition;
-                var attribute_type = null;
-                if ( attribute_definition ) {
-                    attribute_type = attribute_definition.AttributeType;
-                }
-                if (  attribute_type == "BOOLEAN" ) {
-                    return false;
-                }
-                if ( attribute_type == "STRING") {
-                    if ( !field.get('fieldDefinition').attributeDefinition.Constrained ) {
-                        return true;
-                    }
-                }
-                return false;
-            } 
-        }]);
-    },
-    
-    getSettingsFields: function() {
-        var me = this;
-        
-        return [{
-            name: 'showAllForAdmins',
-            xtype: 'rallycheckboxfield',
-            boxLabelAlign: 'after',
-            fieldLabel: '',
-            margin: '0 0 25 10',
-            boxLabel: 'Show All<br/><span style="color:#999999;"><i>Tick to show all timesheets regardless of manager for admins.</i></span>'
-        },
-        {
-            name: 'managerField',
-            xtype: 'rallyfieldcombobox',
-            fieldLabel: 'User Manager Field',
-            labelWidth: 75,
-            labelAlign: 'left',
-            minWidth: 200,
-            margin: 10,
-            autoExpand: false,
-            alwaysExpanded: false,
-            model: 'User',
-            listeners: {
-                ready: function(field_box) {
-                    me._filterOutExceptStrings(field_box.getStore());
-                }
-            },
-            readyEvent: 'ready'
-        }];
     },
     
     //onSettingsUpdate:  Override
@@ -3625,8 +2796,8 @@ Ext.define("TSTimeSheetApproval", {
 });
 
             
-               Rally.launchApp('TSTimeSheetApproval', {
-                   name: 'Time Sheet Approval'
+               Rally.launchApp('TSTimeSheetAudit', {
+                   name: 'TS Time Sheet Audit'
                });
         });
     </script>
@@ -3670,8 +2841,44 @@ td.ts-weekend-cell {
     cursor: pointer;
 }
 
-.x-window {
-    border: 2px solid black !important;
+.x-panel .x-tab-bar-strip {
+  display: none;
+  }
+  
+.x-tab-bar-default-top {
+  padding: 0px;
+}
+
+.x-panel .x-tab-bar {
+  background: #f6f6f6 !important; 
+  }
+  
+.x-panel .x-tab-bar .x-tab-bar-body {
+    margin-top: 2px !important;
+    margin-left: 0px !important;
+    margin-bottom: 0px !important;
+}
+
+.x-panel .x-tab-bar .x-tab {
+    background: white !important; 
+}
+    
+.x-panel .x-tab-bar .x-tab.x-tab-active {
+    background: #35b2e4 !important;
+    border-color: #35b2e4 !important; 
+}
+      
+.x-panel .x-tab-bar .x-tab.x-tab-active .x-tab-inner {
+    color: white;
+}
+
+.x-panel .x-tab-bar .x-tab-inner {
+    color: #35b2e4;
+    width: 100%;
+}
+    
+.x-panel .x-tabpanel-child {
+  padding: 0;
 }
     </style>
 

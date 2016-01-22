@@ -285,7 +285,7 @@ Ext.define("TSTimeSheetApproval", {
             fetch: ['Name','Value']
         };
         
-        TSUtilities._loadWsapiRecords(config).then({
+        TSUtilities.loadWsapiRecords(config).then({
             scope: this,
             success: function(preferences) {
                 this.logger.log("Applying preferences", preferences);
@@ -412,22 +412,13 @@ Ext.define("TSTimeSheetApproval", {
             renderer: function(v) { return v._refObjectName || value.UserName; }
         });
         columns.push({dataIndex:'WeekStartDate',text:'Week Starting', align: 'center', renderer: function(v) { 
-            return Ext.util.Format.date(me._getUTCDate(v),'m/d/y'); 
+            return Ext.util.Format.date(TSUtilities.getUTCDate(v),'m/d/y'); 
         }});
         columns.push({dataIndex:'__Hours',text:'Hours', align: 'center'});
         columns.push({dataIndex:'__Status',text:'Status', align: 'center'});
         columns.push({dataIndex:'__LastUpdateBy',text:'Status Changed By', align: 'center'});
         
         return columns;
-    },
-    
-    _getUTCDate: function(date) {
-        return new Date(date.getUTCFullYear(), 
-            date.getUTCMonth(), 
-            date.getUTCDate(),  
-            date.getUTCHours(), 
-            date.getUTCMinutes(), 
-            date.getUTCSeconds());
     },
     
     _popup: function(record){
