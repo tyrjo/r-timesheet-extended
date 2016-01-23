@@ -248,8 +248,9 @@ Ext.define("TSExtendedTimesheet", {
             model:'Preference',
             limit: 1,
             pageSize: 1,
-            filters: [{property:'Name',value:key}],
-            fetch: ['Name','Value']
+            filters: [{property:'Name',operator:'contains',value:key}],
+            fetch: ['Name','Value'],
+            sorters: [{property:'CreationDate',direction:'DESC'}]
         };
         
         return TSUtilities._loadWsapiRecords(config);

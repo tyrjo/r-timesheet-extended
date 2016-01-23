@@ -3,11 +3,11 @@
 <head>
     <title>Timesheet Administration</title>
     <!--  (c) 2015 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Wed Jan 20 2016 11:14:27 GMT-0800 (PST) -->
+    <!--  Build Date: Fri Jan 22 2016 17:29:34 GMT-0800 (PST) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Wed Jan 20 2016 11:14:27 GMT-0800 (PST)";
-        var CHECKSUM = 172701662394;
+        var APP_BUILD_DATE = "Fri Jan 22 2016 17:29:34 GMT-0800 (PST)";
+        var CHECKSUM = 182869803457;
     </script>
     
     <script type="text/javascript" src="/apps/2.0/sdk.js"></script>
@@ -458,7 +458,26 @@ Ext.define('TSUtilities', {
         return deferred.promise;
     },
     
-    _getEditableProjectForCurrentUser: function() {
+    loadWsapiRecords: function(config){
+        var deferred = Ext.create('Deft.Deferred');
+        var me = this;
+        var default_config = {
+            model: 'Defect',
+            fetch: ['ObjectID']
+        };
+        Ext.create('Rally.data.wsapi.Store', Ext.Object.merge(default_config,config)).load({
+            callback : function(records, operation, successful) {
+                if (successful){
+                    deferred.resolve(records);
+                } else {
+                    deferred.reject('Problem loading: ' + operation.error.errors.join('. '));
+                }
+            }
+        });
+        return deferred.promise;
+    },
+    
+    getEditableProjectForCurrentUser: function() {
         var app = Rally.getApp();
         if ( this._currentUserCanWrite() ) {
             return app.getContext().getProjectRef();
@@ -480,7 +499,6 @@ Ext.define('TSUtilities', {
             return ( permission.Role == "Editor" || permission.Role == "ProjectAdmin");
         },this);
         
-        console.log('perms:', editor_permissions);
         
         if ( editor_permissions.length > 0 ) {
             return editor_permissions[0]._ref;
@@ -494,7 +512,7 @@ Ext.define('TSUtilities', {
     },
     
     // true if sub or workspace admin
-    _currentUserIsAdmin: function(){
+    currentUserIsAdmin: function(){
         var app = Rally.getApp();
         
         if ( app.getContext().getUser().SubscriptionAdmin ) {
@@ -548,12 +566,20 @@ Ext.define('TSUtilities', {
             });
         }
         
-        console.log('  ', can_unlock);
         return can_unlock;
     },
     
     _currentUserCanUnapprove: function() {
-        return this._currentUserIsAdmin();
+        return this.currentUserIsAdmin();
+    },
+    
+    getUTCDate: function(date) {
+        return new Date(date.getUTCFullYear(), 
+            date.getUTCMonth(), 
+            date.getUTCDate(),  
+            date.getUTCHours(), 
+            date.getUTCMinutes(), 
+            date.getUTCSeconds());
     }
     
 });
@@ -1058,7 +1084,7 @@ Ext.define('Rally.technicalservices.CommentDialog',{
 
     _getColumns: function() {
         var columns = [];
-        var can_delete = TSUtilities._currentUserIsAdmin();
+        var can_delete = TSUtilities.currentUserIsAdmin();
 
         if ( can_delete ) {
             columns.push({
@@ -1137,7 +1163,7 @@ Ext.define('Rally.technicalservices.CommentDialog',{
     },
     
     _getAddBoxItems: function() {
-        var can_post = TSUtilities._getEditableProjectForCurrentUser();
+        var can_post = TSUtilities.getEditableProjectForCurrentUser();
 
         var tooltip_text = "Posting requires Edit rights in at least one project";
         
@@ -1216,7 +1242,7 @@ Ext.define('Rally.technicalservices.CommentDialog',{
                 var pref_config = {
                     Name: key,
                     Value: value,
-                    Project: TSUtilities._getEditableProjectForCurrentUser()
+                    Project: TSUtilities.getEditableProjectForCurrentUser()
                 }
 
                 var pref = Ext.create(model, pref_config);
@@ -2014,17 +2040,28 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
         var item_type = item.get('_type');
         
         var hasRow = false;
-        Ext.Array.each(this.rows, function(row) {
-            if ( item_type == "task" ) {
-                if ( row.get('Task') && row.get('Task')._ref == item.get('_ref') ) {
-                    hasRow = true;
-                }
-            } else {
-                if ( Ext.isEmpty(row.get('Task')) && row.get('WorkProduct') && row.get('WorkProduct')._ref == item.get('_ref') ) {
-                    hasRow = true;
+        var rows = [];
+        var store_count = this.grid.getStore().getTotalCount();
+        
+        for ( var i=0; i<store_count; i++ ) {
+            rows.push(this.grid.getStore().getAt(i));
+        }
+        
+        Ext.Array.each(rows, function(row) {
+            if ( row ) { // when clear and remove, we get an undefined row
+                if ( item_type == "task" ) {
+                    if ( row.get('Task') && row.get('Task')._ref == item.get('_ref') ) {
+                        hasRow = true;
+                    }
+                } else {
+                    if ( Ext.isEmpty(row.get('Task')) && row.get('WorkProduct') && row.get('WorkProduct')._ref == item.get('_ref') ) {
+                        hasRow = true;
+                    }
                 }
             }
         });
+        
+        this.logger.log("hasRow", hasRow, item);
         return hasRow;
     },
     
@@ -2466,9 +2503,10 @@ Ext.define('TSLockedWeek',{
     
     getPreferenceKey: function() {
         // get or create and then update pref
-        return Ext.String.format("{0}.{1}", 
+        return Ext.String.format("{0}.{1}.{2}", 
             this._timeLockKeyPrefix,
-            this.getWeekStart()
+            this.getWeekStart(),
+            TSUtilities.getUTCDate(new Date()).getTime()
         );
     },
     
@@ -2480,7 +2518,7 @@ Ext.define('TSLockedWeek',{
         var status = "Locked";
         
         this.set('__Status', status);
-        this.set('__LastUpdateBy', status_owner._refObjectName);
+        this.set('__LastUpdateBy', status_owner);
         
         var pref_key = this.getPreferenceKey();
         
@@ -2517,19 +2555,47 @@ Ext.define('TSLockedWeek',{
     },
     
     unlock: function() {
+        var deferred = Ext.create('Deft.Deferred');
+        
+        var current_user = Rally.getApp().getContext().getUser();
+        var status_owner = { _type: 'User', '_ref': current_user._ref, '_refObjectName': current_user._refObjectName }
+        var status = "Unlocked";
+        
+        this.set('__LastUpdateBy', status_owner);
+        this.set('__Status', status);
+        
         var pref_key = this.getPreferenceKey();
         
         this._findOrCreatePreference(pref_key).then({
             scope: this,
             success: function(results) {
                 if ( results.length > 0 ) {
-                    results[0].destroy();
+                    var pref = results[0];
+                    
+                    var status_object = {
+                        status: status,
+                        status_date: new Date(),
+                        status_owner: status_owner,
+                        week_start: this.getWeekStart()
+                    };
+                    
+                    pref.set('Value', Ext.JSON.encode(status_object));
+                    pref.save({
+                        callback: function(result, operation) {
+                            if(!operation.wasSuccessful()) {
+                                Ext.Msg.alert("Problem saving status");
+                            } else {
+                                deferred.resolve(result);
+                            }
+                        }
+                    });
                 }
             },
             failure: function(msg) {
-                Ext.Msg.alert("Failed to save week unlock state to " + pref_key, msg);
+                Ext.Msg.alert("Failed to save week lock state to " + pref_key, msg);
             }
         });
+        return deferred.promise;
         
     },
     
@@ -2765,6 +2831,7 @@ Ext.define("TSAdmin", {
             xtype:'rallybutton',
             text: '+<span class="icon-lock"> </span>',
             toolTipText: "Add Week to Lock", 
+            padding: 5,
             disabled: false,
             listeners: {
                 scope: this,
@@ -2792,33 +2859,38 @@ Ext.define("TSAdmin", {
         var deferred = Ext.create('Deft.Deferred');
         this.setLoading("Loading statuses...");
         
-        var filters = [{property:'Name',operator:'contains',value:this._timeLockKeyPrefix}];
+        var filters = [
+            {property:'Name',operator:'contains',value:this._timeLockKeyPrefix}
+        ];
         
         var config = {
             model:'Preference',
             limit: 'Infinity',
             filters: filters,
-            fetch: ['Name','Value']
+            fetch: ['Name','Value'],
+            sorters: [{property:'CreationDate', direction:'ASC'}]
         };
         
         TSUtilities._loadWsapiRecords(config).then({
             scope: this,
             success: function(preferences) {
-                var locked_weeks =  Ext.Array.map(preferences, function(preference){
+                var statuses =  Ext.Array.map(preferences, function(preference){
                     var status_object = Ext.JSON.decode(preference.get('Value'));
                     
-                    var locked_week = Ext.create('TSLockedWeek',{
+                    var status = Ext.create('TSLockedWeek',{
                         '__Status': status_object.status,
                         'WeekStartDate': status_object.week_start,
                         '__LastUpdateBy': status_object.status_owner,
                         '__LastUpdateDate': status_object.status_date,
                         'Preference': preference
                     });
-                    return locked_week;
+                    return status;
                 });
+                
+                var unique_statuses = this._keepNewestStatus(statuses);
               
                 this.setLoading(false);
-                deferred.resolve(locked_weeks);
+                deferred.resolve(unique_statuses);
                 
             },
             failure: function(msg){
@@ -2826,6 +2898,15 @@ Ext.define("TSAdmin", {
             }
         });
         return deferred.promise;
+    },
+    
+    _keepNewestStatus: function(statuses) {
+        var statuses_by_week_start = {};
+        Ext.Array.each(statuses, function(status) {
+            statuses_by_week_start[status.get('WeekStartDate')] = status;
+        });
+        
+        return Ext.Object.getValues(statuses_by_week_start);
     },
     
     _addGrid: function(container, locked_weeks) {
@@ -2854,24 +2935,27 @@ Ext.define("TSAdmin", {
         columns.push({
             xtype: 'tscommentrowactioncolumn',
             rowActionsFn: function(record,view) {
-                return [
-                    {
+                if ( record && record.get('__Status') == 'Locked' ) {
+                    return [{
                         text: 'Unlock', 
                         record: record, 
                         view: view,
                         handler: function(){
                             var item = this.record;
-                            var pref = this.record.get('Preference');
-                            
-                            if ( pref ) {
-                                if ( this.view && this.view.getStore() ) {
-                                    this.view.getStore().remove(item);
-                                    this.view.getStore().fireEvent('recordRemoved',this.view.getStore(), item);
-                                }
-                                pref.destroy();
-                            }
-                        }}
-                ]
+                            item.unlock();
+                        }
+                    }];
+                } else if ( record && record.get('__Status') == "Unlocked" ) {
+                    return [{
+                        text: 'Lock', 
+                        record: record, 
+                        view: view,
+                        handler: function(){
+                            var item = this.record;
+                            item.lock();
+                        }
+                    }]
+                }
             }
         });
                 
@@ -2886,7 +2970,8 @@ Ext.define("TSAdmin", {
                     start_date.getUTCSeconds());
                 return Ext.util.Format.date(start_date,'n/j/Y');
             }},
-            {dataIndex: '__LastUpdateBy', text: 'Locked by', renderer: function(value, meta, record) {
+            {dataIndex: '__Status', text: 'Status'},
+            {dataIndex: '__LastUpdateBy', text: 'Changed by', renderer: function(value, meta, record) {
                 return value._refObjectName;
             }}
         ]);

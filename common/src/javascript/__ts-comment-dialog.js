@@ -91,7 +91,7 @@ Ext.define('Rally.technicalservices.CommentDialog',{
 
     _getColumns: function() {
         var columns = [];
-        var can_delete = TSUtilities._currentUserIsAdmin();
+        var can_delete = TSUtilities.currentUserIsAdmin();
 
         if ( can_delete ) {
             columns.push({
