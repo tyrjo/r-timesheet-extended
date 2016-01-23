@@ -3,11 +3,11 @@
 <head>
     <title>Time Sheet Approval</title>
     <!--  (c) 2015 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Fri Jan 22 2016 16:57:29 GMT-0800 (PST) -->
+    <!--  Build Date: Fri Jan 22 2016 17:00:32 GMT-0800 (PST) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Fri Jan 22 2016 16:57:29 GMT-0800 (PST)";
-        var CHECKSUM = 272584045979;
+        var APP_BUILD_DATE = "Fri Jan 22 2016 17:00:32 GMT-0800 (PST)";
+        var CHECKSUM = 272576825555;
     </script>
     
     <script type="text/javascript" src="/apps/2.0/sdk.js"></script>
@@ -1084,7 +1084,7 @@ Ext.define('Rally.technicalservices.CommentDialog',{
 
     _getColumns: function() {
         var columns = [];
-        var can_delete = TSUtilities._currentUserIsAdmin();
+        var can_delete = TSUtilities.currentUserIsAdmin();
 
         if ( can_delete ) {
             columns.push({
