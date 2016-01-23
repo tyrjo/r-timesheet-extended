@@ -124,10 +124,11 @@ Ext.define("TSTimeSheetApproval", {
                     if ( week_start !== new_value ) {
                         dp.setValue(week_start);
                     }
-                    if ( new_value.getDay() === 0 ) {
-                        this.down('#go_button') && this.down('#go_button').setDisabled(false);
-//                        this._updateData();
-                    }
+                    this._enableGoButton();
+//                    
+//                    if ( this.down('#to_date_selector') && this.down('#to_date_selector') < week_start ) {
+//                        this.down('#to_date_selector').setValue(week_start);
+//                    }
                 }
             }
         }).setValue(week_start)
@@ -143,11 +144,7 @@ Ext.define("TSTimeSheetApproval", {
                     if ( week_start !== new_value ) {
                         dp.setValue(week_start);
                     }
-                    
-                    if ( new_value.getDay() === 0 ) {
-                        this.down('#go_button') && this.down('#go_button').setDisabled(false);
-//                        this._updateData();
-                    }
+                    this._enableGoButton();
                 }
             }
         }).setValue(Rally.util.DateTime.add(new Date(), 'week', -1));
@@ -170,6 +167,20 @@ Ext.define("TSTimeSheetApproval", {
             container.add({type:'container', html: '&nbsp;&nbsp;&nbsp;', border: 0, padding: 10});
         //}
         
+    },
+    
+    _enableGoButton: function() {
+        var start_calendar = this.down('#from_date_selector');
+        var to_calendar    = this.down('#to_date_selector');
+        
+        var go_button = this.down('#go_button');
+        
+        go_button && go_button.setDisabled(true);
+        
+        if ( start_calendar && to_calendar ) {
+            go_button && go_button.setDisabled(false);
+        }
+
     },
     
     _updateData: function() {
@@ -208,7 +219,7 @@ Ext.define("TSTimeSheetApproval", {
         }
         
         if (this.down('#to_date_selector') ) {
-            var start_date = Rally.util.DateTime.toIsoString( this.down('#to_date_selector').getValue(),true);
+            var start_date = Rally.util.DateTime.toIsoString( this.down('#to_date_selector').getValue(),false).replace(/T.*$/,'T00:00:00.000Z');
             filters.push({property:'WeekStartDate', operator: '<=', value:start_date});
         }
         
