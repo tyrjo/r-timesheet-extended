@@ -3,11 +3,11 @@
 <head>
     <title>Extended Timesheet</title>
     <!--  (c) 2015 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Fri Jan 22 2016 17:00:17 GMT-0800 (PST) -->
+    <!--  Build Date: Fri Jan 22 2016 17:35:06 GMT-0800 (PST) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Fri Jan 22 2016 17:00:17 GMT-0800 (PST)";
-        var CHECKSUM = 225672639671;
+        var APP_BUILD_DATE = "Fri Jan 22 2016 17:35:06 GMT-0800 (PST)";
+        var CHECKSUM = 226146075253;
     </script>
     
     <script type="text/javascript" src="/apps/2.0/sdk.js"></script>
@@ -3210,8 +3210,9 @@ Ext.define("TSExtendedTimesheet", {
             model:'Preference',
             limit: 1,
             pageSize: 1,
-            filters: [{property:'Name',value:key}],
-            fetch: ['Name','Value']
+            filters: [{property:'Name',operator:'contains',value:key}],
+            fetch: ['Name','Value'],
+            sorters: [{property:'CreationDate',direction:'DESC'}]
         };
         
         return TSUtilities._loadWsapiRecords(config);

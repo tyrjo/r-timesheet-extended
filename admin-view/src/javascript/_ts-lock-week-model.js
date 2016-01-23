@@ -31,9 +31,10 @@ Ext.define('TSLockedWeek',{
     
     getPreferenceKey: function() {
         // get or create and then update pref
-        return Ext.String.format("{0}.{1}", 
+        return Ext.String.format("{0}.{1}.{2}", 
             this._timeLockKeyPrefix,
-            this.getWeekStart()
+            this.getWeekStart(),
+            TSUtilities.getUTCDate(new Date()).getTime()
         );
     },
     
@@ -45,7 +46,7 @@ Ext.define('TSLockedWeek',{
         var status = "Locked";
         
         this.set('__Status', status);
-        this.set('__LastUpdateBy', status_owner._refObjectName);
+        this.set('__LastUpdateBy', status_owner);
         
         var pref_key = this.getPreferenceKey();
         
@@ -82,19 +83,47 @@ Ext.define('TSLockedWeek',{
     },
     
     unlock: function() {
+        var deferred = Ext.create('Deft.Deferred');
+        
+        var current_user = Rally.getApp().getContext().getUser();
+        var status_owner = { _type: 'User', '_ref': current_user._ref, '_refObjectName': current_user._refObjectName }
+        var status = "Unlocked";
+        
+        this.set('__LastUpdateBy', status_owner);
+        this.set('__Status', status);
+        
         var pref_key = this.getPreferenceKey();
         
         this._findOrCreatePreference(pref_key).then({
             scope: this,
             success: function(results) {
                 if ( results.length > 0 ) {
-                    results[0].destroy();
+                    var pref = results[0];
+                    
+                    var status_object = {
+                        status: status,
+                        status_date: new Date(),
+                        status_owner: status_owner,
+                        week_start: this.getWeekStart()
+                    };
+                    
+                    pref.set('Value', Ext.JSON.encode(status_object));
+                    pref.save({
+                        callback: function(result, operation) {
+                            if(!operation.wasSuccessful()) {
+                                Ext.Msg.alert("Problem saving status");
+                            } else {
+                                deferred.resolve(result);
+                            }
+                        }
+                    });
                 }
             },
             failure: function(msg) {
-                Ext.Msg.alert("Failed to save week unlock state to " + pref_key, msg);
+                Ext.Msg.alert("Failed to save week lock state to " + pref_key, msg);
             }
         });
+        return deferred.promise;
         
     },
     

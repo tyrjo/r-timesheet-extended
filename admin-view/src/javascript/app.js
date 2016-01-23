@@ -30,6 +30,7 @@ Ext.define("TSAdmin", {
             xtype:'rallybutton',
             text: '+<span class="icon-lock"> </span>',
             toolTipText: "Add Week to Lock", 
+            padding: 5,
             disabled: false,
             listeners: {
                 scope: this,
@@ -57,33 +58,38 @@ Ext.define("TSAdmin", {
         var deferred = Ext.create('Deft.Deferred');
         this.setLoading("Loading statuses...");
         
-        var filters = [{property:'Name',operator:'contains',value:this._timeLockKeyPrefix}];
+        var filters = [
+            {property:'Name',operator:'contains',value:this._timeLockKeyPrefix}
+        ];
         
         var config = {
             model:'Preference',
             limit: 'Infinity',
             filters: filters,
-            fetch: ['Name','Value']
+            fetch: ['Name','Value'],
+            sorters: [{property:'CreationDate', direction:'ASC'}]
         };
         
         TSUtilities._loadWsapiRecords(config).then({
             scope: this,
             success: function(preferences) {
-                var locked_weeks =  Ext.Array.map(preferences, function(preference){
+                var statuses =  Ext.Array.map(preferences, function(preference){
                     var status_object = Ext.JSON.decode(preference.get('Value'));
                     
-                    var locked_week = Ext.create('TSLockedWeek',{
+                    var status = Ext.create('TSLockedWeek',{
                         '__Status': status_object.status,
                         'WeekStartDate': status_object.week_start,
                         '__LastUpdateBy': status_object.status_owner,
                         '__LastUpdateDate': status_object.status_date,
                         'Preference': preference
                     });
-                    return locked_week;
+                    return status;
                 });
+                
+                var unique_statuses = this._keepNewestStatus(statuses);
               
                 this.setLoading(false);
-                deferred.resolve(locked_weeks);
+                deferred.resolve(unique_statuses);
                 
             },
             failure: function(msg){
@@ -91,6 +97,15 @@ Ext.define("TSAdmin", {
             }
         });
         return deferred.promise;
+    },
+    
+    _keepNewestStatus: function(statuses) {
+        var statuses_by_week_start = {};
+        Ext.Array.each(statuses, function(status) {
+            statuses_by_week_start[status.get('WeekStartDate')] = status;
+        });
+        
+        return Ext.Object.getValues(statuses_by_week_start);
     },
     
     _addGrid: function(container, locked_weeks) {
@@ -119,24 +134,27 @@ Ext.define("TSAdmin", {
         columns.push({
             xtype: 'tscommentrowactioncolumn',
             rowActionsFn: function(record,view) {
-                return [
-                    {
+                if ( record && record.get('__Status') == 'Locked' ) {
+                    return [{
                         text: 'Unlock', 
                         record: record, 
                         view: view,
                         handler: function(){
                             var item = this.record;
-                            var pref = this.record.get('Preference');
-                            
-                            if ( pref ) {
-                                if ( this.view && this.view.getStore() ) {
-                                    this.view.getStore().remove(item);
-                                    this.view.getStore().fireEvent('recordRemoved',this.view.getStore(), item);
-                                }
-                                pref.destroy();
-                            }
-                        }}
-                ]
+                            item.unlock();
+                        }
+                    }];
+                } else if ( record && record.get('__Status') == "Unlocked" ) {
+                    return [{
+                        text: 'Lock', 
+                        record: record, 
+                        view: view,
+                        handler: function(){
+                            var item = this.record;
+                            item.lock();
+                        }
+                    }]
+                }
             }
         });
                 
@@ -151,7 +169,8 @@ Ext.define("TSAdmin", {
                     start_date.getUTCSeconds());
                 return Ext.util.Format.date(start_date,'n/j/Y');
             }},
-            {dataIndex: '__LastUpdateBy', text: 'Locked by', renderer: function(value, meta, record) {
+            {dataIndex: '__Status', text: 'Status'},
+            {dataIndex: '__LastUpdateBy', text: 'Changed by', renderer: function(value, meta, record) {
                 return value._refObjectName;
             }}
         ]);
