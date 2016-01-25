@@ -3,11 +3,11 @@
 <head>
     <title>Extended Timesheet</title>
     <!--  (c) 2015 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Fri Jan 22 2016 17:35:06 GMT-0800 (PST) -->
+    <!--  Build Date: Mon Jan 25 2016 14:20:44 GMT-0800 (PST) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Fri Jan 22 2016 17:35:06 GMT-0800 (PST)";
-        var CHECKSUM = 226146075253;
+        var APP_BUILD_DATE = "Mon Jan 25 2016 14:20:44 GMT-0800 (PST)";
+        var CHECKSUM = 226272602990;
     </script>
     
     <script type="text/javascript" src="/apps/2.0/sdk.js"></script>
@@ -1503,7 +1503,7 @@ Ext.define('Rally.technicalservices.CommentButton',{
 Ext.define('Rally.technicalservices.TimeModelBuilder',{
     singleton: true,
 
-    deploy_field: 'c_isDeployed',
+    deploy_field: 'c_IsDeployed',
     
     days: ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'],
     
@@ -1612,6 +1612,8 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
     _isLocked: function (fieldName, newValue) {
         var release = this.get('__Release');
         var lock_field_name = this.get('_ReleaseLockFieldName');
+        
+        console.log(lock_field_name, release);
         
         if ( Ext.isEmpty(release) || Ext.isEmpty(lock_field_name) ) {
             return false;
@@ -1937,7 +1939,6 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
     },
     
     _addTooltip: function(view) {
-        console.log(view);
         this.toolTip = Ext.create('Ext.tip.ToolTip', {
             target: view.el,
             delegate: view.cellSelector,

@@ -224,7 +224,6 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
     },
     
     _addTooltip: function(view) {
-        console.log(view);
         this.toolTip = Ext.create('Ext.tip.ToolTip', {
             target: view.el,
             delegate: view.cellSelector,
