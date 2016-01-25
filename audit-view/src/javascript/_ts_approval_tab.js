@@ -2,11 +2,46 @@ Ext.define('Rally.technicalservices.ApprovalHistoryTab',{
     extend: 'Ext.panel.Panel',
     alias : 'widget.tsapprovalhistorytab',
     
+    layout: 'border',
+
     _approvalKeyPrefix: 'rally.technicalservices.timesheet.status',
     
     initComponent: function() {
         this.callParent();
-        this.add(this._getGridConfig());
+        this.add({
+            xtype:'container',
+            region: 'north',
+            layout: 'hbox',
+            items: [{
+                xtype:'container',
+                flex: 1
+            },
+            {
+                xtype:'rallycheckboxfield',
+                itemId: 'status_date_check',
+                fieldLabel: 'Tick this box to apply date range to status date instead of timesheet date',
+                width: 405,
+                labelWidth: 385,
+                align: 'right',
+                margin: '0 5 0 0',
+                listeners: {
+                    scope: this,
+                    change: this._updateIfReady
+                }
+            }]
+        });
+        this.add({ 
+            xtype:'container',
+            region: 'center',
+            layout: 'fit',
+            items: [ this._getGridConfig()]
+        });
+    },
+    
+    _updateIfReady: function() {
+        if ( !Ext.isEmpty(this.app) && !Ext.isEmpty(this.app.start_date) && !Ext.isEmpty(this.app.end_date) ) {
+            this.updateContent(this.app);
+        }
     },
     
     updateContent: function(app) {
@@ -43,11 +78,13 @@ Ext.define('Rally.technicalservices.ApprovalHistoryTab',{
                     };
                 });
                 
+                rows = me._filterByWeekStart(rows);
+                
                 var calculated_store = Ext.create('Rally.data.custom.Store',{
                     pageSize: 1000,
                     data: rows
                 });
-                me.items.getAt(0).bindStore(calculated_store);
+                me.down('rallygrid').bindStore(calculated_store);
                 me.app.setLoading(false);
             },
             failure: function(msg) {
@@ -63,10 +100,18 @@ Ext.define('Rally.technicalservices.ApprovalHistoryTab',{
         var end_date = this.app.end_date;
         
         var filters = [
-            {property:'Name',operator:'contains',value:this._approvalKeyPrefix},
-            {property:'CreationDate', operator: '>=', value: start_date },
-            {property:'CreationDate', operator: '<=', value: end_date }
+            {property:'Name',operator:'contains',value:this._approvalKeyPrefix}
         ];
+        
+        if (this.down('#status_date_check') && this.down('#status_date_check').getValue() == true ) { 
+            Ext.Array.push( filters, [
+                {property:'CreationDate', operator: '>=', value: start_date },
+                {property:'CreationDate', operator: '<=', value: end_date }
+            ]);
+        } else {
+            Ext.Array.push(filters, [{ property:'CreationDate', operator:'>=', value: start_date}]);
+        }
+
         var config = {
             model:'Preference',
             limit: 'Infinity',
@@ -90,6 +135,24 @@ Ext.define('Rally.technicalservices.ApprovalHistoryTab',{
         };
 
         return TSUtilities.loadWsapiRecords(config);
+    },
+    
+    _filterByWeekStart: function(rows) {
+        var filtered_rows = [];
+        if (this.down('#status_date_check') && this.down('#status_date_check').getValue() == true ) { 
+            // already filtered properly (can't filter via api query on dates of week start/end
+            return rows;
+        }
+        
+        var start_date = this.app.start_date.replace(/T.*$/,'');
+        var end_date = this.app.end_date.replace(/T.*$/,'');
+        
+        return Ext.Array.filter(rows, function(row){
+            var week_start = row.WeekStartDate;
+            return ( week_start >= start_date && week_start <= end_date );
+            return true;
+        });
+        
     },
     
     _getGridConfig: function() {
