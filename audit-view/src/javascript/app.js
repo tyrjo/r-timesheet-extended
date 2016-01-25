@@ -1,7 +1,6 @@
 Ext.define("TSTimeSheetAudit", {
     extend: 'Rally.app.App',
     componentCls: 'app',
-    layout: 'border',
     logger: new Rally.technicalservices.Logger(),
     //defaults: { margin: 10 },
     items: [
@@ -43,8 +42,8 @@ Ext.define("TSTimeSheetAudit", {
         container.add({
             xtype:'rallydatefield',
             itemId:'from_date_selector',
-            fieldLabel: 'From Week',
-            labelWidth: 65,
+            fieldLabel: 'From',
+            labelWidth: 40,
             listeners: {
                 scope: this,
                 change: function(dp, new_value) {
@@ -61,9 +60,9 @@ Ext.define("TSTimeSheetAudit", {
         container.add({
             xtype:'rallydatefield',
             itemId:'to_date_selector',
-            fieldLabel: 'Through Week',
-            labelWidth: 85,
-            margin: '0 0 0 5',
+            fieldLabel: 'Through',
+            labelWidth: 55,
+            margin: '0 0 0 10',
             
             listeners: {
                 scope: this,
@@ -113,6 +112,8 @@ Ext.define("TSTimeSheetAudit", {
         this.start_date = Rally.util.DateTime.toIsoString(this.down('#from_date_selector').getValue(),false).replace(/T.*$/,'T00:00:00.000Z');
         this.end_date = Rally.util.DateTime.toIsoString( this.down('#to_date_selector').getValue(),true);
 
+        this.down('#go_button').setDisabled(true);
+        
         var tabPanel  = Ext.getCmp('tabPanel');
         var activeTab = tabPanel.getActiveTab();
         activeTab.updateContent(this);

@@ -3,11 +3,11 @@
 <head>
     <title>TS Time Sheet Audit</title>
     <!--  (c) 2015 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Thu Jan 21 2016 17:10:27 GMT-0800 (PST) -->
+    <!--  Build Date: Mon Jan 25 2016 15:46:28 GMT-0800 (PST) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Thu Jan 21 2016 17:10:27 GMT-0800 (PST)";
-        var CHECKSUM = 157575086596;
+        var APP_BUILD_DATE = "Mon Jan 25 2016 15:46:28 GMT-0800 (PST)";
+        var CHECKSUM = 164717899282;
     </script>
     
     <script type="text/javascript" src="/apps/2.0/sdk.js"></script>
@@ -1084,7 +1084,7 @@ Ext.define('Rally.technicalservices.CommentDialog',{
 
     _getColumns: function() {
         var columns = [];
-        var can_delete = TSUtilities._currentUserIsAdmin();
+        var can_delete = TSUtilities.currentUserIsAdmin();
 
         if ( can_delete ) {
             columns.push({
@@ -1503,7 +1503,7 @@ Ext.define('Rally.technicalservices.CommentButton',{
 Ext.define('Rally.technicalservices.TimeModelBuilder',{
     singleton: true,
 
-    deploy_field: 'c_isDeployed',
+    deploy_field: 'c_IsDeployed',
     
     days: ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'],
     
@@ -1612,6 +1612,8 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
     _isLocked: function (fieldName, newValue) {
         var release = this.get('__Release');
         var lock_field_name = this.get('_ReleaseLockFieldName');
+        
+        console.log(lock_field_name, release);
         
         if ( Ext.isEmpty(release) || Ext.isEmpty(lock_field_name) ) {
             return false;
@@ -1937,7 +1939,6 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
     },
     
     _addTooltip: function(view) {
-        console.log(view);
         this.toolTip = Ext.create('Ext.tip.ToolTip', {
             target: view.el,
             delegate: view.cellSelector,
@@ -2474,11 +2475,46 @@ Ext.define('Rally.technicalservices.ApprovalHistoryTab',{
     extend: 'Ext.panel.Panel',
     alias : 'widget.tsapprovalhistorytab',
     
+    layout: 'border',
+
     _approvalKeyPrefix: 'rally.technicalservices.timesheet.status',
     
     initComponent: function() {
         this.callParent();
-        this.add(this._getGridConfig());
+        this.add({
+            xtype:'container',
+            region: 'north',
+            layout: 'hbox',
+            items: [{
+                xtype:'container',
+                flex: 1
+            },
+            {
+                xtype:'rallycheckboxfield',
+                itemId: 'status_date_check',
+                fieldLabel: 'Tick this box to apply date range to status date instead of timesheet date',
+                width: 405,
+                labelWidth: 385,
+                align: 'right',
+                margin: '0 5 0 0',
+                listeners: {
+                    scope: this,
+                    change: this._updateIfReady
+                }
+            }]
+        });
+        this.add({ 
+            xtype:'container',
+            region: 'center',
+            layout: 'fit',
+            items: [ this._getGridConfig()]
+        });
+    },
+    
+    _updateIfReady: function() {
+        if ( !Ext.isEmpty(this.app) && !Ext.isEmpty(this.app.start_date) && !Ext.isEmpty(this.app.end_date) ) {
+            this.updateContent(this.app);
+        }
     },
     
     updateContent: function(app) {
@@ -2515,11 +2551,13 @@ Ext.define('Rally.technicalservices.ApprovalHistoryTab',{
                     };
                 });
                 
+                rows = me._filterByWeekStart(rows);
+                
                 var calculated_store = Ext.create('Rally.data.custom.Store',{
                     pageSize: 1000,
                     data: rows
                 });
-                me.items.getAt(0).bindStore(calculated_store);
+                me.down('rallygrid').bindStore(calculated_store);
                 me.app.setLoading(false);
             },
             failure: function(msg) {
@@ -2535,10 +2573,18 @@ Ext.define('Rally.technicalservices.ApprovalHistoryTab',{
         var end_date = this.app.end_date;
         
         var filters = [
-            {property:'Name',operator:'contains',value:this._approvalKeyPrefix},
-            {property:'CreationDate', operator: '>=', value: start_date },
-            {property:'CreationDate', operator: '<=', value: end_date }
+            {property:'Name',operator:'contains',value:this._approvalKeyPrefix}
         ];
+        
+        if (this.down('#status_date_check') && this.down('#status_date_check').getValue() == true ) { 
+            Ext.Array.push( filters, [
+                {property:'CreationDate', operator: '>=', value: start_date },
+                {property:'CreationDate', operator: '<=', value: end_date }
+            ]);
+        } else {
+            Ext.Array.push(filters, [{ property:'CreationDate', operator:'>=', value: start_date}]);
+        }
+
         var config = {
             model:'Preference',
             limit: 'Infinity',
@@ -2562,6 +2608,24 @@ Ext.define('Rally.technicalservices.ApprovalHistoryTab',{
         };
 
         return TSUtilities.loadWsapiRecords(config);
+    },
+    
+    _filterByWeekStart: function(rows) {
+        var filtered_rows = [];
+        if (this.down('#status_date_check') && this.down('#status_date_check').getValue() == true ) { 
+            // already filtered properly (can't filter via api query on dates of week start/end
+            return rows;
+        }
+        
+        var start_date = this.app.start_date.replace(/T.*$/,'');
+        var end_date = this.app.end_date.replace(/T.*$/,'');
+        
+        return Ext.Array.filter(rows, function(row){
+            var week_start = row.WeekStartDate;
+            return ( week_start >= start_date && week_start <= end_date );
+            return true;
+        });
+        
     },
     
     _getGridConfig: function() {
@@ -2647,7 +2711,6 @@ Ext.define('Rally.technicalservices.LockHistoryTab',{
 Ext.define("TSTimeSheetAudit", {
     extend: 'Rally.app.App',
     componentCls: 'app',
-    layout: 'border',
     logger: new Rally.technicalservices.Logger(),
     //defaults: { margin: 10 },
     items: [
@@ -2689,8 +2752,8 @@ Ext.define("TSTimeSheetAudit", {
         container.add({
             xtype:'rallydatefield',
             itemId:'from_date_selector',
-            fieldLabel: 'From Week',
-            labelWidth: 65,
+            fieldLabel: 'From',
+            labelWidth: 40,
             listeners: {
                 scope: this,
                 change: function(dp, new_value) {
@@ -2707,9 +2770,9 @@ Ext.define("TSTimeSheetAudit", {
         container.add({
             xtype:'rallydatefield',
             itemId:'to_date_selector',
-            fieldLabel: 'Through Week',
-            labelWidth: 85,
-            margin: '0 0 0 5',
+            fieldLabel: 'Through',
+            labelWidth: 55,
+            margin: '0 0 0 10',
             
             listeners: {
                 scope: this,
@@ -2759,6 +2822,8 @@ Ext.define("TSTimeSheetAudit", {
         this.start_date = Rally.util.DateTime.toIsoString(this.down('#from_date_selector').getValue(),false).replace(/T.*$/,'T00:00:00.000Z');
         this.end_date = Rally.util.DateTime.toIsoString( this.down('#to_date_selector').getValue(),true);
 
+        this.down('#go_button').setDisabled(true);
+        
         var tabPanel  = Ext.getCmp('tabPanel');
         var activeTab = tabPanel.getActiveTab();
         activeTab.updateContent(this);
