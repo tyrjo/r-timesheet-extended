@@ -293,7 +293,8 @@ Ext.define("TSTimeSheetApproval", {
             model:'Preference',
             limit: 'Infinity',
             filters: filters,
-            fetch: ['Name','Value']
+            fetch: ['Name','Value'],
+            sorters: [{property:'CreationDate',direction:'ASC'}]
         };
         
         TSUtilities.loadWsapiRecords(config).then({
@@ -303,11 +304,17 @@ Ext.define("TSTimeSheetApproval", {
                 var preferences_by_key = {};
                 
                 Ext.Array.each(preferences, function(pref){
-                    preferences_by_key[pref.get('Name')] = pref;
+                    var pref_name_array = pref.get('Name').split('.');
+                    pref_name_array.pop();
+                    
+                    preferences_by_key[pref_name_array.join('.')] = pref;
                 });
                 
+                this.logger.log('Preferences by Key', preferences_by_key);
+                
                 Ext.Array.each(timesheets, function(timesheet){
-                    var key = timesheet.getPreferenceKey();
+                    var key = timesheet.getPartialPreferenceKey();
+                    this.logger.log('key', key);
                     if (preferences_by_key[key]) {
                         var value = preferences_by_key[key].get('Value');
                         var status_object = {};
@@ -326,7 +333,7 @@ Ext.define("TSTimeSheetApproval", {
                     } else { 
                         timesheet.set('__Status', 'Open');
                     }
-                });
+                },this);
                                 
                 var filtered_timesheets = Ext.Array.filter(timesheets, function(timesheet){
                     if (stateFilter == "ALL") {
