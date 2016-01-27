@@ -100,7 +100,7 @@ Ext.define("TSTimeSheetApproval", {
                 scope: this,
                 change: function(cb) {
                     this.stateFilterValue = cb.getValue();
-                    this._updateData();
+                    this._enableGoButton();
                 }
             }
         });
