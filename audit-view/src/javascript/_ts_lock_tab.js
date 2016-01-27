@@ -87,7 +87,7 @@ Ext.define('Rally.technicalservices.LockHistoryTab',{
     },
     
     _loadPreferences: function() {
-        this.app.setLoading("Loading statuses...");
+        this.app.setLoading("Loading history...");
 
         var start_date = this.app.start_date;
         var end_date = this.app.end_date;

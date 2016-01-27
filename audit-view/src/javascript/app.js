@@ -28,6 +28,14 @@ Ext.define("TSTimeSheetAudit", {
             },{
                 xtype: 'tslockhistorytab',
                 title: 'Locks'
+            },{
+                xtype: 'tsfielddeftab',
+                disabled: false,
+                title: 'Capitalization Field'
+            },{
+                xtype: 'tslockhistorytab',
+                disabled: true,
+                title: 'Release Field (TK)'
             }],
             listeners: {
                 scope: this,
