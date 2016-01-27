@@ -28,7 +28,16 @@ Ext.define("TSTimeSheetAudit", {
             },{
                 xtype: 'tslockhistorytab',
                 title: 'Locks'
-            }]
+            }],
+            listeners: {
+                scope: this,
+                tabchange: function() {
+                    var app = Rally.getApp();
+                    if ( app.down('#go_button') && app.down('#go_button').isDisabled() ) {
+                        app._updateData();
+                    }
+                }
+            }
         }
     ],
         
