@@ -27,7 +27,8 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
         weekStart: new Date(),
         editable: true,
         timesheet_user: null,
-        timesheet_status: null
+        timesheet_status: null,
+        manager_field: null
     },
     
     constructor: function (config) {
@@ -147,7 +148,10 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
             context: {
                 project: null
             },
-            fetch: Ext.Array.merge(Rally.technicalservices.TimeModelBuilder.getFetchFields(), this.time_entry_item_fetch),
+            fetch: Ext.Array.merge(Rally.technicalservices.TimeModelBuilder.getFetchFields(), 
+                this.time_entry_item_fetch,
+                [this.manager_field]
+            ),
             filters: [
                 {property:'WeekStartDate',value:week_start},
                 {property:'User.ObjectID',value:user_oid}
@@ -256,7 +260,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
     addRowForItem: function(item) {
         var me = this;
         var week_start_date = this.weekStart;
-        console.log('adding ', item);
+
         if ( !this._hasRowForItem(item)) {
             var item_type = item.get('_type');
 
@@ -412,11 +416,23 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                 editor: null,
                 hidden: true,
                 renderer: function(value, meta, record) {
-                    console.log('record', record);
+
                     return record.isLocked() || false;
                 }
             }]);
             
+        if ( me.manager_field ) {
+            columns.push({
+                dataIndex:'__TimeEntryItem', 
+                text:'Manager', 
+                align: 'center',
+                
+                renderer: function(value) {
+                    
+                    return value.get('User')[me.manager_field] || "none"; 
+                }
+            });
+        }
         if ( me.timesheet_status || me.timesheet_status === false ) {
             Ext.Array.push(columns,[{
                 dataIndex: '__Product',

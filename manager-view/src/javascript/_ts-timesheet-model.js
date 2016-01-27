@@ -41,6 +41,15 @@ Ext.define('TSTimesheet',{
         );
     },
     
+    getPartialPreferenceKey: function() {
+        // get or create and then update pref
+        return Ext.String.format("{0}.{1}.{2}", 
+            this._approvalKeyPrefix,
+            this.getWeekStart(),
+            this.get('User').ObjectID
+        );
+    },
+    
     approve: function() {
         var current_user = Rally.getApp().getContext().getUser();
         var status_owner = { _type: 'User', '_ref': current_user._ref, '_refObjectName': current_user._refObjectName }

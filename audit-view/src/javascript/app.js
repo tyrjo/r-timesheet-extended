@@ -28,7 +28,29 @@ Ext.define("TSTimeSheetAudit", {
             },{
                 xtype: 'tslockhistorytab',
                 title: 'Locks'
-            }]
+            },{
+                xtype: 'tsfielddeftab',
+                disabled: false,
+                title: 'Capitalization Field'
+            },{
+                xtype: 'tslockhistorytab',
+                disabled: true,
+                title: 'Release Field (TK)'
+            }],
+            listeners: {
+                scope: this,
+                tabchange: function() {
+                    var app = Rally.getApp();
+                    var start_date = app.down('#from_date_selector').getValue();
+                    var end_date   = app.down('#to_date_selector').getValue();
+        
+                    if ( start_date && end_date ) {
+                        if ( app.down('#go_button') && app.down('#go_button').isDisabled() ) {
+                            app._updateData();
+                        }
+                    }
+                }
+            }
         }
     ],
         
@@ -109,6 +131,7 @@ Ext.define("TSTimeSheetAudit", {
     },
     
     _updateData: function() {
+        
         this.start_date = Rally.util.DateTime.toIsoString(this.down('#from_date_selector').getValue(),false).replace(/T.*$/,'T00:00:00.000Z');
         this.end_date = Rally.util.DateTime.toIsoString( this.down('#to_date_selector').getValue(),true);
 
