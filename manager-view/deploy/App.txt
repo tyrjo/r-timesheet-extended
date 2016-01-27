@@ -3,11 +3,11 @@
 <head>
     <title>Time Sheet Approval</title>
     <!--  (c) 2015 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Tue Jan 26 2016 16:09:51 GMT-0800 (PST) -->
+    <!--  Build Date: Tue Jan 26 2016 16:26:34 GMT-0800 (PST) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Tue Jan 26 2016 16:09:51 GMT-0800 (PST)";
-        var CHECKSUM = 275606131930;
+        var APP_BUILD_DATE = "Tue Jan 26 2016 16:26:34 GMT-0800 (PST)";
+        var CHECKSUM = 278456493936;
     </script>
     
     <script type="text/javascript" src="/apps/2.0/sdk.js"></script>
@@ -1742,7 +1742,8 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
         weekStart: new Date(),
         editable: true,
         timesheet_user: null,
-        timesheet_status: null
+        timesheet_status: null,
+        manager_field: null
     },
     
     constructor: function (config) {
@@ -1862,7 +1863,10 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
             context: {
                 project: null
             },
-            fetch: Ext.Array.merge(Rally.technicalservices.TimeModelBuilder.getFetchFields(), this.time_entry_item_fetch),
+            fetch: Ext.Array.merge(Rally.technicalservices.TimeModelBuilder.getFetchFields(), 
+                this.time_entry_item_fetch,
+                [this.manager_field]
+            ),
             filters: [
                 {property:'WeekStartDate',value:week_start},
                 {property:'User.ObjectID',value:user_oid}
@@ -1971,7 +1975,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
     addRowForItem: function(item) {
         var me = this;
         var week_start_date = this.weekStart;
-        console.log('adding ', item);
+
         if ( !this._hasRowForItem(item)) {
             var item_type = item.get('_type');
 
@@ -2127,11 +2131,23 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                 editor: null,
                 hidden: true,
                 renderer: function(value, meta, record) {
-                    console.log('record', record);
+
                     return record.isLocked() || false;
                 }
             }]);
             
+        if ( me.manager_field ) {
+            columns.push({
+                dataIndex:'__TimeEntryItem', 
+                text:'Manager', 
+                align: 'center',
+                
+                renderer: function(value) {
+                    
+                    return value.get('User')[me.manager_field] || "none"; 
+                }
+            });
+        }
         if ( me.timesheet_status || me.timesheet_status === false ) {
             Ext.Array.push(columns,[{
                 dataIndex: '__Product',
@@ -2897,7 +2913,8 @@ Ext.define('Rally.technicalservices.ManagerDetailDialog', {
     config: {
         startDate: new Date(),
         record: null,
-        commentKeyPrefix: ''
+        commentKeyPrefix: '',
+        manager_field: null
     },
 
     constructor: function(config) {
@@ -2918,6 +2935,7 @@ Ext.define('Rally.technicalservices.ManagerDetailDialog', {
             layout: 'fit',
             weekStart: this.startDate,
             editable: false,
+            manager_field: this.manager_field,
             timesheet_user: this.record.get('User')
         });
         this.addDocked({
@@ -3273,7 +3291,7 @@ Ext.define("TSTimeSheetApproval", {
             context: {
                 project: null
             },
-            fetch: ['User','WeekStartDate','ObjectID', 'UserName','Values:summary[Hours]']
+            fetch: ['User','WeekStartDate','ObjectID', 'UserName','Values:summary[Hours]', this.getSetting('managerField')]
         };
         
         TSUtilities._loadWsapiRecords(config).then({
@@ -3474,6 +3492,11 @@ Ext.define("TSTimeSheetApproval", {
         columns.push({dataIndex:'__Status',text:'Status', align: 'center'});
         columns.push({dataIndex:'__LastUpdateBy',text:'Status Changed By', align: 'center'});
         
+        columns.push({dataIndex:'User', text:'Manager', align: 'center',
+            renderer: function(v) { 
+                return v[me.getSetting('managerField')] || "none"; 
+            } 
+        });
         return columns;
     },
     
@@ -3500,7 +3523,8 @@ Ext.define("TSTimeSheetApproval", {
             closable : true,
             commentKeyPrefix: this._commentKeyPrefix,
             record   : record,
-            startDate: start_date
+            startDate: start_date,
+            manager_field: this.getSetting('managerField')
         });
     },
     
@@ -3572,9 +3596,7 @@ Ext.define("TSTimeSheetApproval", {
             start_date.getUTCHours(), 
             start_date.getUTCMinutes(), 
             start_date.getUTCSeconds());
-            
-        console.log('ts:', timesheet);
-        
+                    
         var timetable = Ext.create('Rally.technicalservices.TimeTable',{
             weekStart: start_date,
             editable: false,

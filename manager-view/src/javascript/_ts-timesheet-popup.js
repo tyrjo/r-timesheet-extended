@@ -7,7 +7,8 @@ Ext.define('Rally.technicalservices.ManagerDetailDialog', {
     config: {
         startDate: new Date(),
         record: null,
-        commentKeyPrefix: ''
+        commentKeyPrefix: '',
+        manager_field: null
     },
 
     constructor: function(config) {
@@ -28,6 +29,7 @@ Ext.define('Rally.technicalservices.ManagerDetailDialog', {
             layout: 'fit',
             weekStart: this.startDate,
             editable: false,
+            manager_field: this.manager_field,
             timesheet_user: this.record.get('User')
         });
         this.addDocked({

@@ -235,7 +235,7 @@ Ext.define("TSTimeSheetApproval", {
             context: {
                 project: null
             },
-            fetch: ['User','WeekStartDate','ObjectID', 'UserName','Values:summary[Hours]']
+            fetch: ['User','WeekStartDate','ObjectID', 'UserName','Values:summary[Hours]', this.getSetting('managerField')]
         };
         
         TSUtilities._loadWsapiRecords(config).then({
@@ -436,6 +436,11 @@ Ext.define("TSTimeSheetApproval", {
         columns.push({dataIndex:'__Status',text:'Status', align: 'center'});
         columns.push({dataIndex:'__LastUpdateBy',text:'Status Changed By', align: 'center'});
         
+        columns.push({dataIndex:'User', text:'Manager', align: 'center',
+            renderer: function(v) { 
+                return v[me.getSetting('managerField')] || "none"; 
+            } 
+        });
         return columns;
     },
     
@@ -462,7 +467,8 @@ Ext.define("TSTimeSheetApproval", {
             closable : true,
             commentKeyPrefix: this._commentKeyPrefix,
             record   : record,
-            startDate: start_date
+            startDate: start_date,
+            manager_field: this.getSetting('managerField')
         });
     },
     
@@ -534,9 +540,7 @@ Ext.define("TSTimeSheetApproval", {
             start_date.getUTCHours(), 
             start_date.getUTCMinutes(), 
             start_date.getUTCSeconds());
-            
-        console.log('ts:', timesheet);
-        
+                    
         var timetable = Ext.create('Rally.technicalservices.TimeTable',{
             weekStart: start_date,
             editable: false,
