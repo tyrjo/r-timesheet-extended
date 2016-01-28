@@ -6,7 +6,7 @@ defaults: { margin: 10 },
     
     layout: 'border', 
     
-    stateFilterValue: 'Approved',
+    stateFilterValue: 'ALL',
     
     items: [
         {xtype:'container', itemId:'selector_box', region: 'north',  layout: { type:'hbox' }},
@@ -298,7 +298,6 @@ defaults: { margin: 10 },
             timesheets[key].__TimeEntryItems.push(item);
         },this);
         
-        console.log('timesheets:', timesheets);
         
         return timesheets;
     },
@@ -384,6 +383,7 @@ defaults: { margin: 10 },
                     __AssociateID     : timesheet.get('User').NetworkID,
                     __EmployeeType    : timesheet.get('User').c_EmployeeType,
                     __CostCenter      : timesheet.get('User').CostCenter,
+                    __Status          : timesheet.get('__Status'),
                     __LastUpdateBy    : timesheet.get('__LastUpdateBy'),
                     __LastUpdateDate  : timesheet.get('__LastUpdateDate'),
                     __Release         : release,
@@ -394,8 +394,11 @@ defaults: { margin: 10 },
                     __Task            : time_value.get('TimeEntryItem').Task,
                     __TaskDisplay     : time_value.get('TimeEntryItem').TaskDisplayString
                 }));
+                
             });
         });
+        
+        this.logger.log('rows', rows);
         
         return Ext.Array.map(rows, function(row){
             return Ext.create('TSTimesheetFinanceRow',row);
@@ -435,8 +438,9 @@ defaults: { margin: 10 },
         
         columns.push({dataIndex:'DateVal',text:'Work Date', align: 'center', renderer: function(v) { return Ext.util.Format.date(v,'m/d/y'); }});
         columns.push({dataIndex:'Hours',  text:'Actual Hours', align: 'right'});
-        columns.push({dataIndex:'__LastUpdateBy', text:'Approved By', align: 'center'});
-        columns.push({dataIndex:'__LastUpdateDate', text:'Approved On', align: 'center'});
+        columns.push({dataIndex:'__Status', text:'Status', align: 'center'});
+        columns.push({dataIndex:'__LastUpdateBy', text:'Status Set By', align: 'center'});
+        columns.push({dataIndex:'__LastUpdateDate', text:'Status Set On', align: 'center'});
         
         columns.push({dataIndex:'__WorkItemDisplay',text:'Work Item', align: 'center'});
         columns.push({dataIndex:'__Task',text:'Category', align: 'center', renderer: function(v) {
@@ -449,7 +453,7 @@ defaults: { margin: 10 },
             return v._refObjectName;
         }});
         
-        columns.push({dataIndex:'__Release',text:'Status', align: 'center', renderer: function(v) {
+        columns.push({dataIndex:'__Release',text:'Release Status', align: 'center', renderer: function(v) {
             if ( Ext.isEmpty(v) || Ext.isEmpty(v.State) ) { return ""; }
             return v.State;
         }});

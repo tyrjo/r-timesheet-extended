@@ -3,11 +3,11 @@
 <head>
     <title>TimeSheet Finance Report</title>
     <!--  (c) 2015 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Thu Jan 28 2016 11:29:43 GMT-0800 (PST) -->
+    <!--  Build Date: Thu Jan 28 2016 11:50:06 GMT-0800 (PST) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Thu Jan 28 2016 11:29:43 GMT-0800 (PST)";
-        var CHECKSUM = 211154770450;
+        var APP_BUILD_DATE = "Thu Jan 28 2016 11:50:06 GMT-0800 (PST)";
+        var CHECKSUM = 211938859441;
     </script>
     
     <script type="text/javascript" src="/apps/2.0/sdk.js"></script>
@@ -2498,6 +2498,7 @@ Ext.define('TSTimesheetFinanceRow',{
         { name: '__AssociateID', type:'string' },
         { name: '__EmployeeType', type:'string' },
         { name: '__CostCenter', type: 'string' },
+        { name: '__Status', type: 'object' },
         { name: '__LastUpdateBy', type: 'object' },
         { name: '__LastUpdateDate', type: 'date' },
         { name: '__Task', type:'object' },
@@ -2586,7 +2587,7 @@ defaults: { margin: 10 },
     
     layout: 'border', 
     
-    stateFilterValue: 'Approved',
+    stateFilterValue: 'ALL',
     
     items: [
         {xtype:'container', itemId:'selector_box', region: 'north',  layout: { type:'hbox' }},
@@ -2878,7 +2879,6 @@ defaults: { margin: 10 },
             timesheets[key].__TimeEntryItems.push(item);
         },this);
         
-        console.log('timesheets:', timesheets);
         
         return timesheets;
     },
@@ -2964,6 +2964,7 @@ defaults: { margin: 10 },
                     __AssociateID     : timesheet.get('User').NetworkID,
                     __EmployeeType    : timesheet.get('User').c_EmployeeType,
                     __CostCenter      : timesheet.get('User').CostCenter,
+                    __Status          : timesheet.get('__Status'),
                     __LastUpdateBy    : timesheet.get('__LastUpdateBy'),
                     __LastUpdateDate  : timesheet.get('__LastUpdateDate'),
                     __Release         : release,
@@ -2974,8 +2975,11 @@ defaults: { margin: 10 },
                     __Task            : time_value.get('TimeEntryItem').Task,
                     __TaskDisplay     : time_value.get('TimeEntryItem').TaskDisplayString
                 }));
+                
             });
         });
+        
+        this.logger.log('rows', rows);
         
         return Ext.Array.map(rows, function(row){
             return Ext.create('TSTimesheetFinanceRow',row);
@@ -3015,8 +3019,9 @@ defaults: { margin: 10 },
         
         columns.push({dataIndex:'DateVal',text:'Work Date', align: 'center', renderer: function(v) { return Ext.util.Format.date(v,'m/d/y'); }});
         columns.push({dataIndex:'Hours',  text:'Actual Hours', align: 'right'});
-        columns.push({dataIndex:'__LastUpdateBy', text:'Approved By', align: 'center'});
-        columns.push({dataIndex:'__LastUpdateDate', text:'Approved On', align: 'center'});
+        columns.push({dataIndex:'__Status', text:'Status', align: 'center'});
+        columns.push({dataIndex:'__LastUpdateBy', text:'Status Set By', align: 'center'});
+        columns.push({dataIndex:'__LastUpdateDate', text:'Status Set On', align: 'center'});
         
         columns.push({dataIndex:'__WorkItemDisplay',text:'Work Item', align: 'center'});
         columns.push({dataIndex:'__Task',text:'Category', align: 'center', renderer: function(v) {
@@ -3029,7 +3034,7 @@ defaults: { margin: 10 },
             return v._refObjectName;
         }});
         
-        columns.push({dataIndex:'__Release',text:'Status', align: 'center', renderer: function(v) {
+        columns.push({dataIndex:'__Release',text:'Release Status', align: 'center', renderer: function(v) {
             if ( Ext.isEmpty(v) || Ext.isEmpty(v.State) ) { return ""; }
             return v.State;
         }});
