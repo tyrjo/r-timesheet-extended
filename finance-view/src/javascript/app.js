@@ -463,6 +463,13 @@ defaults: { margin: 10 },
         }});
         
         columns.push({dataIndex:'__Product',text:'Product', align: 'center', renderer: function(v){ return v._refObjectName; }});
+        columns.push({dataIndex:'__WorkItem',text:'Work Item Project', align: 'center', renderer: function(v) {
+            if ( Ext.isEmpty(v) ) {
+                return "";
+            }
+            
+            return v.Project._refObjectName;
+        }});
         
         columns.push({dataIndex: '__IsOpEx', text: 'OpEx', align: 'center'});
         return columns;
