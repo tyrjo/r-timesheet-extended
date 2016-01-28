@@ -3,11 +3,11 @@
 <head>
     <title>TimeSheet Finance Report</title>
     <!--  (c) 2015 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Wed Jan 20 2016 11:22:11 GMT-0800 (PST) -->
+    <!--  Build Date: Thu Jan 28 2016 11:22:57 GMT-0800 (PST) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Wed Jan 20 2016 11:22:11 GMT-0800 (PST)";
-        var CHECKSUM = 201348464082;
+        var APP_BUILD_DATE = "Thu Jan 28 2016 11:22:57 GMT-0800 (PST)";
+        var CHECKSUM = 210146819093;
     </script>
     
     <script type="text/javascript" src="/apps/2.0/sdk.js"></script>
@@ -458,6 +458,25 @@ Ext.define('TSUtilities', {
         return deferred.promise;
     },
     
+    loadWsapiRecords: function(config){
+        var deferred = Ext.create('Deft.Deferred');
+        var me = this;
+        var default_config = {
+            model: 'Defect',
+            fetch: ['ObjectID']
+        };
+        Ext.create('Rally.data.wsapi.Store', Ext.Object.merge(default_config,config)).load({
+            callback : function(records, operation, successful) {
+                if (successful){
+                    deferred.resolve(records);
+                } else {
+                    deferred.reject('Problem loading: ' + operation.error.errors.join('. '));
+                }
+            }
+        });
+        return deferred.promise;
+    },
+    
     getEditableProjectForCurrentUser: function() {
         var app = Rally.getApp();
         if ( this._currentUserCanWrite() ) {
@@ -480,7 +499,6 @@ Ext.define('TSUtilities', {
             return ( permission.Role == "Editor" || permission.Role == "ProjectAdmin");
         },this);
         
-        console.log('perms:', editor_permissions);
         
         if ( editor_permissions.length > 0 ) {
             return editor_permissions[0]._ref;
@@ -548,12 +566,20 @@ Ext.define('TSUtilities', {
             });
         }
         
-        console.log('  ', can_unlock);
         return can_unlock;
     },
     
     _currentUserCanUnapprove: function() {
         return this.currentUserIsAdmin();
+    },
+    
+    getUTCDate: function(date) {
+        return new Date(date.getUTCFullYear(), 
+            date.getUTCMonth(), 
+            date.getUTCDate(),  
+            date.getUTCHours(), 
+            date.getUTCMinutes(), 
+            date.getUTCSeconds());
     }
     
 });
@@ -1058,7 +1084,7 @@ Ext.define('Rally.technicalservices.CommentDialog',{
 
     _getColumns: function() {
         var columns = [];
-        var can_delete = TSUtilities._currentUserIsAdmin();
+        var can_delete = TSUtilities.currentUserIsAdmin();
 
         if ( can_delete ) {
             columns.push({
@@ -1477,7 +1503,7 @@ Ext.define('Rally.technicalservices.CommentButton',{
 Ext.define('Rally.technicalservices.TimeModelBuilder',{
     singleton: true,
 
-    deploy_field: 'c_isDeployed',
+    deploy_field: 'c_IsDeployed',
     
     days: ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'],
     
@@ -1586,6 +1612,8 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
     _isLocked: function (fieldName, newValue) {
         var release = this.get('__Release');
         var lock_field_name = this.get('_ReleaseLockFieldName');
+        
+        console.log(lock_field_name, release);
         
         if ( Ext.isEmpty(release) || Ext.isEmpty(lock_field_name) ) {
             return false;
@@ -1714,7 +1742,8 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
         weekStart: new Date(),
         editable: true,
         timesheet_user: null,
-        timesheet_status: null
+        timesheet_status: null,
+        manager_field: null
     },
     
     constructor: function (config) {
@@ -1834,7 +1863,10 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
             context: {
                 project: null
             },
-            fetch: Ext.Array.merge(Rally.technicalservices.TimeModelBuilder.getFetchFields(), this.time_entry_item_fetch),
+            fetch: Ext.Array.merge(Rally.technicalservices.TimeModelBuilder.getFetchFields(), 
+                this.time_entry_item_fetch,
+                [this.manager_field]
+            ),
             filters: [
                 {property:'WeekStartDate',value:week_start},
                 {property:'User.ObjectID',value:user_oid}
@@ -1911,7 +1943,6 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
     },
     
     _addTooltip: function(view) {
-        console.log(view);
         this.toolTip = Ext.create('Ext.tip.ToolTip', {
             target: view.el,
             delegate: view.cellSelector,
@@ -1944,7 +1975,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
     addRowForItem: function(item) {
         var me = this;
         var week_start_date = this.weekStart;
-        console.log('adding ', item);
+
         if ( !this._hasRowForItem(item)) {
             var item_type = item.get('_type');
 
@@ -2014,17 +2045,28 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
         var item_type = item.get('_type');
         
         var hasRow = false;
-        Ext.Array.each(this.rows, function(row) {
-            if ( item_type == "task" ) {
-                if ( row.get('Task') && row.get('Task')._ref == item.get('_ref') ) {
-                    hasRow = true;
-                }
-            } else {
-                if ( Ext.isEmpty(row.get('Task')) && row.get('WorkProduct') && row.get('WorkProduct')._ref == item.get('_ref') ) {
-                    hasRow = true;
+        var rows = [];
+        var store_count = this.grid.getStore().getTotalCount();
+        
+        for ( var i=0; i<store_count; i++ ) {
+            rows.push(this.grid.getStore().getAt(i));
+        }
+        
+        Ext.Array.each(rows, function(row) {
+            if ( row ) { // when clear and remove, we get an undefined row
+                if ( item_type == "task" ) {
+                    if ( row.get('Task') && row.get('Task')._ref == item.get('_ref') ) {
+                        hasRow = true;
+                    }
+                } else {
+                    if ( Ext.isEmpty(row.get('Task')) && row.get('WorkProduct') && row.get('WorkProduct')._ref == item.get('_ref') ) {
+                        hasRow = true;
+                    }
                 }
             }
         });
+        
+        this.logger.log("hasRow", hasRow, item);
         return hasRow;
     },
     
@@ -2089,11 +2131,23 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                 editor: null,
                 hidden: true,
                 renderer: function(value, meta, record) {
-                    console.log('record', record);
+
                     return record.isLocked() || false;
                 }
             }]);
             
+        if ( me.manager_field ) {
+            columns.push({
+                dataIndex:'__TimeEntryItem', 
+                text:'Manager', 
+                align: 'center',
+                
+                renderer: function(value) {
+                    
+                    return value.get('User')[me.manager_field] || "none"; 
+                }
+            });
+        }
         if ( me.timesheet_status || me.timesheet_status === false ) {
             Ext.Array.push(columns,[{
                 dataIndex: '__Product',
@@ -2578,7 +2632,7 @@ defaults: { margin: 10 },
                         dp.setValue(week_start);
                     }
                     if ( new_value.getDay() === 0 ) {
-                        this._updateData();
+                        this._enableGoButton();
                     }
                 }
             }
@@ -2596,11 +2650,23 @@ defaults: { margin: 10 },
                         dp.setValue(week_start);
                     }
                     if ( new_value.getDay() === 0 ) {
-                        this._updateData();
+                        this._enableGoButton();
                     }
                 }
             }
         }).setValue(new Date());
+        
+        container.add({
+            xtype:'rallybutton',
+            itemId: 'go_button',
+            text:'Go',
+            margin: '15 3 3 3',
+            disabled: false,
+            listeners: {
+                scope: this,
+                click: this._updateData
+            }
+        });
         
         var spacer = container.add({ xtype: 'container', flex: 1});
         
@@ -2623,8 +2689,26 @@ defaults: { margin: 10 },
         
     },
     
+    _enableGoButton: function() {
+        var start_calendar = this.down('#from_date_selector');
+        var to_calendar    = this.down('#to_date_selector');
+        
+        var go_button = this.down('#go_button');
+        
+        go_button && go_button.setDisabled(true);
+        
+        if ( start_calendar && to_calendar ) {
+            go_button && go_button.setDisabled(false);
+        }
+
+    },
+    
     _updateData: function() {
         this.down('#display_box').removeAll();
+        var go_button = this.down('#go_button');
+        
+        go_button && go_button.setDisabled(true);
+        
         
         Deft.Chain.pipeline([
             this._loadTimesheets,

@@ -52,7 +52,7 @@ defaults: { margin: 10 },
                         dp.setValue(week_start);
                     }
                     if ( new_value.getDay() === 0 ) {
-                        this._updateData();
+                        this._enableGoButton();
                     }
                 }
             }
@@ -70,11 +70,23 @@ defaults: { margin: 10 },
                         dp.setValue(week_start);
                     }
                     if ( new_value.getDay() === 0 ) {
-                        this._updateData();
+                        this._enableGoButton();
                     }
                 }
             }
         }).setValue(new Date());
+        
+        container.add({
+            xtype:'rallybutton',
+            itemId: 'go_button',
+            text:'Go',
+            margin: '15 3 3 3',
+            disabled: false,
+            listeners: {
+                scope: this,
+                click: this._updateData
+            }
+        });
         
         var spacer = container.add({ xtype: 'container', flex: 1});
         
@@ -97,8 +109,26 @@ defaults: { margin: 10 },
         
     },
     
+    _enableGoButton: function() {
+        var start_calendar = this.down('#from_date_selector');
+        var to_calendar    = this.down('#to_date_selector');
+        
+        var go_button = this.down('#go_button');
+        
+        go_button && go_button.setDisabled(true);
+        
+        if ( start_calendar && to_calendar ) {
+            go_button && go_button.setDisabled(false);
+        }
+
+    },
+    
     _updateData: function() {
         this.down('#display_box').removeAll();
+        var go_button = this.down('#go_button');
+        
+        go_button && go_button.setDisabled(true);
+        
         
         Deft.Chain.pipeline([
             this._loadTimesheets,
