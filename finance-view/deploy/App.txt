@@ -3,11 +3,11 @@
 <head>
     <title>TimeSheet Finance Report</title>
     <!--  (c) 2015 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Thu Jan 28 2016 11:50:06 GMT-0800 (PST) -->
+    <!--  Build Date: Thu Jan 28 2016 12:43:18 GMT-0800 (PST) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Thu Jan 28 2016 11:50:06 GMT-0800 (PST)";
-        var CHECKSUM = 211938859441;
+        var APP_BUILD_DATE = "Thu Jan 28 2016 12:43:18 GMT-0800 (PST)";
+        var CHECKSUM = 213767244694;
     </script>
     
     <script type="text/javascript" src="/apps/2.0/sdk.js"></script>
@@ -965,7 +965,7 @@ Ext.define('Rally.technicalservices.FileUtilities', {
                     
                     var display_value = record.get(column_name);
 
-                    if (!column._csvIgnoreRender && column.renderer) {
+                    if (!column._csvIgnoreRender && ( column.renderer || column.exportRenderer) ) {
                         if (column.exportRenderer) {
                             display_value = column.exportRenderer(display_value, mock_meta_data, record, 0, 0, store, grid.getView());
                         } else {
@@ -987,7 +987,21 @@ Ext.define('Rally.technicalservices.FileUtilities', {
 
             }
         }, this);
-        return '"' + node_values.join('","') + '"';
+        
+        var csv_string = "";
+        Ext.Array.each(node_values, function(node_value,idx){
+            if ( idx > 0 ) {
+                csv_string = csv_string + ",";
+            }
+            if (/^=/.test(node_value) ) {
+                csv_string = csv_string + node_value;
+            } else {
+                csv_string = csv_string + '"' + node_value + '"';
+            }
+
+        });
+        
+        return csv_string;
     }
 
 });
@@ -3015,7 +3029,9 @@ defaults: { margin: 10 },
         columns.push({dataIndex:'__Location',text:'Location' });
         columns.push({dataIndex:'__AssociateID',text:'Associate ID' });
         columns.push({dataIndex:'__EmployeeType', text:'Employee Type' });
-        columns.push({dataIndex:'__CostCenter', text:'Cost Center' });
+        columns.push({dataIndex:'__CostCenter', text:'Cost Center', exportRenderer: function(v) {
+            return Ext.String.format('="{0}"', v);
+        }});
         
         columns.push({dataIndex:'DateVal',text:'Work Date', align: 'center', renderer: function(v) { return Ext.util.Format.date(v,'m/d/y'); }});
         columns.push({dataIndex:'Hours',  text:'Actual Hours', align: 'right'});

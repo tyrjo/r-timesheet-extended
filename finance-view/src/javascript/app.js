@@ -434,7 +434,9 @@ defaults: { margin: 10 },
         columns.push({dataIndex:'__Location',text:'Location' });
         columns.push({dataIndex:'__AssociateID',text:'Associate ID' });
         columns.push({dataIndex:'__EmployeeType', text:'Employee Type' });
-        columns.push({dataIndex:'__CostCenter', text:'Cost Center' });
+        columns.push({dataIndex:'__CostCenter', text:'Cost Center', exportRenderer: function(v) {
+            return Ext.String.format('="{0}"', v);
+        }});
         
         columns.push({dataIndex:'DateVal',text:'Work Date', align: 'center', renderer: function(v) { return Ext.util.Format.date(v,'m/d/y'); }});
         columns.push({dataIndex:'Hours',  text:'Actual Hours', align: 'right'});
