@@ -482,6 +482,9 @@ defaults: { margin: 10 },
         }});
         
         columns.push({dataIndex: '__IsOpEx', text: 'OpEx', align: 'center'});
+        
+        columns.push({dataIndex: '___WeekNumber', text: 'Week Number', align: 'center'});
+        
         return columns;
     },
     

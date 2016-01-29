@@ -3,11 +3,11 @@
 <head>
     <title>TimeSheet Finance Report</title>
     <!--  (c) 2015 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Thu Jan 28 2016 16:50:48 GMT-0800 (PST) -->
+    <!--  Build Date: Thu Jan 28 2016 19:42:53 GMT-0800 (PST) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Thu Jan 28 2016 16:50:48 GMT-0800 (PST)";
-        var CHECKSUM = 215392673706;
+        var APP_BUILD_DATE = "Thu Jan 28 2016 19:42:53 GMT-0800 (PST)";
+        var CHECKSUM = 218279516194;
     </script>
     
     <script type="text/javascript" src="/apps/2.0/sdk.js"></script>
@@ -2501,6 +2501,17 @@ Ext.define('Rally.technicalservices.Logger',{
 
 });
 
+var TSTimesheetFinanceCalculators = {
+    calculateWeekNumber: function(value, record) {
+        console.log('calculateWeekNumber', value, record);
+        var week_date = record.get('DateVal');
+        if ( !Ext.isDate(week_date) ) {
+            return -1;
+        }
+        return parseInt( Ext.Date.format(week_date, 'W', 10) );
+    }
+};
+
 Ext.define('TSTimesheetFinanceRow',{
     extend: 'Ext.data.Model',
     
@@ -2521,7 +2532,10 @@ Ext.define('TSTimesheetFinanceRow',{
         { name: '__Product', type:'object' },
         { name: '__Release', type: 'object' },
         { name: 'DateVal', type: 'date' },
-        { name: 'Hours', type: 'float' }
+        { name: 'Hours', type: 'float' },
+        
+        /* calculated fields */
+        { name: '___WeekNumber', type:'int', defaultValue: -1, convert:  TSTimesheetFinanceCalculators.calculateWeekNumber }
     ],
     
     getWeekStart: function() {
@@ -3077,6 +3091,9 @@ defaults: { margin: 10 },
         }});
         
         columns.push({dataIndex: '__IsOpEx', text: 'OpEx', align: 'center'});
+        
+        columns.push({dataIndex: '___WeekNumber', text: 'Week Number', align: 'center'});
+        
         return columns;
     },
     
