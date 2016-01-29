@@ -47,13 +47,13 @@ defaults: { margin: 10 },
             listeners: {
                 scope: this,
                 change: function(dp, new_value) {
-                    var week_start = this._getBeginningOfWeek(new_value);
-                    if ( week_start !== new_value ) {
-                        dp.setValue(week_start);
-                    }
-                    if ( new_value.getDay() === 0 ) {
+//                    var week_start = this._getBeginningOfWeek(new_value);
+//                    if ( week_start !== new_value ) {
+//                        dp.setValue(week_start);
+//                    }
+//                    if ( new_value.getDay() === 0 ) {
                         this._enableGoButton();
-                    }
+//                    }
                 }
             }
         });
@@ -65,13 +65,13 @@ defaults: { margin: 10 },
             listeners: {
                 scope: this,
                 change: function(dp, new_value) {
-                    var week_start = this._getBeginningOfWeek(new_value);
-                    if ( week_start !== new_value ) {
-                        dp.setValue(week_start);
-                    }
-                    if ( new_value.getDay() === 0 ) {
+//                    var week_start = this._getBeginningOfWeek(new_value);
+//                    if ( week_start !== new_value ) {
+//                        dp.setValue(week_start);
+//                    }
+//                    if ( new_value.getDay() === 0 ) {
                         this._enableGoButton();
-                    }
+//                    }
                 }
             }
         }).setValue(new Date());
@@ -153,15 +153,19 @@ defaults: { margin: 10 },
         var tev_filters = [{property:'ObjectID', operator: '>', value: 0 }];
         
         if (this.down('#from_date_selector') ) {
-            var start_date = Rally.util.DateTime.toIsoString( this.down('#from_date_selector').getValue(),false).replace(/T.*$/,'T00:00:00.000Z');
-            tei_filters.push({property:'WeekStartDate', operator: '>=', value:start_date});
-            tev_filters.push({property:'TimeEntryItem.WeekStartDate', operator: '>=', value:start_date});
+            var selector_start_date = this.down('#from_date_selector').getValue();
+            var week_start_date = Rally.util.DateTime.add(selector_start_date, 'day', -6); // selector might be midweek, need this to get timesheets
+            
+            var tei_start_date = Rally.util.DateTime.toIsoString(week_start_date ,false).replace(/T.*$/,'T00:00:00.000Z');
+            var tev_start_date = Rally.util.DateTime.toIsoString(selector_start_date ,false).replace(/T.*$/,'T00:00:00.000Z');
+            tei_filters.push({property:'WeekStartDate', operator: '>=', value:tei_start_date});
+            tev_filters.push({property:'DateVal', operator: '>=', value:tev_start_date});
         }
         
         if (this.down('#to_date_selector') ) {
             var start_date = Rally.util.DateTime.toIsoString( this.down('#to_date_selector').getValue(),true).replace(/T.*$/,'T00:00:00.000Z');
             tei_filters.push({property:'WeekStartDate', operator: '<=', value:start_date});
-            tev_filters.push({property:'TimeEntryItem.WeekStartDate', operator: '<=', value:start_date});
+            tev_filters.push({property:'DateVal', operator: '<=', value:start_date});
         }
         
         var teitem_config = {
