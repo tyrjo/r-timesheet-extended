@@ -110,9 +110,7 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
     _isLocked: function (fieldName, newValue) {
         var release = this.get('__Release');
         var lock_field_name = this.get('_ReleaseLockFieldName');
-        
-        console.log(lock_field_name, release);
-        
+                
         if ( Ext.isEmpty(release) || Ext.isEmpty(lock_field_name) ) {
             return false;
         }
