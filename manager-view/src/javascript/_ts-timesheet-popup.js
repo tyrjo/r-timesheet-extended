@@ -51,16 +51,20 @@ Ext.define('Rally.technicalservices.ManagerDetailDialog', {
     _addSelectors: function() {
         var status = this.record.get('__Status');
         
-        var start_date = this.startDate;
-        var comment_start_date = Rally.util.DateTime.toIsoString(
-            new Date(start_date.getUTCFullYear(), 
-                start_date.getUTCMonth(), 
-                start_date.getUTCDate(),  
-                start_date.getUTCHours(), 
-                start_date.getUTCMinutes(), 
-                start_date.getUTCSeconds()
-            )
-        ).replace(/T.*$/,'');
+        var comment_start_date = this.startDate;
+        
+        if ( comment_start_date.getDay() === 0 ) {
+            comment_start_date = Rally.util.DateTime.toIsoString(comment_start_date, false).replace(/T.*$/,'');
+        } else {
+            comment_start_date = Ext.Date.add(comment_start_date, Ext.Date.DAY, -1 * comment_start_date.getDay());
+            
+            comment_start_date = Rally.util.DateTime.toIsoString(
+                comment_start_date,
+                false
+            ).replace(/T.*$/,'');
+        }
+    
+        console.log('comment start date: ', comment_start_date);
         
         var comment_key = Ext.String.format("{0}.{1}.{2}", 
             this.commentKeyPrefix,

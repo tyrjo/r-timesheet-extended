@@ -3,11 +3,11 @@
 <head>
     <title>Time Sheet Approval</title>
     <!--  (c) 2015 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Tue Jan 26 2016 16:48:28 GMT-0800 (PST) -->
+    <!--  Build Date: Tue Feb 02 2016 13:51:40 GMT-0800 (PST) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Tue Jan 26 2016 16:48:28 GMT-0800 (PST)";
-        var CHECKSUM = 278456496633;
+        var APP_BUILD_DATE = "Tue Feb 02 2016 13:51:40 GMT-0800 (PST)";
+        var CHECKSUM = 295469681977;
     </script>
     
     <script type="text/javascript" src="/apps/2.0/sdk.js"></script>
@@ -458,7 +458,7 @@ Ext.define('TSUtilities', {
         return deferred.promise;
     },
     
-    loadWsapiRecords: function(config){
+    loadWsapiRecords: function(config,returnOperation){
         var deferred = Ext.create('Deft.Deferred');
         var me = this;
         var default_config = {
@@ -468,7 +468,11 @@ Ext.define('TSUtilities', {
         Ext.create('Rally.data.wsapi.Store', Ext.Object.merge(default_config,config)).load({
             callback : function(records, operation, successful) {
                 if (successful){
-                    deferred.resolve(records);
+                    if ( returnOperation ) {
+                        deferred.resolve(operation);
+                    } else {
+                        deferred.resolve(records);
+                    }
                 } else {
                     deferred.reject('Problem loading: ' + operation.error.errors.join('. '));
                 }
@@ -476,6 +480,48 @@ Ext.define('TSUtilities', {
         });
         return deferred.promise;
     },
+    
+    loadWsapiRecordsWithParallelPages: function(config) {
+        var deferred = Ext.create('Deft.Deferred'),
+            me = this;
+        
+        var count_check_config = Ext.clone(config);
+        count_check_config.limit = 1;
+        count_check_config.pageSize = 1;
+        
+        this.loadWsapiRecords(count_check_config, true).then({
+            success: function(operation) {
+                console.log('operation',operation);
+                
+                config.pageSize = 200;
+                config.limit = config.pageSize;
+                var total = operation.resultSet.totalRecords;
+                var page_count = Math.ceil(total/config.pageSize);
+                    
+                var promises = [];
+                Ext.Array.each(_.range(1,page_count+1), function(page_index) {
+                    var config_clone = Ext.clone(config);
+                    config_clone.currentPage = page_index;
+                    promises.push(function() { 
+                        return me.loadWsapiRecords(config_clone); 
+                    });
+                });
+                CA.techservices.promise.ParallelThrottle.throttle(promises, 6, me).then({
+                        success: function(results){
+                            deferred.resolve( Ext.Array.flatten(results) );
+                        },
+                        failure: function(msg) {
+                            deferred.reject(msg);
+                        }
+                });
+            },
+            failure: function(msg) {
+                deferred.reject(msg);
+            }
+        });
+        return deferred.promise;
+    },
+    
     
     getEditableProjectForCurrentUser: function() {
         var app = Rally.getApp();
@@ -744,6 +790,44 @@ Ext.define('Rally.technicalservices.Logger',{
 
 });
 
+Ext.define('CA.techservices.promise.ParallelThrottle',{
+    requires: ['Deft.promise.Promise'],
+    statics: {
+
+        throttle: function (fns, maxParallelCalls, scope) {
+
+            if (maxParallelCalls <= 0 || fns.length < maxParallelCalls){
+                return Deft.promise.Chain.parallel(fns, scope);
+            }
+
+
+            var parallelFns = [],
+                fnChunks = [],
+                idx = -1;
+
+            for (var i = 0; i < fns.length; i++) {
+                if (i % maxParallelCalls === 0) {
+                    idx++;
+                    fnChunks[idx] = [];
+                }
+                fnChunks[idx].push(fns[i]);
+            }
+
+            _.each(fnChunks, function (chunk) {
+                parallelFns.push(function () {
+                    return Deft.promise.Chain.parallel(chunk, scope);
+                });
+            });
+
+            return Deft.Promise.reduce(parallelFns, function(groupResults, fnGroup) {
+                return Deft.Promise.when(fnGroup.call(scope)).then(function(results) {
+                    groupResults = groupResults.concat(results || []);
+                    return groupResults;
+                });
+            }, []);
+        }
+    }
+});
 Ext.define('Rally.technicalservices.FileUtilities', {
     singleton: true,
     logger: new Rally.technicalservices.Logger(),
@@ -965,7 +1049,7 @@ Ext.define('Rally.technicalservices.FileUtilities', {
                     
                     var display_value = record.get(column_name);
 
-                    if (!column._csvIgnoreRender && column.renderer) {
+                    if (!column._csvIgnoreRender && ( column.renderer || column.exportRenderer) ) {
                         if (column.exportRenderer) {
                             display_value = column.exportRenderer(display_value, mock_meta_data, record, 0, 0, store, grid.getView());
                         } else {
@@ -987,7 +1071,21 @@ Ext.define('Rally.technicalservices.FileUtilities', {
 
             }
         }, this);
-        return '"' + node_values.join('","') + '"';
+        
+        var csv_string = "";
+        Ext.Array.each(node_values, function(node_value,idx){
+            if ( idx > 0 ) {
+                csv_string = csv_string + ",";
+            }
+            if (/^=/.test(node_value) ) {
+                csv_string = csv_string + node_value;
+            } else {
+                csv_string = csv_string + '"' + node_value + '"';
+            }
+
+        });
+        
+        return csv_string;
     }
 
 });
@@ -1612,9 +1710,7 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
     _isLocked: function (fieldName, newValue) {
         var release = this.get('__Release');
         var lock_field_name = this.get('_ReleaseLockFieldName');
-        
-        console.log(lock_field_name, release);
-        
+                
         if ( Ext.isEmpty(release) || Ext.isEmpty(lock_field_name) ) {
             return false;
         }
@@ -1950,11 +2046,16 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
             renderTo: Ext.getBody(),
             listeners: {
                 beforeshow: function(tip) {
+
                     var trigger = tip.triggerElement,
                         parent = tip.triggerElement.parentElement,
                         columnTitle = view.getHeaderByCell(trigger).text,
                         columnDataIndex = view.getHeaderByCell(trigger).dataIndex;
                     var record = view.getRecord(parent);
+                    if ( !record ) {
+                        return false;
+                    }
+                    
                     var columnText = null;
                     var value = record.get(columnDataIndex);
                     
@@ -2308,20 +2409,29 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
     /*
      * Given a date, return the beginning of the week (iso, utc)
      */
-    _getStartOfWeek: function(date_in_week){
-        if ( typeof(date_in_week) == 'undefined' ) {
-            date_in_week = new Date();
+    _getStartOfWeek: function(js_date){
+        this.logger.log('_ts-time-table._getStartOfWeek', js_date, js_date.getDay(), js_date.getUTCDay());
+        
+        if ( !Ext.isDate(js_date) ) {
+            js_date = new Date();
+        }
+        
+        var start_of_week = js_date;
+        if ( js_date.getDay() === 0 ) {
+            var iso_string = Rally.util.DateTime.toIsoString(start_of_week, false).replace(/T.*$/,'T00:00:00.0Z');
+            this.logger.log('---', iso_string);
+            return iso_string;
         }
 
-        var day_of_week = date_in_week.getDay();
-        var day_of_month = date_in_week.getDate();
+        start_of_week = Ext.Date.add(js_date, Ext.Date.DAY, -1 * js_date.getDay());
+        this.logger.log('...', start_of_week);
         
-        // determine what beginning of week is
-        var start_of_week_js = date_in_week;
-        start_of_week_js.setUTCDate( day_of_month - day_of_week );
-        
-        return Rally.util.DateTime.toIsoString(start_of_week_js,true).replace(/T.*$/,'T00:00:00.000Z');
-       
+        var iso_string =  Rally.util.DateTime.toIsoString(
+            start_of_week,
+            false
+        ).replace(/T.*$/,'T00:00:00.0Z');
+        this.logger.log('...', iso_string);
+        return iso_string;
     }
 
 });
@@ -2957,16 +3067,20 @@ Ext.define('Rally.technicalservices.ManagerDetailDialog', {
     _addSelectors: function() {
         var status = this.record.get('__Status');
         
-        var start_date = this.startDate;
-        var comment_start_date = Rally.util.DateTime.toIsoString(
-            new Date(start_date.getUTCFullYear(), 
-                start_date.getUTCMonth(), 
-                start_date.getUTCDate(),  
-                start_date.getUTCHours(), 
-                start_date.getUTCMinutes(), 
-                start_date.getUTCSeconds()
-            )
-        ).replace(/T.*$/,'');
+        var comment_start_date = this.startDate;
+        
+        if ( comment_start_date.getDay() === 0 ) {
+            comment_start_date = Rally.util.DateTime.toIsoString(comment_start_date, false).replace(/T.*$/,'');
+        } else {
+            comment_start_date = Ext.Date.add(comment_start_date, Ext.Date.DAY, -1 * comment_start_date.getDay());
+            
+            comment_start_date = Rally.util.DateTime.toIsoString(
+                comment_start_date,
+                false
+            ).replace(/T.*$/,'');
+        }
+    
+        console.log('comment start date: ', comment_start_date);
         
         var comment_key = Ext.String.format("{0}.{1}.{2}", 
             this.commentKeyPrefix,
@@ -3167,7 +3281,7 @@ Ext.define("TSTimeSheetApproval", {
             margin: 3
         });
         
-        var week_start = this._getBeginningOfWeek(Rally.util.DateTime.add(new Date(), 'week', -4));
+        var week_start = this.__getStartOfWeek(Rally.util.DateTime.add(new Date(), 'week', -4));
         
         date_container.add({
             xtype:'rallydatefield',
@@ -3176,7 +3290,7 @@ Ext.define("TSTimeSheetApproval", {
             listeners: {
                 scope: this,
                 change: function(dp, new_value) {
-                    var week_start = this._getBeginningOfWeek(new_value);
+                    var week_start = this.__getStartOfWeek(new_value);
                     if ( week_start !== new_value ) {
                         dp.setValue(week_start);
                     }
@@ -3196,7 +3310,7 @@ Ext.define("TSTimeSheetApproval", {
             listeners: {
                 scope: this,
                 change: function(dp, new_value) {
-                    var week_start = this._getBeginningOfWeek(new_value);
+                    var week_start = this.__getStartOfWeek(new_value);
                     if ( week_start !== new_value ) {
                         dp.setValue(week_start);
                     }
@@ -3528,7 +3642,7 @@ Ext.define("TSTimeSheetApproval", {
         });
     },
     
-    _getBeginningOfWeek: function(js_date){
+    __getStartOfWeek: function(js_date){
         var start_of_week_here = Ext.Date.add(js_date, Ext.Date.DAY, -1 * js_date.getDay());
         return start_of_week_here;
     },

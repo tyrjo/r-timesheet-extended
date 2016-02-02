@@ -235,11 +235,16 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
             renderTo: Ext.getBody(),
             listeners: {
                 beforeshow: function(tip) {
+
                     var trigger = tip.triggerElement,
                         parent = tip.triggerElement.parentElement,
                         columnTitle = view.getHeaderByCell(trigger).text,
                         columnDataIndex = view.getHeaderByCell(trigger).dataIndex;
                     var record = view.getRecord(parent);
+                    if ( !record ) {
+                        return false;
+                    }
+                    
                     var columnText = null;
                     var value = record.get(columnDataIndex);
                     
@@ -593,20 +598,29 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
     /*
      * Given a date, return the beginning of the week (iso, utc)
      */
-    _getStartOfWeek: function(date_in_week){
-        if ( typeof(date_in_week) == 'undefined' ) {
-            date_in_week = new Date();
+    _getStartOfWeek: function(js_date){
+        this.logger.log('_ts-time-table._getStartOfWeek', js_date, js_date.getDay(), js_date.getUTCDay());
+        
+        if ( !Ext.isDate(js_date) ) {
+            js_date = new Date();
+        }
+        
+        var start_of_week = js_date;
+        if ( js_date.getDay() === 0 ) {
+            var iso_string = Rally.util.DateTime.toIsoString(start_of_week, false).replace(/T.*$/,'T00:00:00.0Z');
+            this.logger.log('---', iso_string);
+            return iso_string;
         }
 
-        var day_of_week = date_in_week.getDay();
-        var day_of_month = date_in_week.getDate();
+        start_of_week = Ext.Date.add(js_date, Ext.Date.DAY, -1 * js_date.getDay());
+        this.logger.log('...', start_of_week);
         
-        // determine what beginning of week is
-        var start_of_week_js = date_in_week;
-        start_of_week_js.setUTCDate( day_of_month - day_of_week );
-        
-        return Rally.util.DateTime.toIsoString(start_of_week_js,true).replace(/T.*$/,'T00:00:00.000Z');
-       
+        var iso_string =  Rally.util.DateTime.toIsoString(
+            start_of_week,
+            false
+        ).replace(/T.*$/,'T00:00:00.0Z');
+        this.logger.log('...', iso_string);
+        return iso_string;
     }
 
 });

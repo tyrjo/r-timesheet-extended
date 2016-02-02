@@ -111,7 +111,7 @@ Ext.define("TSTimeSheetApproval", {
             margin: 3
         });
         
-        var week_start = this._getBeginningOfWeek(Rally.util.DateTime.add(new Date(), 'week', -4));
+        var week_start = this.__getStartOfWeek(Rally.util.DateTime.add(new Date(), 'week', -4));
         
         date_container.add({
             xtype:'rallydatefield',
@@ -120,7 +120,7 @@ Ext.define("TSTimeSheetApproval", {
             listeners: {
                 scope: this,
                 change: function(dp, new_value) {
-                    var week_start = this._getBeginningOfWeek(new_value);
+                    var week_start = this.__getStartOfWeek(new_value);
                     if ( week_start !== new_value ) {
                         dp.setValue(week_start);
                     }
@@ -140,7 +140,7 @@ Ext.define("TSTimeSheetApproval", {
             listeners: {
                 scope: this,
                 change: function(dp, new_value) {
-                    var week_start = this._getBeginningOfWeek(new_value);
+                    var week_start = this.__getStartOfWeek(new_value);
                     if ( week_start !== new_value ) {
                         dp.setValue(week_start);
                     }
@@ -472,7 +472,7 @@ Ext.define("TSTimeSheetApproval", {
         });
     },
     
-    _getBeginningOfWeek: function(js_date){
+    __getStartOfWeek: function(js_date){
         var start_of_week_here = Ext.Date.add(js_date, Ext.Date.DAY, -1 * js_date.getDay());
         return start_of_week_here;
     },
