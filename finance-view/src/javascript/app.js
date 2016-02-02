@@ -6,7 +6,7 @@ defaults: { margin: 10 },
     
     layout: 'border', 
     
-    stateFilterValue: 'Approved',
+    stateFilterValue: 'ALL',
     
     items: [
         {xtype:'container', itemId:'selector_box', region: 'north',  layout: { type:'hbox' }},
@@ -47,13 +47,13 @@ defaults: { margin: 10 },
             listeners: {
                 scope: this,
                 change: function(dp, new_value) {
-                    var week_start = this._getBeginningOfWeek(new_value);
-                    if ( week_start !== new_value ) {
-                        dp.setValue(week_start);
-                    }
-                    if ( new_value.getDay() === 0 ) {
-                        this._updateData();
-                    }
+//                    var week_start = this._getBeginningOfWeek(new_value);
+//                    if ( week_start !== new_value ) {
+//                        dp.setValue(week_start);
+//                    }
+//                    if ( new_value.getDay() === 0 ) {
+                        this._enableGoButton();
+//                    }
                 }
             }
         });
@@ -65,16 +65,28 @@ defaults: { margin: 10 },
             listeners: {
                 scope: this,
                 change: function(dp, new_value) {
-                    var week_start = this._getBeginningOfWeek(new_value);
-                    if ( week_start !== new_value ) {
-                        dp.setValue(week_start);
-                    }
-                    if ( new_value.getDay() === 0 ) {
-                        this._updateData();
-                    }
+//                    var week_start = this._getBeginningOfWeek(new_value);
+//                    if ( week_start !== new_value ) {
+//                        dp.setValue(week_start);
+//                    }
+//                    if ( new_value.getDay() === 0 ) {
+                        this._enableGoButton();
+//                    }
                 }
             }
         }).setValue(new Date());
+        
+        container.add({
+            xtype:'rallybutton',
+            itemId: 'go_button',
+            text:'Go',
+            margin: '15 3 3 3',
+            disabled: false,
+            listeners: {
+                scope: this,
+                click: this._updateData
+            }
+        });
         
         var spacer = container.add({ xtype: 'container', flex: 1});
         
@@ -97,8 +109,26 @@ defaults: { margin: 10 },
         
     },
     
+    _enableGoButton: function() {
+        var start_calendar = this.down('#from_date_selector');
+        var to_calendar    = this.down('#to_date_selector');
+        
+        var go_button = this.down('#go_button');
+        
+        go_button && go_button.setDisabled(true);
+        
+        if ( start_calendar && to_calendar ) {
+            go_button && go_button.setDisabled(false);
+        }
+
+    },
+    
     _updateData: function() {
         this.down('#display_box').removeAll();
+        var go_button = this.down('#go_button');
+        
+        go_button && go_button.setDisabled(true);
+        
         
         Deft.Chain.pipeline([
             this._loadTimesheets,
@@ -116,22 +146,27 @@ defaults: { margin: 10 },
     },
     
     _loadTimesheets: function() {
-        var deferred = Ext.create('Deft.Deferred');
+        var deferred = Ext.create('Deft.Deferred'),
+            me = this;
         this.setLoading("Loading timesheets...");
         
         var tei_filters = [{property:'ObjectID', operator: '>', value: 0 }];
         var tev_filters = [{property:'ObjectID', operator: '>', value: 0 }];
         
         if (this.down('#from_date_selector') ) {
-            var start_date = Rally.util.DateTime.toIsoString( this.down('#from_date_selector').getValue(),false).replace(/T.*$/,'T00:00:00.000Z');
-            tei_filters.push({property:'WeekStartDate', operator: '>=', value:start_date});
-            tev_filters.push({property:'TimeEntryItem.WeekStartDate', operator: '>=', value:start_date});
+            var selector_start_date = this.down('#from_date_selector').getValue();
+            var week_start_date = Rally.util.DateTime.add(selector_start_date, 'day', -6); // selector might be midweek, need this to get timesheets
+            
+            var tei_start_date = Rally.util.DateTime.toIsoString(week_start_date ,false).replace(/T.*$/,'T00:00:00.000Z');
+            var tev_start_date = Rally.util.DateTime.toIsoString(selector_start_date ,false).replace(/T.*$/,'T00:00:00.000Z');
+            tei_filters.push({property:'WeekStartDate', operator: '>=', value:tei_start_date});
+            tev_filters.push({property:'DateVal', operator: '>=', value:tev_start_date});
         }
         
         if (this.down('#to_date_selector') ) {
             var start_date = Rally.util.DateTime.toIsoString( this.down('#to_date_selector').getValue(),true).replace(/T.*$/,'T00:00:00.000Z');
             tei_filters.push({property:'WeekStartDate', operator: '<=', value:start_date});
-            tev_filters.push({property:'TimeEntryItem.WeekStartDate', operator: '<=', value:start_date});
+            tev_filters.push({property:'DateVal', operator: '<=', value:start_date});
         }
         
         var teitem_config = {
@@ -162,8 +197,8 @@ defaults: { margin: 10 },
         };
         
         Deft.Chain.sequence([
-            function() { return TSUtilities._loadWsapiRecords(teitem_config);  },
-            function() { return TSUtilities._loadWsapiRecords(tevalue_config); }
+            function() { return TSUtilities.loadWsapiRecordsWithParallelPages(teitem_config);  },
+            function() { return TSUtilities.loadWsapiRecordsWithParallelPages(tevalue_config); }
         ],this).then({
             scope: this,
             success: function(results) {
@@ -268,7 +303,6 @@ defaults: { margin: 10 },
             timesheets[key].__TimeEntryItems.push(item);
         },this);
         
-        console.log('timesheets:', timesheets);
         
         return timesheets;
     },
@@ -354,6 +388,7 @@ defaults: { margin: 10 },
                     __AssociateID     : timesheet.get('User').NetworkID,
                     __EmployeeType    : timesheet.get('User').c_EmployeeType,
                     __CostCenter      : timesheet.get('User').CostCenter,
+                    __Status          : timesheet.get('__Status'),
                     __LastUpdateBy    : timesheet.get('__LastUpdateBy'),
                     __LastUpdateDate  : timesheet.get('__LastUpdateDate'),
                     __Release         : release,
@@ -364,8 +399,11 @@ defaults: { margin: 10 },
                     __Task            : time_value.get('TimeEntryItem').Task,
                     __TaskDisplay     : time_value.get('TimeEntryItem').TaskDisplayString
                 }));
+                
             });
         });
+        
+        this.logger.log('rows', rows);
         
         return Ext.Array.map(rows, function(row){
             return Ext.create('TSTimesheetFinanceRow',row);
@@ -401,12 +439,15 @@ defaults: { margin: 10 },
         columns.push({dataIndex:'__Location',text:'Location' });
         columns.push({dataIndex:'__AssociateID',text:'Associate ID' });
         columns.push({dataIndex:'__EmployeeType', text:'Employee Type' });
-        columns.push({dataIndex:'__CostCenter', text:'Cost Center' });
+        columns.push({dataIndex:'__CostCenter', text:'Cost Center', exportRenderer: function(v) {
+            return Ext.String.format('="{0}"', v);
+        }});
         
         columns.push({dataIndex:'DateVal',text:'Work Date', align: 'center', renderer: function(v) { return Ext.util.Format.date(v,'m/d/y'); }});
         columns.push({dataIndex:'Hours',  text:'Actual Hours', align: 'right'});
-        columns.push({dataIndex:'__LastUpdateBy', text:'Approved By', align: 'center'});
-        columns.push({dataIndex:'__LastUpdateDate', text:'Approved On', align: 'center'});
+        columns.push({dataIndex:'__Status', text:'Status', align: 'center'});
+        columns.push({dataIndex:'__LastUpdateBy', text:'Status Set By', align: 'center'});
+        columns.push({dataIndex:'__LastUpdateDate', text:'Status Set On', align: 'center'});
         
         columns.push({dataIndex:'__WorkItemDisplay',text:'Work Item', align: 'center'});
         columns.push({dataIndex:'__Task',text:'Category', align: 'center', renderer: function(v) {
@@ -419,7 +460,7 @@ defaults: { margin: 10 },
             return v._refObjectName;
         }});
         
-        columns.push({dataIndex:'__Release',text:'Status', align: 'center', renderer: function(v) {
+        columns.push({dataIndex:'__Release',text:'Release Status', align: 'center', renderer: function(v) {
             if ( Ext.isEmpty(v) || Ext.isEmpty(v.State) ) { return ""; }
             return v.State;
         }});
@@ -433,8 +474,18 @@ defaults: { margin: 10 },
         }});
         
         columns.push({dataIndex:'__Product',text:'Product', align: 'center', renderer: function(v){ return v._refObjectName; }});
+        columns.push({dataIndex:'__WorkItem',text:'Work Item Project', align: 'center', renderer: function(v) {
+            if ( Ext.isEmpty(v) ) {
+                return "";
+            }
+            
+            return v.Project._refObjectName;
+        }});
         
         columns.push({dataIndex: '__IsOpEx', text: 'OpEx', align: 'center'});
+        
+        columns.push({dataIndex: '___WeekNumber', text: 'Week Number', align: 'center'});
+        
         return columns;
     },
     

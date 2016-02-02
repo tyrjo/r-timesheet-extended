@@ -3,11 +3,11 @@
 <head>
     <title>TimeSheet Finance Report</title>
     <!--  (c) 2015 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Wed Jan 20 2016 11:22:11 GMT-0800 (PST) -->
+    <!--  Build Date: Tue Feb 02 2016 11:04:06 GMT-0800 (PST) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Wed Jan 20 2016 11:22:11 GMT-0800 (PST)";
-        var CHECKSUM = 201348464082;
+        var APP_BUILD_DATE = "Tue Feb 02 2016 11:04:06 GMT-0800 (PST)";
+        var CHECKSUM = 229525426208;
     </script>
     
     <script type="text/javascript" src="/apps/2.0/sdk.js"></script>
@@ -458,6 +458,71 @@ Ext.define('TSUtilities', {
         return deferred.promise;
     },
     
+    loadWsapiRecords: function(config,returnOperation){
+        var deferred = Ext.create('Deft.Deferred');
+        var me = this;
+        var default_config = {
+            model: 'Defect',
+            fetch: ['ObjectID']
+        };
+        Ext.create('Rally.data.wsapi.Store', Ext.Object.merge(default_config,config)).load({
+            callback : function(records, operation, successful) {
+                if (successful){
+                    if ( returnOperation ) {
+                        deferred.resolve(operation);
+                    } else {
+                        deferred.resolve(records);
+                    }
+                } else {
+                    deferred.reject('Problem loading: ' + operation.error.errors.join('. '));
+                }
+            }
+        });
+        return deferred.promise;
+    },
+    
+    loadWsapiRecordsWithParallelPages: function(config) {
+        var deferred = Ext.create('Deft.Deferred'),
+            me = this;
+        
+        var count_check_config = Ext.clone(config);
+        count_check_config.limit = 1;
+        count_check_config.pageSize = 1;
+        
+        this.loadWsapiRecords(count_check_config, true).then({
+            success: function(operation) {
+                console.log('operation',operation);
+                
+                config.pageSize = 200;
+                config.limit = config.pageSize;
+                var total = operation.resultSet.totalRecords;
+                var page_count = Math.ceil(total/config.pageSize);
+                    
+                var promises = [];
+                Ext.Array.each(_.range(1,page_count+1), function(page_index) {
+                    var config_clone = Ext.clone(config);
+                    config_clone.currentPage = page_index;
+                    promises.push(function() { 
+                        return me.loadWsapiRecords(config_clone); 
+                    });
+                });
+                CA.techservices.promise.ParallelThrottle.throttle(promises, 6, me).then({
+                        success: function(results){
+                            deferred.resolve( Ext.Array.flatten(results) );
+                        },
+                        failure: function(msg) {
+                            deferred.reject(msg);
+                        }
+                });
+            },
+            failure: function(msg) {
+                deferred.reject(msg);
+            }
+        });
+        return deferred.promise;
+    },
+    
+    
     getEditableProjectForCurrentUser: function() {
         var app = Rally.getApp();
         if ( this._currentUserCanWrite() ) {
@@ -480,7 +545,6 @@ Ext.define('TSUtilities', {
             return ( permission.Role == "Editor" || permission.Role == "ProjectAdmin");
         },this);
         
-        console.log('perms:', editor_permissions);
         
         if ( editor_permissions.length > 0 ) {
             return editor_permissions[0]._ref;
@@ -548,12 +612,20 @@ Ext.define('TSUtilities', {
             });
         }
         
-        console.log('  ', can_unlock);
         return can_unlock;
     },
     
     _currentUserCanUnapprove: function() {
         return this.currentUserIsAdmin();
+    },
+    
+    getUTCDate: function(date) {
+        return new Date(date.getUTCFullYear(), 
+            date.getUTCMonth(), 
+            date.getUTCDate(),  
+            date.getUTCHours(), 
+            date.getUTCMinutes(), 
+            date.getUTCSeconds());
     }
     
 });
@@ -718,6 +790,44 @@ Ext.define('Rally.technicalservices.Logger',{
 
 });
 
+Ext.define('CA.techservices.promise.ParallelThrottle',{
+    requires: ['Deft.promise.Promise'],
+    statics: {
+
+        throttle: function (fns, maxParallelCalls, scope) {
+
+            if (maxParallelCalls <= 0 || fns.length < maxParallelCalls){
+                return Deft.promise.Chain.parallel(fns, scope);
+            }
+
+
+            var parallelFns = [],
+                fnChunks = [],
+                idx = -1;
+
+            for (var i = 0; i < fns.length; i++) {
+                if (i % maxParallelCalls === 0) {
+                    idx++;
+                    fnChunks[idx] = [];
+                }
+                fnChunks[idx].push(fns[i]);
+            }
+
+            _.each(fnChunks, function (chunk) {
+                parallelFns.push(function () {
+                    return Deft.promise.Chain.parallel(chunk, scope);
+                });
+            });
+
+            return Deft.Promise.reduce(parallelFns, function(groupResults, fnGroup) {
+                return Deft.Promise.when(fnGroup.call(scope)).then(function(results) {
+                    groupResults = groupResults.concat(results || []);
+                    return groupResults;
+                });
+            }, []);
+        }
+    }
+});
 Ext.define('Rally.technicalservices.FileUtilities', {
     singleton: true,
     logger: new Rally.technicalservices.Logger(),
@@ -939,7 +1049,7 @@ Ext.define('Rally.technicalservices.FileUtilities', {
                     
                     var display_value = record.get(column_name);
 
-                    if (!column._csvIgnoreRender && column.renderer) {
+                    if (!column._csvIgnoreRender && ( column.renderer || column.exportRenderer) ) {
                         if (column.exportRenderer) {
                             display_value = column.exportRenderer(display_value, mock_meta_data, record, 0, 0, store, grid.getView());
                         } else {
@@ -961,7 +1071,21 @@ Ext.define('Rally.technicalservices.FileUtilities', {
 
             }
         }, this);
-        return '"' + node_values.join('","') + '"';
+        
+        var csv_string = "";
+        Ext.Array.each(node_values, function(node_value,idx){
+            if ( idx > 0 ) {
+                csv_string = csv_string + ",";
+            }
+            if (/^=/.test(node_value) ) {
+                csv_string = csv_string + node_value;
+            } else {
+                csv_string = csv_string + '"' + node_value + '"';
+            }
+
+        });
+        
+        return csv_string;
     }
 
 });
@@ -1058,7 +1182,7 @@ Ext.define('Rally.technicalservices.CommentDialog',{
 
     _getColumns: function() {
         var columns = [];
-        var can_delete = TSUtilities._currentUserIsAdmin();
+        var can_delete = TSUtilities.currentUserIsAdmin();
 
         if ( can_delete ) {
             columns.push({
@@ -1477,7 +1601,7 @@ Ext.define('Rally.technicalservices.CommentButton',{
 Ext.define('Rally.technicalservices.TimeModelBuilder',{
     singleton: true,
 
-    deploy_field: 'c_isDeployed',
+    deploy_field: 'c_IsDeployed',
     
     days: ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'],
     
@@ -1586,6 +1710,8 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
     _isLocked: function (fieldName, newValue) {
         var release = this.get('__Release');
         var lock_field_name = this.get('_ReleaseLockFieldName');
+        
+        console.log(lock_field_name, release);
         
         if ( Ext.isEmpty(release) || Ext.isEmpty(lock_field_name) ) {
             return false;
@@ -1714,7 +1840,8 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
         weekStart: new Date(),
         editable: true,
         timesheet_user: null,
-        timesheet_status: null
+        timesheet_status: null,
+        manager_field: null
     },
     
     constructor: function (config) {
@@ -1834,7 +1961,10 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
             context: {
                 project: null
             },
-            fetch: Ext.Array.merge(Rally.technicalservices.TimeModelBuilder.getFetchFields(), this.time_entry_item_fetch),
+            fetch: Ext.Array.merge(Rally.technicalservices.TimeModelBuilder.getFetchFields(), 
+                this.time_entry_item_fetch,
+                [this.manager_field]
+            ),
             filters: [
                 {property:'WeekStartDate',value:week_start},
                 {property:'User.ObjectID',value:user_oid}
@@ -1911,7 +2041,6 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
     },
     
     _addTooltip: function(view) {
-        console.log(view);
         this.toolTip = Ext.create('Ext.tip.ToolTip', {
             target: view.el,
             delegate: view.cellSelector,
@@ -1944,7 +2073,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
     addRowForItem: function(item) {
         var me = this;
         var week_start_date = this.weekStart;
-        console.log('adding ', item);
+
         if ( !this._hasRowForItem(item)) {
             var item_type = item.get('_type');
 
@@ -2014,17 +2143,28 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
         var item_type = item.get('_type');
         
         var hasRow = false;
-        Ext.Array.each(this.rows, function(row) {
-            if ( item_type == "task" ) {
-                if ( row.get('Task') && row.get('Task')._ref == item.get('_ref') ) {
-                    hasRow = true;
-                }
-            } else {
-                if ( Ext.isEmpty(row.get('Task')) && row.get('WorkProduct') && row.get('WorkProduct')._ref == item.get('_ref') ) {
-                    hasRow = true;
+        var rows = [];
+        var store_count = this.grid.getStore().getTotalCount();
+        
+        for ( var i=0; i<store_count; i++ ) {
+            rows.push(this.grid.getStore().getAt(i));
+        }
+        
+        Ext.Array.each(rows, function(row) {
+            if ( row ) { // when clear and remove, we get an undefined row
+                if ( item_type == "task" ) {
+                    if ( row.get('Task') && row.get('Task')._ref == item.get('_ref') ) {
+                        hasRow = true;
+                    }
+                } else {
+                    if ( Ext.isEmpty(row.get('Task')) && row.get('WorkProduct') && row.get('WorkProduct')._ref == item.get('_ref') ) {
+                        hasRow = true;
+                    }
                 }
             }
         });
+        
+        this.logger.log("hasRow", hasRow, item);
         return hasRow;
     },
     
@@ -2089,11 +2229,23 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                 editor: null,
                 hidden: true,
                 renderer: function(value, meta, record) {
-                    console.log('record', record);
+
                     return record.isLocked() || false;
                 }
             }]);
             
+        if ( me.manager_field ) {
+            columns.push({
+                dataIndex:'__TimeEntryItem', 
+                text:'Manager', 
+                align: 'center',
+                
+                renderer: function(value) {
+                    
+                    return value.get('User')[me.manager_field] || "none"; 
+                }
+            });
+        }
         if ( me.timesheet_status || me.timesheet_status === false ) {
             Ext.Array.push(columns,[{
                 dataIndex: '__Product',
@@ -2433,6 +2585,16 @@ Ext.define('Rally.technicalservices.Logger',{
 
 });
 
+var TSTimesheetFinanceCalculators = {
+    calculateWeekNumber: function(value, record) {
+        var week_date = record.get('DateVal');
+        if ( !Ext.isDate(week_date) ) {
+            return -1;
+        }
+        return parseInt( Ext.Date.format(week_date, 'W', 10) );
+    }
+};
+
 Ext.define('TSTimesheetFinanceRow',{
     extend: 'Ext.data.Model',
     
@@ -2444,6 +2606,7 @@ Ext.define('TSTimesheetFinanceRow',{
         { name: '__AssociateID', type:'string' },
         { name: '__EmployeeType', type:'string' },
         { name: '__CostCenter', type: 'string' },
+        { name: '__Status', type: 'object' },
         { name: '__LastUpdateBy', type: 'object' },
         { name: '__LastUpdateDate', type: 'date' },
         { name: '__Task', type:'object' },
@@ -2452,7 +2615,10 @@ Ext.define('TSTimesheetFinanceRow',{
         { name: '__Product', type:'object' },
         { name: '__Release', type: 'object' },
         { name: 'DateVal', type: 'date' },
-        { name: 'Hours', type: 'float' }
+        { name: 'Hours', type: 'float' },
+        
+        /* calculated fields */
+        { name: '___WeekNumber', type:'int', defaultValue: -1, convert:  TSTimesheetFinanceCalculators.calculateWeekNumber }
     ],
     
     getWeekStart: function() {
@@ -2532,7 +2698,7 @@ defaults: { margin: 10 },
     
     layout: 'border', 
     
-    stateFilterValue: 'Approved',
+    stateFilterValue: 'ALL',
     
     items: [
         {xtype:'container', itemId:'selector_box', region: 'north',  layout: { type:'hbox' }},
@@ -2573,13 +2739,13 @@ defaults: { margin: 10 },
             listeners: {
                 scope: this,
                 change: function(dp, new_value) {
-                    var week_start = this._getBeginningOfWeek(new_value);
-                    if ( week_start !== new_value ) {
-                        dp.setValue(week_start);
-                    }
-                    if ( new_value.getDay() === 0 ) {
-                        this._updateData();
-                    }
+//                    var week_start = this._getBeginningOfWeek(new_value);
+//                    if ( week_start !== new_value ) {
+//                        dp.setValue(week_start);
+//                    }
+//                    if ( new_value.getDay() === 0 ) {
+                        this._enableGoButton();
+//                    }
                 }
             }
         });
@@ -2591,16 +2757,28 @@ defaults: { margin: 10 },
             listeners: {
                 scope: this,
                 change: function(dp, new_value) {
-                    var week_start = this._getBeginningOfWeek(new_value);
-                    if ( week_start !== new_value ) {
-                        dp.setValue(week_start);
-                    }
-                    if ( new_value.getDay() === 0 ) {
-                        this._updateData();
-                    }
+//                    var week_start = this._getBeginningOfWeek(new_value);
+//                    if ( week_start !== new_value ) {
+//                        dp.setValue(week_start);
+//                    }
+//                    if ( new_value.getDay() === 0 ) {
+                        this._enableGoButton();
+//                    }
                 }
             }
         }).setValue(new Date());
+        
+        container.add({
+            xtype:'rallybutton',
+            itemId: 'go_button',
+            text:'Go',
+            margin: '15 3 3 3',
+            disabled: false,
+            listeners: {
+                scope: this,
+                click: this._updateData
+            }
+        });
         
         var spacer = container.add({ xtype: 'container', flex: 1});
         
@@ -2623,8 +2801,26 @@ defaults: { margin: 10 },
         
     },
     
+    _enableGoButton: function() {
+        var start_calendar = this.down('#from_date_selector');
+        var to_calendar    = this.down('#to_date_selector');
+        
+        var go_button = this.down('#go_button');
+        
+        go_button && go_button.setDisabled(true);
+        
+        if ( start_calendar && to_calendar ) {
+            go_button && go_button.setDisabled(false);
+        }
+
+    },
+    
     _updateData: function() {
         this.down('#display_box').removeAll();
+        var go_button = this.down('#go_button');
+        
+        go_button && go_button.setDisabled(true);
+        
         
         Deft.Chain.pipeline([
             this._loadTimesheets,
@@ -2642,22 +2838,27 @@ defaults: { margin: 10 },
     },
     
     _loadTimesheets: function() {
-        var deferred = Ext.create('Deft.Deferred');
+        var deferred = Ext.create('Deft.Deferred'),
+            me = this;
         this.setLoading("Loading timesheets...");
         
         var tei_filters = [{property:'ObjectID', operator: '>', value: 0 }];
         var tev_filters = [{property:'ObjectID', operator: '>', value: 0 }];
         
         if (this.down('#from_date_selector') ) {
-            var start_date = Rally.util.DateTime.toIsoString( this.down('#from_date_selector').getValue(),false).replace(/T.*$/,'T00:00:00.000Z');
-            tei_filters.push({property:'WeekStartDate', operator: '>=', value:start_date});
-            tev_filters.push({property:'TimeEntryItem.WeekStartDate', operator: '>=', value:start_date});
+            var selector_start_date = this.down('#from_date_selector').getValue();
+            var week_start_date = Rally.util.DateTime.add(selector_start_date, 'day', -6); // selector might be midweek, need this to get timesheets
+            
+            var tei_start_date = Rally.util.DateTime.toIsoString(week_start_date ,false).replace(/T.*$/,'T00:00:00.000Z');
+            var tev_start_date = Rally.util.DateTime.toIsoString(selector_start_date ,false).replace(/T.*$/,'T00:00:00.000Z');
+            tei_filters.push({property:'WeekStartDate', operator: '>=', value:tei_start_date});
+            tev_filters.push({property:'DateVal', operator: '>=', value:tev_start_date});
         }
         
         if (this.down('#to_date_selector') ) {
             var start_date = Rally.util.DateTime.toIsoString( this.down('#to_date_selector').getValue(),true).replace(/T.*$/,'T00:00:00.000Z');
             tei_filters.push({property:'WeekStartDate', operator: '<=', value:start_date});
-            tev_filters.push({property:'TimeEntryItem.WeekStartDate', operator: '<=', value:start_date});
+            tev_filters.push({property:'DateVal', operator: '<=', value:start_date});
         }
         
         var teitem_config = {
@@ -2688,8 +2889,8 @@ defaults: { margin: 10 },
         };
         
         Deft.Chain.sequence([
-            function() { return TSUtilities._loadWsapiRecords(teitem_config);  },
-            function() { return TSUtilities._loadWsapiRecords(tevalue_config); }
+            function() { return TSUtilities.loadWsapiRecordsWithParallelPages(teitem_config);  },
+            function() { return TSUtilities.loadWsapiRecordsWithParallelPages(tevalue_config); }
         ],this).then({
             scope: this,
             success: function(results) {
@@ -2794,7 +2995,6 @@ defaults: { margin: 10 },
             timesheets[key].__TimeEntryItems.push(item);
         },this);
         
-        console.log('timesheets:', timesheets);
         
         return timesheets;
     },
@@ -2880,6 +3080,7 @@ defaults: { margin: 10 },
                     __AssociateID     : timesheet.get('User').NetworkID,
                     __EmployeeType    : timesheet.get('User').c_EmployeeType,
                     __CostCenter      : timesheet.get('User').CostCenter,
+                    __Status          : timesheet.get('__Status'),
                     __LastUpdateBy    : timesheet.get('__LastUpdateBy'),
                     __LastUpdateDate  : timesheet.get('__LastUpdateDate'),
                     __Release         : release,
@@ -2890,8 +3091,11 @@ defaults: { margin: 10 },
                     __Task            : time_value.get('TimeEntryItem').Task,
                     __TaskDisplay     : time_value.get('TimeEntryItem').TaskDisplayString
                 }));
+                
             });
         });
+        
+        this.logger.log('rows', rows);
         
         return Ext.Array.map(rows, function(row){
             return Ext.create('TSTimesheetFinanceRow',row);
@@ -2927,12 +3131,15 @@ defaults: { margin: 10 },
         columns.push({dataIndex:'__Location',text:'Location' });
         columns.push({dataIndex:'__AssociateID',text:'Associate ID' });
         columns.push({dataIndex:'__EmployeeType', text:'Employee Type' });
-        columns.push({dataIndex:'__CostCenter', text:'Cost Center' });
+        columns.push({dataIndex:'__CostCenter', text:'Cost Center', exportRenderer: function(v) {
+            return Ext.String.format('="{0}"', v);
+        }});
         
         columns.push({dataIndex:'DateVal',text:'Work Date', align: 'center', renderer: function(v) { return Ext.util.Format.date(v,'m/d/y'); }});
         columns.push({dataIndex:'Hours',  text:'Actual Hours', align: 'right'});
-        columns.push({dataIndex:'__LastUpdateBy', text:'Approved By', align: 'center'});
-        columns.push({dataIndex:'__LastUpdateDate', text:'Approved On', align: 'center'});
+        columns.push({dataIndex:'__Status', text:'Status', align: 'center'});
+        columns.push({dataIndex:'__LastUpdateBy', text:'Status Set By', align: 'center'});
+        columns.push({dataIndex:'__LastUpdateDate', text:'Status Set On', align: 'center'});
         
         columns.push({dataIndex:'__WorkItemDisplay',text:'Work Item', align: 'center'});
         columns.push({dataIndex:'__Task',text:'Category', align: 'center', renderer: function(v) {
@@ -2945,7 +3152,7 @@ defaults: { margin: 10 },
             return v._refObjectName;
         }});
         
-        columns.push({dataIndex:'__Release',text:'Status', align: 'center', renderer: function(v) {
+        columns.push({dataIndex:'__Release',text:'Release Status', align: 'center', renderer: function(v) {
             if ( Ext.isEmpty(v) || Ext.isEmpty(v.State) ) { return ""; }
             return v.State;
         }});
@@ -2959,8 +3166,18 @@ defaults: { margin: 10 },
         }});
         
         columns.push({dataIndex:'__Product',text:'Product', align: 'center', renderer: function(v){ return v._refObjectName; }});
+        columns.push({dataIndex:'__WorkItem',text:'Work Item Project', align: 'center', renderer: function(v) {
+            if ( Ext.isEmpty(v) ) {
+                return "";
+            }
+            
+            return v.Project._refObjectName;
+        }});
         
         columns.push({dataIndex: '__IsOpEx', text: 'OpEx', align: 'center'});
+        
+        columns.push({dataIndex: '___WeekNumber', text: 'Week Number', align: 'center'});
+        
         return columns;
     },
     
