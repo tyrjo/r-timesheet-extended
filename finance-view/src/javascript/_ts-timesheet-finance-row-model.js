@@ -1,6 +1,5 @@
 var TSTimesheetFinanceCalculators = {
     calculateWeekNumber: function(value, record) {
-        console.log('calculateWeekNumber', value, record);
         var week_date = record.get('DateVal');
         if ( !Ext.isDate(week_date) ) {
             return -1;

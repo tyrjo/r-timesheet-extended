@@ -146,7 +146,8 @@ defaults: { margin: 10 },
     },
     
     _loadTimesheets: function() {
-        var deferred = Ext.create('Deft.Deferred');
+        var deferred = Ext.create('Deft.Deferred'),
+            me = this;
         this.setLoading("Loading timesheets...");
         
         var tei_filters = [{property:'ObjectID', operator: '>', value: 0 }];
@@ -196,8 +197,8 @@ defaults: { margin: 10 },
         };
         
         Deft.Chain.sequence([
-            function() { return TSUtilities._loadWsapiRecords(teitem_config);  },
-            function() { return TSUtilities._loadWsapiRecords(tevalue_config); }
+            function() { return TSUtilities.loadWsapiRecordsWithParallelPages(teitem_config);  },
+            function() { return TSUtilities.loadWsapiRecordsWithParallelPages(tevalue_config); }
         ],this).then({
             scope: this,
             success: function(results) {
