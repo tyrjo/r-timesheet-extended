@@ -224,9 +224,10 @@ defaults: { margin: 10 },
         
         var config = {
             model:'Preference',
-            limit: 'Infinity',
+            limit: Infinity,
             filters: filters,
-            fetch: ['Name','Value']
+            fetch: ['Name','Value'],
+            sorters: { property:'CreationDate', direction: 'ASC' }
         };
         
         TSUtilities._loadWsapiRecords(config).then({
@@ -235,7 +236,11 @@ defaults: { margin: 10 },
                 var preferences_by_key = {};
                 
                 Ext.Array.each(preferences, function(pref){
-                    preferences_by_key[pref.get('Name')] = pref;
+                    var key_array = pref.get('Name').split('.');
+                    if ( key_array.length > 6) {
+                        key_array.pop();
+                    }
+                    preferences_by_key[key_array.join('.')] = pref;
                 });
                 
                 Ext.Array.each(timesheets, function(timesheet){
@@ -277,9 +282,6 @@ defaults: { margin: 10 },
                 item.get('User').ObjectID,
                 Rally.util.DateTime.toIsoString(item.get('WeekStartDate'))
             );
-            if ( item.get('User').ObjectID == 17355928895 ) {
-                console.log(key, item);
-            }
             
             if ( ! timesheets[key] ) {
                 timesheets[key] = Ext.Object.merge( item.getData(), { 
