@@ -3,11 +3,11 @@
 <head>
     <title>Time Sheet Approval</title>
     <!--  (c) 2015 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Wed Feb 03 2016 09:08:21 GMT-0800 (PST) -->
+    <!--  Build Date: Wed Feb 03 2016 09:16:17 GMT-0800 (PST) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Wed Feb 03 2016 09:08:21 GMT-0800 (PST)";
-        var CHECKSUM = 298027041435;
+        var APP_BUILD_DATE = "Wed Feb 03 2016 09:16:17 GMT-0800 (PST)";
+        var CHECKSUM = 296632577590;
     </script>
     
     <script type="text/javascript" src="/apps/2.0/sdk.js"></script>
@@ -3456,11 +3456,6 @@ Ext.define("TSTimeSheetApproval", {
         var stateFilter = this.stateFilterValue;
         
         var filters = [{property:'Name',operator:'contains',value:this._approvalKeyPrefix}];
-        
-        // Open might be because there hasn't been a preference created yet
-        if ( stateFilter && stateFilter != "ALL" && stateFilter != "Open" ) {
-            filters.push({property:'Value', operator:'contains', value:stateFilter});
-        }
         
         var config = {
             model:'Preference',

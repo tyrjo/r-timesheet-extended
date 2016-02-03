@@ -287,11 +287,6 @@ Ext.define("TSTimeSheetApproval", {
         
         var filters = [{property:'Name',operator:'contains',value:this._approvalKeyPrefix}];
         
-        // Open might be because there hasn't been a preference created yet
-        if ( stateFilter && stateFilter != "ALL" && stateFilter != "Open" ) {
-            filters.push({property:'Value', operator:'contains', value:stateFilter});
-        }
-        
         var config = {
             model:'Preference',
             limit: 'Infinity',
