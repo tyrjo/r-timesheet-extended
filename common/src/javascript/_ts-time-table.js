@@ -431,7 +431,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                 dataIndex:'__TimeEntryItem', 
                 text:'Manager', 
                 align: 'center',
-                
+                hidden: true,
                 renderer: function(value) {
                     
                     return value.get('User')[me.manager_field] || "none"; 
