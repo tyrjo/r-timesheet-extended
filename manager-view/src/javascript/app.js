@@ -211,7 +211,10 @@ Ext.define("TSTimeSheetApproval", {
         var deferred = Ext.create('Deft.Deferred');
         this.setLoading("Loading timesheets...");
         
-        var filters = [{property:'ObjectID', operator: '>', value: 0 }];
+        var filters = [
+            {property:'User.NoTimesheet', value: false },
+            {property:'User.Disabled', value: false }
+        ];
         
         if (this.down('#from_date_selector') ) {
             var start_date = Rally.util.DateTime.toIsoString( this.down('#from_date_selector').getValue(),false).replace(/T.*$/,'T00:00:00.000Z');
@@ -432,7 +435,12 @@ Ext.define("TSTimeSheetApproval", {
         columns.push({dataIndex:'WeekStartDate',text:'Week Starting', align: 'center', renderer: function(v) { 
             return Ext.util.Format.date(TSUtilities.getUTCDate(v),'m/d/y'); 
         }});
-        columns.push({dataIndex:'__Hours',text:'Hours', align: 'center'});
+        columns.push({
+            dataIndex:'__Hours',
+            text:'Hours', 
+            align: 'center',
+            renderer: me._renderColor
+        });
         columns.push({dataIndex:'__Status',text:'Status', align: 'center'});
         columns.push({dataIndex:'__LastUpdateBy',text:'Status Changed By', align: 'center'});
         
@@ -561,6 +569,25 @@ Ext.define("TSTimeSheetApproval", {
         });
         
         return deferred.promise;
+    },
+    
+    _renderColor: function(value,metaData,record) {
+        var white = "#ffffff";
+        var red = '#ff9999';
+        var yellow = '#ffffcc';
+        var orange ='#FF9933';
+        var grey = '#D0D0D0';
+        var color = grey;
+       
+        if ( value >= 40 && value < 67.51 ) {
+            color = white;
+        }
+        if ( value < 40) {
+            color = yellow;
+        }
+       
+        metaData.style = "background-color: " + color;
+        return value;
     },
     
     _launchInfo: function() {
