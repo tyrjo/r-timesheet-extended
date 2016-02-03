@@ -42,18 +42,13 @@ defaults: { margin: 10 },
         date_container.add({
             xtype:'rallydatefield',
             itemId:'from_date_selector',
-            fieldLabel: 'From Week',
+            fieldLabel: 'From',
+            labelWidth: 50,
             value: week_start,
             listeners: {
                 scope: this,
                 change: function(dp, new_value) {
-//                    var week_start = this._getBeginningOfWeek(new_value);
-//                    if ( week_start !== new_value ) {
-//                        dp.setValue(week_start);
-//                    }
-//                    if ( new_value.getDay() === 0 ) {
-                        this._enableGoButton();
-//                    }
+                    this._enableGoButton();
                 }
             }
         });
@@ -61,17 +56,12 @@ defaults: { margin: 10 },
         date_container.add({
             xtype:'rallydatefield',
             itemId:'to_date_selector',
-            fieldLabel: 'Through Week',
+            fieldLabel: 'Through',
+            labelWidth: 50,
             listeners: {
                 scope: this,
                 change: function(dp, new_value) {
-//                    var week_start = this._getBeginningOfWeek(new_value);
-//                    if ( week_start !== new_value ) {
-//                        dp.setValue(week_start);
-//                    }
-//                    if ( new_value.getDay() === 0 ) {
-                        this._enableGoButton();
-//                    }
+                    this._enableGoButton();
                 }
             }
         }).setValue(new Date());

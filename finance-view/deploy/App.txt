@@ -3,11 +3,11 @@
 <head>
     <title>TimeSheet Finance Report</title>
     <!--  (c) 2015 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Tue Feb 02 2016 11:04:06 GMT-0800 (PST) -->
+    <!--  Build Date: Wed Feb 03 2016 09:24:22 GMT-0800 (PST) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Tue Feb 02 2016 11:04:06 GMT-0800 (PST)";
-        var CHECKSUM = 229525426208;
+        var APP_BUILD_DATE = "Wed Feb 03 2016 09:24:22 GMT-0800 (PST)";
+        var CHECKSUM = 229247310010;
     </script>
     
     <script type="text/javascript" src="/apps/2.0/sdk.js"></script>
@@ -1710,9 +1710,7 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
     _isLocked: function (fieldName, newValue) {
         var release = this.get('__Release');
         var lock_field_name = this.get('_ReleaseLockFieldName');
-        
-        console.log(lock_field_name, release);
-        
+                
         if ( Ext.isEmpty(release) || Ext.isEmpty(lock_field_name) ) {
             return false;
         }
@@ -2048,11 +2046,16 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
             renderTo: Ext.getBody(),
             listeners: {
                 beforeshow: function(tip) {
+
                     var trigger = tip.triggerElement,
                         parent = tip.triggerElement.parentElement,
                         columnTitle = view.getHeaderByCell(trigger).text,
                         columnDataIndex = view.getHeaderByCell(trigger).dataIndex;
                     var record = view.getRecord(parent);
+                    if ( !record ) {
+                        return false;
+                    }
+                    
                     var columnText = null;
                     var value = record.get(columnDataIndex);
                     
@@ -2239,7 +2242,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                 dataIndex:'__TimeEntryItem', 
                 text:'Manager', 
                 align: 'center',
-                
+                hidden: true,
                 renderer: function(value) {
                     
                     return value.get('User')[me.manager_field] || "none"; 
@@ -2406,20 +2409,29 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
     /*
      * Given a date, return the beginning of the week (iso, utc)
      */
-    _getStartOfWeek: function(date_in_week){
-        if ( typeof(date_in_week) == 'undefined' ) {
-            date_in_week = new Date();
+    _getStartOfWeek: function(js_date){
+        this.logger.log('_ts-time-table._getStartOfWeek', js_date, js_date.getDay(), js_date.getUTCDay());
+        
+        if ( !Ext.isDate(js_date) ) {
+            js_date = new Date();
+        }
+        
+        var start_of_week = js_date;
+        if ( js_date.getDay() === 0 ) {
+            var iso_string = Rally.util.DateTime.toIsoString(start_of_week, false).replace(/T.*$/,'T00:00:00.0Z');
+            this.logger.log('---', iso_string);
+            return iso_string;
         }
 
-        var day_of_week = date_in_week.getDay();
-        var day_of_month = date_in_week.getDate();
+        start_of_week = Ext.Date.add(js_date, Ext.Date.DAY, -1 * js_date.getDay());
+        this.logger.log('...', start_of_week);
         
-        // determine what beginning of week is
-        var start_of_week_js = date_in_week;
-        start_of_week_js.setUTCDate( day_of_month - day_of_week );
-        
-        return Rally.util.DateTime.toIsoString(start_of_week_js,true).replace(/T.*$/,'T00:00:00.000Z');
-       
+        var iso_string =  Rally.util.DateTime.toIsoString(
+            start_of_week,
+            false
+        ).replace(/T.*$/,'T00:00:00.0Z');
+        this.logger.log('...', iso_string);
+        return iso_string;
     }
 
 });
@@ -2734,18 +2746,13 @@ defaults: { margin: 10 },
         date_container.add({
             xtype:'rallydatefield',
             itemId:'from_date_selector',
-            fieldLabel: 'From Week',
+            fieldLabel: 'From',
+            labelWidth: 50,
             value: week_start,
             listeners: {
                 scope: this,
                 change: function(dp, new_value) {
-//                    var week_start = this._getBeginningOfWeek(new_value);
-//                    if ( week_start !== new_value ) {
-//                        dp.setValue(week_start);
-//                    }
-//                    if ( new_value.getDay() === 0 ) {
-                        this._enableGoButton();
-//                    }
+                    this._enableGoButton();
                 }
             }
         });
@@ -2753,17 +2760,12 @@ defaults: { margin: 10 },
         date_container.add({
             xtype:'rallydatefield',
             itemId:'to_date_selector',
-            fieldLabel: 'Through Week',
+            fieldLabel: 'Through',
+            labelWidth: 50,
             listeners: {
                 scope: this,
                 change: function(dp, new_value) {
-//                    var week_start = this._getBeginningOfWeek(new_value);
-//                    if ( week_start !== new_value ) {
-//                        dp.setValue(week_start);
-//                    }
-//                    if ( new_value.getDay() === 0 ) {
-                        this._enableGoButton();
-//                    }
+                    this._enableGoButton();
                 }
             }
         }).setValue(new Date());
