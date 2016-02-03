@@ -1,10 +1,27 @@
 var TSTimesheetFinanceCalculators = {
     calculateWeekNumber: function(value, record) {
         var week_date = record.get('DateVal');
+        
         if ( !Ext.isDate(week_date) ) {
             return -1;
         }
-        return parseInt( Ext.Date.format(week_date, 'W', 10) );
+        
+        var offset = week_date.getTimezoneOffset();
+        // 480 is pacific, -330 is india
+        // datevals are set to the london midnight for that day, so shifting to pacific
+        // will put Tuesday on Monday, but India will be fine for week day
+        var shifted_week_date = week_date;
+        // ISO-8601 has week number starting on Monday,
+        // shift 24 hours to get to start on Tuesday
+        if ( offset > 0 ) {
+            shifted_week_date = Rally.util.DateTime.add(week_date,'minute',offset+1440);
+        } else {
+            shifted_week_date = Rally.util.DateTime.add(week_date,'minute',1440);
+        }
+        
+        //console.log(offset, week_date, shifted_week_date);
+        
+        return parseInt( Ext.Date.format(shifted_week_date, 'W', 10) );
     }
 };
 

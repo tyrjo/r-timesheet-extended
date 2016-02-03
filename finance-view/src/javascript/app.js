@@ -433,7 +433,24 @@ defaults: { margin: 10 },
             return Ext.String.format('="{0}"', v);
         }});
         
-        columns.push({dataIndex:'DateVal',text:'Work Date', align: 'center', renderer: function(v) { return Ext.util.Format.date(v,'m/d/y'); }});
+        columns.push({dataIndex:'DateVal',text:'Work Date', align: 'center', renderer: function(v) {
+            var offset = v.getTimezoneOffset();
+            
+            var week_date = v;
+            //console.log(offset);  // 480 is pacific, -330 is india
+            // datevals are set to the london midnight for that day, so shifting to pacific
+            // will put Tuesday on Monday, but India will be fine for week day
+            
+            if ( offset > 0 ) {
+                week_date = Rally.util.DateTime.add(v,'minute',offset);
+            }
+            
+            var display_value = Ext.util.Format.date(week_date,'m/d/y');
+            //console.log(v, week_date, display_value);
+            
+            return display_value;
+        }});
+        
         columns.push({dataIndex:'Hours',  text:'Actual Hours', align: 'right'});
         columns.push({dataIndex:'__Status', text:'Status', align: 'center'});
         columns.push({dataIndex:'__LastUpdateBy', text:'Status Set By', align: 'center'});
