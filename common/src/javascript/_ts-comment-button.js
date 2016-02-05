@@ -2,6 +2,7 @@ Ext.define('Rally.technicalservices.CommentButton',{
     extend: 'Rally.ui.Button',
     requires: [
         'TSUtilities',
+        'TSDateUtils',
         'Rally.technicalservices.CommentDialog'
     ],
     
@@ -54,7 +55,6 @@ Ext.define('Rally.technicalservices.CommentButton',{
     },
     
     _getComments: function() {
-        var deferred = Ext.create('Deft.Deferred');
         var key = this.keyPrefix;
         
         var config = {
@@ -63,21 +63,10 @@ Ext.define('Rally.technicalservices.CommentButton',{
             fetch: ['Name','Value','CreationDate']
         };
         
-        TSUtilities._loadWsapiRecords(config).then({
-            scope: this,
-            success: function(results) {
-                deferred.resolve(results);
-            },
-            failure: function(msg) {
-                deferred.reject(msg);
-            }
-        });
-        
-        return deferred.promise;
+        return TSUtilities.loadWsapiRecords(config);
     },
     
     _showDialog: function() {
-        console.log('show dialog', this.comments);
         Ext.create('Rally.technicalservices.CommentDialog',{
             autoShow: true,
             keyPrefix: this.keyPrefix,
@@ -85,12 +74,10 @@ Ext.define('Rally.technicalservices.CommentButton',{
             listeners: {
                 scope: this,
                 commentAdded: function(dialog,comment) {
-                    console.log("added comment", comment);
                     this.comments = Ext.Array.merge(this.comments,comment);
                     this._setResultCount();
                 },
                 commentRemoved: function(dialog, comment) {
-                    console.log("removed comment", comment);
                     this.comments = Ext.Array.remove(this.comments,comment);
                     this._setResultCount();
                 }

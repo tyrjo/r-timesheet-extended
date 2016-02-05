@@ -35,61 +35,7 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
                     addTimeEntryValue: this._addTimeEntryValue,
                     _updateTotal: this._updateTotal,
                     _days: this.days,
-                    save: function(v) { 
-                        var me = this;
-                        var changes = this.getChanges();
-                        Ext.Object.each(changes, function(field_name, value) {
-                            var row = this;
-                            var field = row.getField(field_name);
-                            var src_field_name = field.__src;
-                            
-                            if ( ! Ext.isEmpty(src_field_name) ) {
-                                // this is a field that belongs to another record
-                                var src = this.get(src_field_name);
-                                if ( !Ext.isEmpty(src) ) {
-                                    // the other record exists
-                                    src.set('Hours', value);
-                                    // TODO: check for errors on return 
-                                    src.save();
-                                    me._updateTotal();
-                                } else {
-                                    // need to create a new record
-                                    var time_entry_item = this.get('__TimeEntryItem');
-                                    var index = field.__index;
-                                    var week_start = time_entry_item.get('WeekStartDate');
-                                    var date_val = Rally.util.DateTime.add(week_start, 'day', index);
-                                    
-                                    Rally.data.ModelFactory.getModel({
-                                        type: 'TimeEntryValue',
-                                        scope: this,
-                                        success: function(tev_model) {
-                                            var fields = tev_model.getFields();
-                                            Ext.Array.each(fields, function(field) {
-                                                if ( field.name == "TimeEntryItem" || field.name == "DateVal") {
-                                                    field.readOnly = false;
-                                                    field.persist = true;
-                                                }
-                                            });
-                                            src = Ext.create(tev_model,{
-                                                Hours: value,
-                                                TimeEntryItem: { _ref: time_entry_item.get('_ref') },
-                                                DateVal: date_val
-                                            });
-                                            
-                                            src.save({
-                                                callback: function(result, operation) {
-                                                    if(operation.wasSuccessful()) {
-                                                        row.set(src_field_name, result);
-                                                        me._updateTotal();
-                                                    }
-                                                }
-                                            });
-                                        }
-                                    });
-                                }
-                            }
-                        },this);
-                    },
+                    save: this._save,
                     getField: this.getField,
                     clearAndRemove: this.clearAndRemove,
                     isLocked: this._isLocked
@@ -130,6 +76,61 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
         this.destroy();
     },
     
+    _save: function(v) { 
+        var me = this;
+        var changes = this.getChanges();
+        Ext.Object.each(changes, function(field_name, value) {
+            var row = this;
+            var field = row.getField(field_name);
+            var src_field_name = field.__src;
+            
+            if ( ! Ext.isEmpty(src_field_name) ) {
+                // this is a field that belongs to another record
+                var src = this.get(src_field_name);
+                if ( !Ext.isEmpty(src) ) {
+                    // the other record exists
+                    src.set('Hours', value);
+                    // TODO: check for errors on return 
+                    src.save();
+                    me._updateTotal();
+                } else {
+                    // need to create a new record
+                    var time_entry_item = this.get('__TimeEntryItem');
+                    var index = field.__index;
+                    var week_start = time_entry_item.get('WeekStartDate');
+                    var date_val = Rally.util.DateTime.add(week_start, 'day', index);
+                    
+                    Rally.data.ModelFactory.getModel({
+                        type: 'TimeEntryValue',
+                        scope: this,
+                        success: function(tev_model) {
+                            var fields = tev_model.getFields();
+                            Ext.Array.each(fields, function(field) {
+                                if ( field.name == "TimeEntryItem" || field.name == "DateVal") {
+                                    field.readOnly = false;
+                                    field.persist = true;
+                                }
+                            });
+                            src = Ext.create(tev_model,{
+                                Hours: value,
+                                TimeEntryItem: { _ref: time_entry_item.get('_ref') },
+                                DateVal: date_val
+                            });
+                            
+                            src.save({
+                                callback: function(result, operation) {
+                                    if(operation.wasSuccessful()) {
+                                        row.set(src_field_name, result);
+                                        me._updateTotal();
+                                    }
+                                }
+                            });
+                        }
+                    });
+                }
+            }
+        },this);
+    },
     getField: function(field_name) {
         var fields = this.fields.items;
         var field = null;
@@ -201,11 +202,5 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
         
         return Ext.Array.merge(day_number_fields, day_record_fields);
         
-    },
-    
-    // sometimes, dates are provided as beginning of day, but we 
-    // want to go to the end of the day
-    shiftToEndOfDay: function(js_date) {
-        return Rally.util.DateTime.add(Rally.util.DateTime.add(js_date,'day',1),'second',-1);
     }
 });
