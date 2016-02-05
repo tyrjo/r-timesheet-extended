@@ -70,7 +70,7 @@ Ext.define("TSAdmin", {
             sorters: [{property:'CreationDate', direction:'ASC'}]
         };
         
-        TSUtilities._loadWsapiRecords(config).then({
+        TSUtilities.loadWsapiRecords(config).then({
             scope: this,
             success: function(preferences) {
                 var statuses =  Ext.Array.map(preferences, function(preference){
@@ -160,14 +160,7 @@ Ext.define("TSAdmin", {
                 
         return Ext.Array.merge(columns, [
             {dataIndex: 'WeekStartDate', text:'Week of', renderer: function(value) {
-                var start_date = value;
-                start_date = new Date(start_date.getUTCFullYear(), 
-                    start_date.getUTCMonth(), 
-                    start_date.getUTCDate(),  
-                    start_date.getUTCHours(), 
-                    start_date.getUTCMinutes(), 
-                    start_date.getUTCSeconds());
-                return Ext.util.Format.date(start_date,'n/j/Y');
+                return TSDateUtils.formatShiftedDate(value,'n/j/Y');
             }},
             {dataIndex: '__Status', text: 'Status'},
             {dataIndex: '__LastUpdateBy', text: 'Changed by', renderer: function(value, meta, record) {
@@ -200,7 +193,7 @@ Ext.define("TSAdmin", {
         
         var week = Ext.create('TSLockedWeek',{
             '__Status': "Locked",
-            'WeekStartDate': this._getStartOfWeek( chosen_week )
+            'WeekStartDate': chosen_week
         });
         
         week.lock().then({
@@ -208,22 +201,6 @@ Ext.define("TSAdmin", {
             success: this._updateData
         });
         
-    },
-    
-    _getStartOfWeek: function(date_in_week){
-        if ( typeof(date_in_week) == 'undefined' ) {
-            date_in_week = new Date();
-        }
-
-        var day_of_week = date_in_week.getDay();
-        var day_of_month = date_in_week.getDate();
-        
-        // determine what beginning of week is
-        var start_of_week_js = date_in_week;
-        start_of_week_js.setUTCDate( day_of_month - day_of_week );
-        
-        return Rally.util.DateTime.toIsoString(start_of_week_js,true).replace(/T.*$/,'');
-       
     },
 //    getOptions: function() {
 //        return [

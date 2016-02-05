@@ -15,26 +15,12 @@ Ext.define('TSLockedWeek',{
         return true;
     },
     
-    getWeekStart: function() {
-        var start_date = this.get('WeekStartDate');
-        start_date = Rally.util.DateTime.toIsoString(
-            new Date(start_date.getUTCFullYear(), 
-                start_date.getUTCMonth(), 
-                start_date.getUTCDate(),  
-                start_date.getUTCHours(), 
-                start_date.getUTCMinutes(), 
-                start_date.getUTCSeconds()
-            )
-        ).replace(/T.*$/,'');
-        return start_date;
-    },
-    
     getPreferenceKey: function() {
         // get or create and then update pref
         return Ext.String.format("{0}.{1}.{2}", 
             this._timeLockKeyPrefix,
-            this.getWeekStart(),
-            TSUtilities.getUTCDate(new Date()).getTime()
+            TSDateUtils.getBeginningOfWeekISOForLocalDate(this.get('WeekStartDate')),
+            new Date().getTime()
         );
     },
     
@@ -60,7 +46,7 @@ Ext.define('TSLockedWeek',{
                         status: status,
                         status_date: new Date(),
                         status_owner: status_owner,
-                        week_start: this.getWeekStart()
+                        week_start: TSDateUtils.getBeginningOfWeekISOForLocalDate(this.get('WeekStartDate'))
                     };
                     
                     pref.set('Value', Ext.JSON.encode(status_object));
@@ -104,7 +90,7 @@ Ext.define('TSLockedWeek',{
                         status: status,
                         status_date: new Date(),
                         status_owner: status_owner,
-                        week_start: this.getWeekStart()
+                        week_start: TSDateUtils.getBeginningOfWeekISOForLocalDate(this.get('WeekStartDate'))
                     };
                     
                     pref.set('Value', Ext.JSON.encode(status_object));
@@ -152,7 +138,7 @@ Ext.define('TSLockedWeek',{
             filters: [{property: 'Name', value: key}]
         };
         
-        return TSUtilities._loadWsapiRecords(config);
+        return TSUtilities.loadWsapiRecords(config);
     },
     
     /* leave prefs is null or empty array to create a pref because

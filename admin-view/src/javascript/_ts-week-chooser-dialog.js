@@ -114,17 +114,12 @@ Ext.define('Rally.technicalservices.WeekChooserDialog', {
             listeners: {
                 scope: this,
                 change: function(dp, new_value) {
-                    var week_start = this._getBeginningOfWeek(new_value);
+                    var week_start = TSDateUtils.getBeginningOfWeekForLocalDate(new_value);
                     if ( week_start !== new_value ) {
                         dp.setValue(week_start);
                     }
                 }
             }
         }).setValue(new Date());
-    },
-    
-    _getBeginningOfWeek: function(js_date){
-        var start_of_week_here = Ext.Date.add(js_date, Ext.Date.DAY, -1 * js_date.getDay());
-        return start_of_week_here;
     }
 });
