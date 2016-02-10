@@ -5,7 +5,6 @@ Ext.define('Rally.technicalservices.ManagerDetailDialog', {
     layout   : 'border',
     
     config: {
-        startDate: new Date(),
         record: null,
         commentKeyPrefix: '',
         manager_field: null
@@ -27,7 +26,7 @@ Ext.define('Rally.technicalservices.ManagerDetailDialog', {
             xtype:  'tstimetable',
             region: 'center',
             layout: 'fit',
-            weekStart: this.startDate,
+            startDate: this.record.get('WeekStartDate'),
             editable: false,
             manager_field: this.manager_field,
             timesheet_user: this.record.get('User')
@@ -50,25 +49,10 @@ Ext.define('Rally.technicalservices.ManagerDetailDialog', {
     
     _addSelectors: function() {
         var status = this.record.get('__Status');
-        
-        var comment_start_date = this.startDate;
-        
-        if ( comment_start_date.getDay() === 0 ) {
-            comment_start_date = Rally.util.DateTime.toIsoString(comment_start_date, false).replace(/T.*$/,'');
-        } else {
-            comment_start_date = Ext.Date.add(comment_start_date, Ext.Date.DAY, -1 * comment_start_date.getDay());
-            
-            comment_start_date = Rally.util.DateTime.toIsoString(
-                comment_start_date,
-                false
-            ).replace(/T.*$/,'');
-        }
-    
-        console.log('comment start date: ', comment_start_date);
-        
+                
         var comment_key = Ext.String.format("{0}.{1}.{2}", 
             this.commentKeyPrefix,
-            comment_start_date,
+            TSDateUtils.formatShiftedDate(this.record.get('WeekStartDate'),'Y-m-d'),
             this.record.get('User').ObjectID
         );
         

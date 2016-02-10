@@ -21,7 +21,6 @@ Ext.define("TSExtendedTimesheet", {
 
     launch: function() {
         this._addSelectors(this.down('#selector_box'));
-        //this.updateData();
     },
     
     _addSelectors: function(container) {
@@ -41,7 +40,7 @@ Ext.define("TSExtendedTimesheet", {
             listeners: {
                 scope: this,
                 change: function(dp, new_value) {
-                    var week_start = this._getBeginningOfWeek(new_value);
+                    var week_start = TSDateUtils.getBeginningOfWeekForLocalDate(new_value);
                     if ( week_start !== new_value ) {
                         dp.setValue(week_start);
                     }
@@ -130,7 +129,7 @@ Ext.define("TSExtendedTimesheet", {
         status_box.removeAll();
         
         this.startDate = this.down('#date_selector').getValue();
-        this.startDateString = this._getUTCStartOfWeek(this.startDate);
+        this.startDateString = TSDateUtils.getBeginningOfWeekISOForLocalDate(this.startDate);
         
         this.logger.log("Date changed to:", this.startDate, this.startDateString);
         
@@ -156,7 +155,7 @@ Ext.define("TSExtendedTimesheet", {
                 if ( week_lock_prefs.length > 0 ) {
                     var value = week_lock_prefs[0].get('Value');
                     var status_object = Ext.JSON.decode(value);
-                    console.log("status:", status_object);
+
                     if ( status_object.status == "Locked" ) { 
                         editable = false;
                         status_box.add({xtype:'container',html:'Week Locked'});
@@ -167,7 +166,7 @@ Ext.define("TSExtendedTimesheet", {
                     xtype: 'tstimetable',
                     region: 'center',
                     layout: 'fit',
-                    weekStart: this.startDate,
+                    startDate: this.startDate,
                     editable: editable,
                     listeners: {
                         scope: this,
@@ -189,67 +188,12 @@ Ext.define("TSExtendedTimesheet", {
         });
     },
     
-    _getStartOfWeek: function(date_in_week){
-        this.logger.log('Date in Week:', date_in_week, typeof(date_in_week));
-        
-        if ( !Ext.isDate(date_in_week) ) {
-            date_in_week = new Date();
-        }
-
-        return Ext.Date.add(date_in_week, Ext.Date.DAY, -1 * date_in_week.getDay());
-
-//        var day_of_week = date_in_week.getDay();
-//        var day_of_month = date_in_week.getDate();
-//        
-//        // determine what beginning of week is
-//        var start_of_week_js = date_in_week;
-//        start_of_week_js.setUTCDate( day_of_month - day_of_week );
-//        
-//        return Rally.util.DateTime.toIsoString(start_of_week_js,true).replace(/T.*$/,'');
-       
-    },
-    
-    _getUTCStartOfWeek: function(date_in_week){
-        this.logger.log('_getUTCStartOfWeek', date_in_week, typeof(date_in_week));
-                
-        if ( !Ext.isDate(date_in_week) ) {
-            this.logger.log(" using today");
-            date_in_week = new Date();
-        }
-
-        var day_of_week = date_in_week.getDay();
-        var day_of_month = date_in_week.getDate();
-        
-        // determine what beginning of week is
-        var start_of_week_js = date_in_week;
-        start_of_week_js.setUTCDate( day_of_month - day_of_week );
-        
-        return Rally.util.DateTime.toIsoString(start_of_week_js,true).replace(/T.*$/,'');
-       
-    },
-    
-    _getUTCISO: function(jsdate) {
-        this.logger.log('_getUTCISO',jsdate);
-        var iso_string =  Rally.util.DateTime.toIsoString(
-            new Date(jsdate.getUTCFullYear(), 
-                jsdate.getUTCMonth(), 
-                jsdate.getUTCDate(),  
-                jsdate.getUTCHours(), 
-                jsdate.getUTCMinutes(), 
-                jsdate.getUTCSeconds()
-            )
-        ).replace(/T.*$/,'');
-        this.logger.log('...', iso_string);
-        return iso_string;
-    },
-    
     _loadWeekStatusPreference: function() {
         this.logger.log('_loadWeekStatusPreference',this.startDateString);
-        var start_date = this.startDateString
             
         var key = Ext.String.format("{0}.{1}.{2}", 
             this._approvalKeyPrefix,
-            start_date,
+            this.startDateString,
             this.getContext().getUser().ObjectID
         );
         this.logger.log('finding by key',key);
@@ -263,16 +207,15 @@ Ext.define("TSExtendedTimesheet", {
             sorters: [{property:'CreationDate', direction: 'DESC'}]
         };
         
-        return TSUtilities._loadWsapiRecords(config);
+        return TSUtilities.loadWsapiRecords(config);
     },
     
     _loadWeekLockPreference: function() {
-        var start_date = this.startDateString;
         this.logger.log('_loadWeekLockPreference', this.startDateString);
         
         var key = Ext.String.format("{0}.{1}", 
             this._timeLockKeyPrefix,
-            start_date
+            this.startDateString
         );
         this.logger.log('finding by key',key);
         
@@ -285,7 +228,7 @@ Ext.define("TSExtendedTimesheet", {
             sorters: [{property:'CreationDate',direction:'DESC'}]
         };
         
-        return TSUtilities._loadWsapiRecords(config);
+        return TSUtilities.loadWsapiRecords(config);
     },
     
     _addCurrentTasks: function() {
@@ -308,10 +251,9 @@ Ext.define("TSExtendedTimesheet", {
                 ]
             };
             
-            TSUtilities._loadWsapiRecords(config).then({
+            TSUtilities.loadWsapiRecords(config).then({
                 scope: this,
                 success: function(tasks) {
-                    this.logger.log("Found", tasks);
                     Ext.Array.each(tasks, function(task){
                         timetable.addRowForItem(task);
                     });
@@ -469,17 +411,6 @@ Ext.define("TSExtendedTimesheet", {
                 }
              });
         }
-    },
-    
-    _findAndAddDiscussion: function() {
-    
-    },
-    
-    _getBeginningOfWeek: function(js_date){
-        this.logger.log('_getBeginningOfWeek', js_date);
-        
-        var start_of_week_here = Ext.Date.add(js_date, Ext.Date.DAY, -1 * js_date.getDay());
-        return start_of_week_here;
     },
     
 //    getOptions: function() {

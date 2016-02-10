@@ -3,11 +3,11 @@
 <head>
     <title>Time Sheet Approval</title>
     <!--  (c) 2015 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Wed Feb 03 2016 09:16:17 GMT-0800 (PST) -->
+    <!--  Build Date: Thu Feb 04 2016 18:09:56 GMT-0800 (PST) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Wed Feb 03 2016 09:16:17 GMT-0800 (PST)";
-        var CHECKSUM = 296632577590;
+        var APP_BUILD_DATE = "Thu Feb 04 2016 18:09:56 GMT-0800 (PST)";
+        var CHECKSUM = 277249611343;
     </script>
     
     <script type="text/javascript" src="/apps/2.0/sdk.js"></script>
@@ -438,26 +438,6 @@ if (typeof module !== "undefined" && module !== null) {
 Ext.define('TSUtilities', {
     singleton: true,
     
-    _loadWsapiRecords: function(config){
-        var deferred = Ext.create('Deft.Deferred');
-        var me = this;
-        var default_config = {
-            model: 'Defect',
-            fetch: ['ObjectID']
-        };
-
-        Ext.create('Rally.data.wsapi.Store', Ext.Object.merge(default_config,config)).load({
-            callback : function(records, operation, successful) {
-                if (successful){
-                    deferred.resolve(records);
-                } else {
-                    deferred.reject('Problem loading: ' + operation.error.errors.join('. '));
-                }
-            }
-        });
-        return deferred.promise;
-    },
-    
     loadWsapiRecords: function(config,returnOperation){
         var deferred = Ext.create('Deft.Deferred');
         var me = this;
@@ -617,17 +597,7 @@ Ext.define('TSUtilities', {
     
     _currentUserCanUnapprove: function() {
         return this.currentUserIsAdmin();
-    },
-    
-    getUTCDate: function(date) {
-        return new Date(date.getUTCFullYear(), 
-            date.getUTCMonth(), 
-            date.getUTCDate(),  
-            date.getUTCHours(), 
-            date.getUTCMinutes(), 
-            date.getUTCSeconds());
     }
-    
 });
 /**
  * A link that pops up a version dialog box
@@ -828,6 +798,25 @@ Ext.define('CA.techservices.promise.ParallelThrottle',{
         }
     }
 });
+Ext.define('TSDateUtils', {
+    singleton: true,
+    
+    getBeginningOfWeekForLocalDate: function(week_date) {
+        var start_of_week_here = Ext.Date.add(week_date, Ext.Date.DAY, -1 * week_date.getDay());
+        return start_of_week_here;
+    },
+    
+    getBeginningOfWeekISOForLocalDate: function(week_date,showShiftedTimeStamp) {
+        var local_beginning = TSDateUtils.getBeginningOfWeekForLocalDate(week_date);
+        
+        if (showShiftedTimeStamp) {
+            return Rally.util.DateTime.toIsoString(local_beginning).replace(/T.*$/,'T00:00:00.0Z');
+        }
+        
+        return Rally.util.DateTime.toIsoString(local_beginning).replace(/T.*$/,'');
+    }
+});
+
 Ext.define('Rally.technicalservices.FileUtilities', {
     singleton: true,
     logger: new Rally.technicalservices.Logger(),
@@ -1502,6 +1491,7 @@ Ext.define('Rally.technicalservices.CommentButton',{
     extend: 'Rally.ui.Button',
     requires: [
         'TSUtilities',
+        'TSDateUtils',
         'Rally.technicalservices.CommentDialog'
     ],
     
@@ -1554,7 +1544,6 @@ Ext.define('Rally.technicalservices.CommentButton',{
     },
     
     _getComments: function() {
-        var deferred = Ext.create('Deft.Deferred');
         var key = this.keyPrefix;
         
         var config = {
@@ -1563,21 +1552,10 @@ Ext.define('Rally.technicalservices.CommentButton',{
             fetch: ['Name','Value','CreationDate']
         };
         
-        TSUtilities._loadWsapiRecords(config).then({
-            scope: this,
-            success: function(results) {
-                deferred.resolve(results);
-            },
-            failure: function(msg) {
-                deferred.reject(msg);
-            }
-        });
-        
-        return deferred.promise;
+        return TSUtilities.loadWsapiRecords(config);
     },
     
     _showDialog: function() {
-        console.log('show dialog', this.comments);
         Ext.create('Rally.technicalservices.CommentDialog',{
             autoShow: true,
             keyPrefix: this.keyPrefix,
@@ -1585,12 +1563,10 @@ Ext.define('Rally.technicalservices.CommentButton',{
             listeners: {
                 scope: this,
                 commentAdded: function(dialog,comment) {
-                    console.log("added comment", comment);
                     this.comments = Ext.Array.merge(this.comments,comment);
                     this._setResultCount();
                 },
                 commentRemoved: function(dialog, comment) {
-                    console.log("removed comment", comment);
                     this.comments = Ext.Array.remove(this.comments,comment);
                     this._setResultCount();
                 }
@@ -1635,61 +1611,7 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
                     addTimeEntryValue: this._addTimeEntryValue,
                     _updateTotal: this._updateTotal,
                     _days: this.days,
-                    save: function(v) { 
-                        var me = this;
-                        var changes = this.getChanges();
-                        Ext.Object.each(changes, function(field_name, value) {
-                            var row = this;
-                            var field = row.getField(field_name);
-                            var src_field_name = field.__src;
-                            
-                            if ( ! Ext.isEmpty(src_field_name) ) {
-                                // this is a field that belongs to another record
-                                var src = this.get(src_field_name);
-                                if ( !Ext.isEmpty(src) ) {
-                                    // the other record exists
-                                    src.set('Hours', value);
-                                    // TODO: check for errors on return 
-                                    src.save();
-                                    me._updateTotal();
-                                } else {
-                                    // need to create a new record
-                                    var time_entry_item = this.get('__TimeEntryItem');
-                                    var index = field.__index;
-                                    var week_start = time_entry_item.get('WeekStartDate');
-                                    var date_val = Rally.util.DateTime.add(week_start, 'day', index);
-                                    
-                                    Rally.data.ModelFactory.getModel({
-                                        type: 'TimeEntryValue',
-                                        scope: this,
-                                        success: function(tev_model) {
-                                            var fields = tev_model.getFields();
-                                            Ext.Array.each(fields, function(field) {
-                                                if ( field.name == "TimeEntryItem" || field.name == "DateVal") {
-                                                    field.readOnly = false;
-                                                    field.persist = true;
-                                                }
-                                            });
-                                            src = Ext.create(tev_model,{
-                                                Hours: value,
-                                                TimeEntryItem: { _ref: time_entry_item.get('_ref') },
-                                                DateVal: date_val
-                                            });
-                                            
-                                            src.save({
-                                                callback: function(result, operation) {
-                                                    if(operation.wasSuccessful()) {
-                                                        row.set(src_field_name, result);
-                                                        me._updateTotal();
-                                                    }
-                                                }
-                                            });
-                                        }
-                                    });
-                                }
-                            }
-                        },this);
-                    },
+                    save: this._save,
                     getField: this.getField,
                     clearAndRemove: this.clearAndRemove,
                     isLocked: this._isLocked
@@ -1730,6 +1652,61 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
         this.destroy();
     },
     
+    _save: function(v) { 
+        var me = this;
+        var changes = this.getChanges();
+        Ext.Object.each(changes, function(field_name, value) {
+            var row = this;
+            var field = row.getField(field_name);
+            var src_field_name = field.__src;
+            
+            if ( ! Ext.isEmpty(src_field_name) ) {
+                // this is a field that belongs to another record
+                var src = this.get(src_field_name);
+                if ( !Ext.isEmpty(src) ) {
+                    // the other record exists
+                    src.set('Hours', value);
+                    // TODO: check for errors on return 
+                    src.save();
+                    me._updateTotal();
+                } else {
+                    // need to create a new record
+                    var time_entry_item = this.get('__TimeEntryItem');
+                    var index = field.__index;
+                    var week_start = time_entry_item.get('WeekStartDate');
+                    var date_val = Rally.util.DateTime.add(week_start, 'day', index);
+                    
+                    Rally.data.ModelFactory.getModel({
+                        type: 'TimeEntryValue',
+                        scope: this,
+                        success: function(tev_model) {
+                            var fields = tev_model.getFields();
+                            Ext.Array.each(fields, function(field) {
+                                if ( field.name == "TimeEntryItem" || field.name == "DateVal") {
+                                    field.readOnly = false;
+                                    field.persist = true;
+                                }
+                            });
+                            src = Ext.create(tev_model,{
+                                Hours: value,
+                                TimeEntryItem: { _ref: time_entry_item.get('_ref') },
+                                DateVal: date_val
+                            });
+                            
+                            src.save({
+                                callback: function(result, operation) {
+                                    if(operation.wasSuccessful()) {
+                                        row.set(src_field_name, result);
+                                        me._updateTotal();
+                                    }
+                                }
+                            });
+                        }
+                    });
+                }
+            }
+        },this);
+    },
     getField: function(field_name) {
         var fields = this.fields.items;
         var field = null;
@@ -1801,12 +1778,6 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
         
         return Ext.Array.merge(day_number_fields, day_record_fields);
         
-    },
-    
-    // sometimes, dates are provided as beginning of day, but we 
-    // want to go to the end of the day
-    shiftToEndOfDay: function(js_date) {
-        return Rally.util.DateTime.add(Rally.util.DateTime.add(js_date,'day',1),'second',-1);
     }
 });
 Ext.override(Rally.ui.grid.plugin.Validation,{
@@ -1835,7 +1806,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
         'TaskDisplayString','Feature','Project', 'ObjectID', 'Name', 'Release'],
         
     config: {
-        weekStart: new Date(),
+        startDate: null,
         editable: true,
         timesheet_user: null,
         timesheet_status: null,
@@ -1845,6 +1816,9 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
     constructor: function (config) {
         this.mergeConfig(config);
         
+        if (Ext.isEmpty(config.startDate) || !Ext.isDate(config.startDate)) {
+            throw "Rally.technicalservices.TimeTable requires startDate parameter (JavaScript Date)";
+        }
         this.callParent([this.config]);
     },
 
@@ -1862,8 +1836,9 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
             'gridReady'
         );
         
-        this.weekStart = this._getStartOfWeek(this.weekStart);
-        this.logger.log("Week Start: ", this.weekStart);
+        this.startDateString = TSDateUtils.getBeginningOfWeekISOForLocalDate(this.startDate, true);
+
+        this.logger.log("Week Start: ", this.startDate, this.startDateString );
         
         Rally.technicalservices.TimeModelBuilder.build('TimeEntryItem','TSTableRow').then({
             scope: this,
@@ -1948,7 +1923,6 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
     _loadTimeEntryItems: function() {
         this.setLoading('Loading time entry items...');
 
-        var week_start = this.weekStart;
         var user_oid = Rally.getApp().getContext().getUser().ObjectID;
         if ( !Ext.isEmpty(this.timesheet_user) ) {
             user_oid = this.timesheet_user.ObjectID;
@@ -1964,17 +1938,16 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                 [this.manager_field]
             ),
             filters: [
-                {property:'WeekStartDate',value:week_start},
+                {property:'WeekStartDate',value:this.startDateString},
                 {property:'User.ObjectID',value:user_oid}
             ]
         };
         
-        return this._loadWsapiRecords(config);
+        return TSUtilities.loadWsapiRecords(config);
     },
     
     _loadTimeEntryValues: function() {
         this.setLoading('Loading time entry values...');
-        var week_start = this.weekStart;
         
         var user_oid = Rally.getApp().getContext().getUser().ObjectID;
         if ( !Ext.isEmpty(this.timesheet_user) ) {
@@ -1988,12 +1961,12 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
             },
             fetch: ['DateVal','Hours','TimeEntryItem','ObjectID'],
             filters: [
-                {property:'TimeEntryItem.WeekStartDate',value:week_start},
+                {property:'TimeEntryItem.WeekStartDate',value:this.startDateString},
                 {property:'TimeEntryItem.User.ObjectID',value:user_oid}
             ]
         };
         
-        return this._loadWsapiRecords(config);
+        return TSUtilities.loadWsapiRecords(config);
     },
     
     _makeGrid: function(rows) {
@@ -2020,7 +1993,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
             viewConfig: {
                 listeners: {
                     itemupdate: function(row, row_index) {
-                        me.logger.log('itemupdate', row);
+                        //me.logger.log('itemupdate', row);
                     },
                     viewready: me._addTooltip
                 }
@@ -2075,7 +2048,6 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
     
     addRowForItem: function(item) {
         var me = this;
-        var week_start_date = this.weekStart;
 
         if ( !this._hasRowForItem(item)) {
             var item_type = item.get('_type');
@@ -2090,7 +2062,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                     
                     var config = {
                         WorkProduct: { _ref: _ref },
-                        WeekStartDate: week_start_date
+                        WeekStartDate: this.startDateString
                     };
                     
                     if ( item.get('Project') ) {
@@ -2167,33 +2139,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
             }
         });
         
-        this.logger.log("hasRow", hasRow, item);
         return hasRow;
-    },
-    
-    _loadWsapiRecords: function(config){
-        var deferred = Ext.create('Deft.Deferred');
-        var me = this;
-        
-        var default_config = {
-            model: 'Defect',
-            fetch: ['ObjectID']
-        };
-        
-        var final_config = Ext.Object.merge(default_config,config);
-        this.logger.log("Starting load:",final_config.model);
-          
-        Ext.create('Rally.data.wsapi.Store', final_config).load({
-            callback : function(records, operation, successful) {
-                if (successful){
-                    deferred.resolve(records);
-                } else {
-                    me.logger.log("Failed: ", operation);
-                    deferred.reject('Problem loading: ' + operation.error.errors.join('. '));
-                }
-            }
-        });
-        return deferred.promise;
     },
     
     _getColumns: function(task_states) {
@@ -2404,34 +2350,6 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
     
     getGrid: function() {
         return this.down('rallygrid');
-    },
-    
-    /*
-     * Given a date, return the beginning of the week (iso, utc)
-     */
-    _getStartOfWeek: function(js_date){
-        this.logger.log('_ts-time-table._getStartOfWeek', js_date, js_date.getDay(), js_date.getUTCDay());
-        
-        if ( !Ext.isDate(js_date) ) {
-            js_date = new Date();
-        }
-        
-        var start_of_week = js_date;
-        if ( js_date.getDay() === 0 ) {
-            var iso_string = Rally.util.DateTime.toIsoString(start_of_week, false).replace(/T.*$/,'T00:00:00.0Z');
-            this.logger.log('---', iso_string);
-            return iso_string;
-        }
-
-        start_of_week = Ext.Date.add(js_date, Ext.Date.DAY, -1 * js_date.getDay());
-        this.logger.log('...', start_of_week);
-        
-        var iso_string =  Rally.util.DateTime.toIsoString(
-            start_of_week,
-            false
-        ).replace(/T.*$/,'T00:00:00.0Z');
-        this.logger.log('...', iso_string);
-        return iso_string;
     }
 
 });
@@ -2837,25 +2755,11 @@ Ext.define('TSTimesheet',{
         return true;
     },
     
-    getWeekStart: function() {
-        var start_date = this.get('WeekStartDate');
-        start_date = Rally.util.DateTime.toIsoString(
-            new Date(start_date.getUTCFullYear(), 
-                start_date.getUTCMonth(), 
-                start_date.getUTCDate(),  
-                start_date.getUTCHours(), 
-                start_date.getUTCMinutes(), 
-                start_date.getUTCSeconds()
-            )
-        ).replace(/T.*$/,'');
-        return start_date;
-    },
-    
     getPreferenceKey: function() {
         // get or create and then update pref
         return Ext.String.format("{0}.{1}.{2}.{3}", 
             this._approvalKeyPrefix,
-            this.getWeekStart(),
+            TSDateUtils.getBeginningOfWeekISOForLocalDate(this.get('WeekStartDate')),
             this.get('User').ObjectID,
             TSUtilities.getUTCDate(new Date()).getTime()
         );
@@ -2865,7 +2769,7 @@ Ext.define('TSTimesheet',{
         // get or create and then update pref
         return Ext.String.format("{0}.{1}.{2}", 
             this._approvalKeyPrefix,
-            this.getWeekStart(),
+            TSDateUtils.getBeginningOfWeekISOForLocalDate(this.get('WeekStartDate')),
             this.get('User').ObjectID
         );
     },
@@ -3021,7 +2925,6 @@ Ext.define('Rally.technicalservices.ManagerDetailDialog', {
     layout   : 'border',
     
     config: {
-        startDate: new Date(),
         record: null,
         commentKeyPrefix: '',
         manager_field: null
@@ -3043,7 +2946,7 @@ Ext.define('Rally.technicalservices.ManagerDetailDialog', {
             xtype:  'tstimetable',
             region: 'center',
             layout: 'fit',
-            weekStart: this.startDate,
+            startDate: this.record.get('WeekStartDate'),
             editable: false,
             manager_field: this.manager_field,
             timesheet_user: this.record.get('User')
@@ -3066,25 +2969,10 @@ Ext.define('Rally.technicalservices.ManagerDetailDialog', {
     
     _addSelectors: function() {
         var status = this.record.get('__Status');
-        
-        var comment_start_date = this.startDate;
-        
-        if ( comment_start_date.getDay() === 0 ) {
-            comment_start_date = Rally.util.DateTime.toIsoString(comment_start_date, false).replace(/T.*$/,'');
-        } else {
-            comment_start_date = Ext.Date.add(comment_start_date, Ext.Date.DAY, -1 * comment_start_date.getDay());
-            
-            comment_start_date = Rally.util.DateTime.toIsoString(
-                comment_start_date,
-                false
-            ).replace(/T.*$/,'');
-        }
-    
-        console.log('comment start date: ', comment_start_date);
-        
+                
         var comment_key = Ext.String.format("{0}.{1}.{2}", 
             this.commentKeyPrefix,
-            comment_start_date,
+            TSDateUtils.getBeginningOfWeekISOForLocalDate(this.record.get('WeekStartDate')),
             this.record.get('User').ObjectID
         );
         
@@ -3281,7 +3169,7 @@ Ext.define("TSTimeSheetApproval", {
             margin: 3
         });
         
-        var week_start = this.__getStartOfWeek(Rally.util.DateTime.add(new Date(), 'week', -4));
+        var week_start = Rally.util.DateTime.add(new Date(), 'week', -4);
         
         date_container.add({
             xtype:'rallydatefield',
@@ -3290,15 +3178,11 @@ Ext.define("TSTimeSheetApproval", {
             listeners: {
                 scope: this,
                 change: function(dp, new_value) {
-                    var week_start = this.__getStartOfWeek(new_value);
+                    var week_start = TSDateUtils.getBeginningOfWeekForLocalDate(new_value);
                     if ( week_start !== new_value ) {
                         dp.setValue(week_start);
                     }
                     this._enableGoButton();
-//                    
-//                    if ( this.down('#to_date_selector') && this.down('#to_date_selector') < week_start ) {
-//                        this.down('#to_date_selector').setValue(week_start);
-//                    }
                 }
             }
         }).setValue(week_start)
@@ -3310,7 +3194,7 @@ Ext.define("TSTimeSheetApproval", {
             listeners: {
                 scope: this,
                 change: function(dp, new_value) {
-                    var week_start = this.__getStartOfWeek(new_value);
+                    var week_start = TSDateUtils.getBeginningOfWeekForLocalDate(new_value);
                     if ( week_start !== new_value ) {
                         dp.setValue(week_start);
                     }
@@ -3357,6 +3241,9 @@ Ext.define("TSTimeSheetApproval", {
         this.down('#display_box').removeAll();
         this.down('#go_button').setDisabled(true);
         
+        this.startDate = this.down('#from_date_selector').getValue();
+        this.endDate   = this.down('#to_date_selector').getValue();
+        
         if ( this.pipeline && this.pipeline.getState() === 'pending' ) {
             this.pipeline.cancel();
         }
@@ -3387,12 +3274,12 @@ Ext.define("TSTimeSheetApproval", {
         ];
         
         if (this.down('#from_date_selector') ) {
-            var start_date = Rally.util.DateTime.toIsoString( this.down('#from_date_selector').getValue(),false).replace(/T.*$/,'T00:00:00.000Z');
+            var start_date = TSDateUtils.getBeginningOfWeekISOForLocalDate(this.startDate,true);
             filters.push({property:'WeekStartDate', operator: '>=', value:start_date});
         }
         
         if (this.down('#to_date_selector') ) {
-            var start_date = Rally.util.DateTime.toIsoString( this.down('#to_date_selector').getValue(),false).replace(/T.*$/,'T00:00:00.000Z');
+            var start_date = TSDateUtils.getBeginningOfWeekISOForLocalDate(this.endDate,true);
             filters.push({property:'WeekStartDate', operator: '<=', value:start_date});
         }
         
@@ -3482,7 +3369,7 @@ Ext.define("TSTimeSheetApproval", {
                 
                 Ext.Array.each(timesheets, function(timesheet){
                     var key = timesheet.getPartialPreferenceKey();
-                    this.logger.log('key', key);
+
                     if (preferences_by_key[key]) {
                         var value = preferences_by_key[key].get('Value');
                         var status_object = {};
@@ -3621,14 +3508,6 @@ Ext.define("TSTimeSheetApproval", {
         var user_name = record.get('User')._refObjectName;
         var status = record.get('__Status');
         this.logger.log("_popup", user_name, status, record);
-        
-        var start_date = record.get('WeekStartDate');
-        start_date = new Date(start_date.getUTCFullYear(), 
-            start_date.getUTCMonth(), 
-            start_date.getUTCDate(),  
-            start_date.getUTCHours(), 
-            start_date.getUTCMinutes(), 
-            start_date.getUTCSeconds());
                 
         Ext.create('Rally.technicalservices.ManagerDetailDialog', {
             id       : 'popup',
@@ -3640,14 +3519,8 @@ Ext.define("TSTimeSheetApproval", {
             closable : true,
             commentKeyPrefix: this._commentKeyPrefix,
             record   : record,
-            startDate: start_date,
             manager_field: this.getSetting('managerField')
         });
-    },
-    
-    __getStartOfWeek: function(js_date){
-        var start_of_week_here = Ext.Date.add(js_date, Ext.Date.DAY, -1 * js_date.getDay());
-        return start_of_week_here;
     },
     
 //    getOptions: function() {

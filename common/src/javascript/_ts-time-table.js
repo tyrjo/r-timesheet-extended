@@ -24,7 +24,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
         'TaskDisplayString','Feature','Project', 'ObjectID', 'Name', 'Release'],
         
     config: {
-        weekStart: new Date(),
+        startDate: null,
         editable: true,
         timesheet_user: null,
         timesheet_status: null,
@@ -34,6 +34,9 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
     constructor: function (config) {
         this.mergeConfig(config);
         
+        if (Ext.isEmpty(config.startDate) || !Ext.isDate(config.startDate)) {
+            throw "Rally.technicalservices.TimeTable requires startDate parameter (JavaScript Date)";
+        }
         this.callParent([this.config]);
     },
 
@@ -51,8 +54,9 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
             'gridReady'
         );
         
-        this.weekStart = this._getStartOfWeek(this.weekStart);
-        this.logger.log("Week Start: ", this.weekStart);
+        this.startDateString = TSDateUtils.getBeginningOfWeekISOForLocalDate(this.startDate, true);
+
+        this.logger.log("Week Start: ", this.startDate, this.startDateString );
         
         Rally.technicalservices.TimeModelBuilder.build('TimeEntryItem','TSTableRow').then({
             scope: this,
@@ -137,7 +141,6 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
     _loadTimeEntryItems: function() {
         this.setLoading('Loading time entry items...');
 
-        var week_start = this.weekStart;
         var user_oid = Rally.getApp().getContext().getUser().ObjectID;
         if ( !Ext.isEmpty(this.timesheet_user) ) {
             user_oid = this.timesheet_user.ObjectID;
@@ -153,17 +156,16 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                 [this.manager_field]
             ),
             filters: [
-                {property:'WeekStartDate',value:week_start},
+                {property:'WeekStartDate',value:this.startDateString},
                 {property:'User.ObjectID',value:user_oid}
             ]
         };
         
-        return this._loadWsapiRecords(config);
+        return TSUtilities.loadWsapiRecords(config);
     },
     
     _loadTimeEntryValues: function() {
         this.setLoading('Loading time entry values...');
-        var week_start = this.weekStart;
         
         var user_oid = Rally.getApp().getContext().getUser().ObjectID;
         if ( !Ext.isEmpty(this.timesheet_user) ) {
@@ -177,12 +179,12 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
             },
             fetch: ['DateVal','Hours','TimeEntryItem','ObjectID'],
             filters: [
-                {property:'TimeEntryItem.WeekStartDate',value:week_start},
+                {property:'TimeEntryItem.WeekStartDate',value:this.startDateString},
                 {property:'TimeEntryItem.User.ObjectID',value:user_oid}
             ]
         };
         
-        return this._loadWsapiRecords(config);
+        return TSUtilities.loadWsapiRecords(config);
     },
     
     _makeGrid: function(rows) {
@@ -209,7 +211,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
             viewConfig: {
                 listeners: {
                     itemupdate: function(row, row_index) {
-                        me.logger.log('itemupdate', row);
+                        //me.logger.log('itemupdate', row);
                     },
                     viewready: me._addTooltip
                 }
@@ -264,7 +266,6 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
     
     addRowForItem: function(item) {
         var me = this;
-        var week_start_date = this.weekStart;
 
         if ( !this._hasRowForItem(item)) {
             var item_type = item.get('_type');
@@ -279,7 +280,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                     
                     var config = {
                         WorkProduct: { _ref: _ref },
-                        WeekStartDate: week_start_date
+                        WeekStartDate: this.startDateString
                     };
                     
                     if ( item.get('Project') ) {
@@ -356,33 +357,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
             }
         });
         
-        this.logger.log("hasRow", hasRow, item);
         return hasRow;
-    },
-    
-    _loadWsapiRecords: function(config){
-        var deferred = Ext.create('Deft.Deferred');
-        var me = this;
-        
-        var default_config = {
-            model: 'Defect',
-            fetch: ['ObjectID']
-        };
-        
-        var final_config = Ext.Object.merge(default_config,config);
-        this.logger.log("Starting load:",final_config.model);
-          
-        Ext.create('Rally.data.wsapi.Store', final_config).load({
-            callback : function(records, operation, successful) {
-                if (successful){
-                    deferred.resolve(records);
-                } else {
-                    me.logger.log("Failed: ", operation);
-                    deferred.reject('Problem loading: ' + operation.error.errors.join('. '));
-                }
-            }
-        });
-        return deferred.promise;
     },
     
     _getColumns: function(task_states) {
@@ -593,34 +568,6 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
     
     getGrid: function() {
         return this.down('rallygrid');
-    },
-    
-    /*
-     * Given a date, return the beginning of the week (iso, utc)
-     */
-    _getStartOfWeek: function(js_date){
-        this.logger.log('_ts-time-table._getStartOfWeek', js_date, js_date.getDay(), js_date.getUTCDay());
-        
-        if ( !Ext.isDate(js_date) ) {
-            js_date = new Date();
-        }
-        
-        var start_of_week = js_date;
-        if ( js_date.getDay() === 0 ) {
-            var iso_string = Rally.util.DateTime.toIsoString(start_of_week, false).replace(/T.*$/,'T00:00:00.0Z');
-            this.logger.log('---', iso_string);
-            return iso_string;
-        }
-
-        start_of_week = Ext.Date.add(js_date, Ext.Date.DAY, -1 * js_date.getDay());
-        this.logger.log('...', start_of_week);
-        
-        var iso_string =  Rally.util.DateTime.toIsoString(
-            start_of_week,
-            false
-        ).replace(/T.*$/,'T00:00:00.0Z');
-        this.logger.log('...', iso_string);
-        return iso_string;
     }
 
 });
