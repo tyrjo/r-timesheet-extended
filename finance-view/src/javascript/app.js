@@ -119,7 +119,6 @@ defaults: { margin: 10 },
         
         go_button && go_button.setDisabled(true);
         
-        
         Deft.Chain.pipeline([
             this._loadTimesheets,
             this._loadPreferences
@@ -145,18 +144,17 @@ defaults: { margin: 10 },
         
         if (this.down('#from_date_selector') ) {
             var selector_start_date = this.down('#from_date_selector').getValue();
-            var week_start_date = Rally.util.DateTime.add(selector_start_date, 'day', -6); // selector might be midweek, need this to get timesheets
             
-            var tei_start_date = Rally.util.DateTime.toIsoString(week_start_date ,false).replace(/T.*$/,'T00:00:00.000Z');
+            var tei_start_date = TSDateUtils.getBeginningOfWeekISOForLocalDate(selector_start_date,true);
             var tev_start_date = Rally.util.DateTime.toIsoString(selector_start_date ,false).replace(/T.*$/,'T00:00:00.000Z');
             tei_filters.push({property:'WeekStartDate', operator: '>=', value:tei_start_date});
             tev_filters.push({property:'DateVal', operator: '>=', value:tev_start_date});
         }
         
         if (this.down('#to_date_selector') ) {
-            var start_date = Rally.util.DateTime.toIsoString( this.down('#to_date_selector').getValue(),true).replace(/T.*$/,'T00:00:00.000Z');
-            tei_filters.push({property:'WeekStartDate', operator: '<=', value:start_date});
-            tev_filters.push({property:'DateVal', operator: '<=', value:start_date});
+            var end_date = TSDateUtils.formatShiftedDate( this.down('#to_date_selector').getValue(), 'Y-m-d');
+            tei_filters.push({property:'WeekStartDate', operator: '<=', value:end_date});
+            tev_filters.push({property:'DateVal', operator: '<=', value:end_date});
         }
         
         var teitem_config = {
@@ -230,7 +228,7 @@ defaults: { margin: 10 },
             sorters: { property:'CreationDate', direction: 'ASC' }
         };
         
-        TSUtilities._loadWsapiRecords(config).then({
+        TSUtilities.loadWsapiRecords(config).then({
             scope: this,
             success: function(preferences) {
                 var preferences_by_key = {};

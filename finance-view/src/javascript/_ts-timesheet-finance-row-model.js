@@ -51,25 +51,11 @@ Ext.define('TSTimesheetFinanceRow',{
         { name: '___WeekNumber', type:'int', defaultValue: -1, convert:  TSTimesheetFinanceCalculators.calculateWeekNumber }
     ],
     
-    getWeekStart: function() {
-        var start_date = this.get('WeekStartDate');
-        start_date = Rally.util.DateTime.toIsoString(
-            new Date(start_date.getUTCFullYear(), 
-                start_date.getUTCMonth(), 
-                start_date.getUTCDate(),  
-                start_date.getUTCHours(), 
-                start_date.getUTCMinutes(), 
-                start_date.getUTCSeconds()
-            )
-        ).replace(/T.*$/,'');
-        return start_date;
-    },
-    
     getPreferenceKey: function() {
         // get or create and then update pref
         return Ext.String.format("{0}.{1}.{2}", 
             this._approvalKeyPrefix,
-            this.getWeekStart(),
+            TSDateUtils.getBeginningOfWeekISOForLocalDate(this.get('WeekStartDate')),
             this.get('User').ObjectID
         );
     }
