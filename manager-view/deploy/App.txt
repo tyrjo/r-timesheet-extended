@@ -3,11 +3,11 @@
 <head>
     <title>Time Sheet Approval</title>
     <!--  (c) 2015 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Thu Feb 04 2016 18:09:56 GMT-0800 (PST) -->
+    <!--  Build Date: Wed Feb 10 2016 11:00:28 GMT-0800 (PST) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Thu Feb 04 2016 18:09:56 GMT-0800 (PST)";
-        var CHECKSUM = 277249611343;
+        var APP_BUILD_DATE = "Wed Feb 10 2016 11:00:28 GMT-0800 (PST)";
+        var CHECKSUM = 279975148634;
     </script>
     
     <script type="text/javascript" src="/apps/2.0/sdk.js"></script>
@@ -807,13 +807,35 @@ Ext.define('TSDateUtils', {
     },
     
     getBeginningOfWeekISOForLocalDate: function(week_date,showShiftedTimeStamp) {
+        var offset = week_date.getTimezoneOffset();  // 480 is pacific, -330 is india
+
         var local_beginning = TSDateUtils.getBeginningOfWeekForLocalDate(week_date);
+        var shifted_time = Rally.util.DateTime.add(week_date,'minute',offset);
+                
+        if ( shifted_time.getDay() === 0 || shifted_time.getHours() === 0  ) {
+            // this is already the beginning of the week
+            var shifted_string = this.formatShiftedDate(week_date, 'Y-m-d');
+            if ( showShiftedTimeStamp ) {
+                return shifted_string + 'T00:00:00.0Z';
+            }
+            return shifted_string;
+        }
         
         if (showShiftedTimeStamp) {
             return Rally.util.DateTime.toIsoString(local_beginning).replace(/T.*$/,'T00:00:00.0Z');
         }
         
         return Rally.util.DateTime.toIsoString(local_beginning).replace(/T.*$/,'');
+    },
+    
+    formatShiftedDate: function(jsdate,format) {
+        var offset = jsdate.getTimezoneOffset();  // 480 is pacific, -330 is india
+
+        if ( offset > 0 ) {
+            jsdate = Rally.util.DateTime.add(jsdate,'minute',offset);
+        }
+
+        return Ext.util.Format.date(jsdate,format);
     }
 });
 
@@ -2761,7 +2783,7 @@ Ext.define('TSTimesheet',{
             this._approvalKeyPrefix,
             TSDateUtils.getBeginningOfWeekISOForLocalDate(this.get('WeekStartDate')),
             this.get('User').ObjectID,
-            TSUtilities.getUTCDate(new Date()).getTime()
+            new Date().getTime()
         );
     },
     
@@ -2872,7 +2894,7 @@ Ext.define('TSTimesheet',{
             filters: [{property: 'Name', value: key}]
         };
         
-        return TSUtilities._loadWsapiRecords(config);
+        return TSUtilities.loadWsapiRecords(config);
     },
     
     /* leave prefs is null or empty array to create a pref because
@@ -2972,7 +2994,7 @@ Ext.define('Rally.technicalservices.ManagerDetailDialog', {
                 
         var comment_key = Ext.String.format("{0}.{1}.{2}", 
             this.commentKeyPrefix,
-            TSDateUtils.getBeginningOfWeekISOForLocalDate(this.record.get('WeekStartDate')),
+            TSDateUtils.formatShiftedDate(this.record.get('WeekStartDate'),'Y-m-d'),
             this.record.get('User').ObjectID
         );
         
@@ -3298,7 +3320,7 @@ Ext.define("TSTimeSheetApproval", {
             fetch: ['User','WeekStartDate','ObjectID', 'UserName','Values:summary[Hours]', this.getSetting('managerField')]
         };
         
-        TSUtilities._loadWsapiRecords(config).then({
+        TSUtilities.loadWsapiRecords(config).then({
             scope: this,
             success: function(results) {
                 var timesheets = {};
@@ -3485,7 +3507,7 @@ Ext.define("TSTimeSheetApproval", {
             renderer: function(v) { return v._refObjectName || value.UserName; }
         });
         columns.push({dataIndex:'WeekStartDate',text:'Week Starting', align: 'center', renderer: function(v) { 
-            return Ext.util.Format.date(TSUtilities.getUTCDate(v),'m/d/y'); 
+            return TSDateUtils.formatShiftedDate(v, 'm/d/y'); 
         }});
         columns.push({
             dataIndex:'__Hours',
@@ -3513,7 +3535,11 @@ Ext.define("TSTimeSheetApproval", {
             id       : 'popup',
             width    : Ext.getBody().getWidth() - 150,
             height   : Ext.getBody().getHeight() - 150,
-            title    : Ext.String.format("{0}: {1} ({2})", user_name, Ext.Date.format(start_date,'j F Y'), status),
+            title    : Ext.String.format("{0}: {1} ({2})", 
+                user_name, 
+                TSDateUtils.formatShiftedDate(record.get('WeekStartDate'),'j F Y'), 
+                status
+            ),
             autoShow : true,
             autoCenter: true,
             closable : true,
@@ -3578,17 +3604,9 @@ Ext.define("TSTimeSheetApproval", {
         var me = this;
         
         var status = timesheet.get('__Status');
-        
-        var start_date = timesheet.get('WeekStartDate');
-        start_date = new Date(start_date.getUTCFullYear(), 
-            start_date.getUTCMonth(), 
-            start_date.getUTCDate(),  
-            start_date.getUTCHours(), 
-            start_date.getUTCMinutes(), 
-            start_date.getUTCSeconds());
                     
         var timetable = Ext.create('Rally.technicalservices.TimeTable',{
-            weekStart: start_date,
+            weekStart: timesheet.get('WeekStartDate'),
             editable: false,
             timesheet_status: timesheet.get('__Status'),
             timesheet_user: timesheet.get('User'),

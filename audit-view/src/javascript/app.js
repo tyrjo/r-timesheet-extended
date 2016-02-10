@@ -69,11 +69,6 @@ Ext.define("TSTimeSheetAudit", {
             listeners: {
                 scope: this,
                 change: function(dp, new_value) {
-//                    var week_start = this._getBeginningOfWeek(new_value);
-//                    if ( week_start !== new_value ) {
-//                        dp.setValue(week_start);
-//                    }
-                    
                     this._enableGoButton();
                 }
             }
@@ -89,10 +84,6 @@ Ext.define("TSTimeSheetAudit", {
             listeners: {
                 scope: this,
                 change: function(dp, new_value) {
-//                    var week_start = this._getBeginningOfWeek(new_value);
-//                    if ( week_start !== new_value ) {
-//                        dp.setValue(week_start);
-//                    }
                     this._enableGoButton();
                 }
             }
@@ -132,19 +123,14 @@ Ext.define("TSTimeSheetAudit", {
     
     _updateData: function() {
         
-        this.start_date = Rally.util.DateTime.toIsoString(this.down('#from_date_selector').getValue(),false).replace(/T.*$/,'T00:00:00.000Z');
-        this.end_date = Rally.util.DateTime.toIsoString( this.down('#to_date_selector').getValue(),true);
+        this.start_date = TSDateUtils.formatShiftedDate(this.down('#from_date_selector').getValue(),'Y-m-d') + 'T00:00:00.000Z';
+        this.end_date = TSDateUtils.formatShiftedDate(this.down('#to_date_selector').getValue(),'Y-m-d') + 'T00:00:00.000Z';
 
         this.down('#go_button').setDisabled(true);
         
         var tabPanel  = Ext.getCmp('tabPanel');
         var activeTab = tabPanel.getActiveTab();
         activeTab.updateContent(this);
-    },
-    
-    _getBeginningOfWeek: function(js_date){
-        var start_of_week_here = Ext.Date.add(js_date, Ext.Date.DAY, -1 * js_date.getDay());
-        return start_of_week_here;
     },
 //    getOptions: function() {
 //        return [

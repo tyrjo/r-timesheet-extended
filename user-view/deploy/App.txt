@@ -3,11 +3,11 @@
 <head>
     <title>Extended Timesheet</title>
     <!--  (c) 2015 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Thu Feb 04 2016 17:53:56 GMT-0800 (PST) -->
+    <!--  Build Date: Wed Feb 10 2016 11:00:21 GMT-0800 (PST) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Thu Feb 04 2016 17:53:56 GMT-0800 (PST)";
-        var CHECKSUM = 226515952818;
+        var APP_BUILD_DATE = "Wed Feb 10 2016 11:00:21 GMT-0800 (PST)";
+        var CHECKSUM = 230410571001;
     </script>
     
     <script type="text/javascript" src="/apps/2.0/sdk.js"></script>
@@ -807,13 +807,35 @@ Ext.define('TSDateUtils', {
     },
     
     getBeginningOfWeekISOForLocalDate: function(week_date,showShiftedTimeStamp) {
+        var offset = week_date.getTimezoneOffset();  // 480 is pacific, -330 is india
+
         var local_beginning = TSDateUtils.getBeginningOfWeekForLocalDate(week_date);
+        var shifted_time = Rally.util.DateTime.add(week_date,'minute',offset);
+                
+        if ( shifted_time.getDay() === 0 || shifted_time.getHours() === 0  ) {
+            // this is already the beginning of the week
+            var shifted_string = this.formatShiftedDate(week_date, 'Y-m-d');
+            if ( showShiftedTimeStamp ) {
+                return shifted_string + 'T00:00:00.0Z';
+            }
+            return shifted_string;
+        }
         
         if (showShiftedTimeStamp) {
             return Rally.util.DateTime.toIsoString(local_beginning).replace(/T.*$/,'T00:00:00.0Z');
         }
         
         return Rally.util.DateTime.toIsoString(local_beginning).replace(/T.*$/,'');
+    },
+    
+    formatShiftedDate: function(jsdate,format) {
+        var offset = jsdate.getTimezoneOffset();  // 480 is pacific, -330 is india
+
+        if ( offset > 0 ) {
+            jsdate = Rally.util.DateTime.add(jsdate,'minute',offset);
+        }
+
+        return Ext.util.Format.date(jsdate,format);
     }
 });
 
