@@ -58,7 +58,15 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
 
         this.logger.log("Week Start: ", this.startDate, this.startDateString );
         
-        Rally.technicalservices.TimeModelBuilder.build('TimeEntryItem','TSTableRow').then({
+        if ( Ext.isEmpty(this.timesheet_user) ) {
+            this.timesheet_user = Rally.getApp().getContext().getUser();
+        }
+        
+        
+        Deft.Chain.sequence([
+            me._getTEIModel,
+            function() { return Rally.technicalservices.TimeModelBuilder.build('TimeEntryItem','TSTableRow'); }
+        ],this).then({
             scope: this,
             success: function(model) {
                 this._updateData();
@@ -67,6 +75,19 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                 Ext.Msg.alert('Problem creating model', msg);
             }
         });
+    },
+    
+    _getTEIModel: function() {
+        var deferred = Ext.create('Deft.Deferred');
+        Rally.data.ModelFactory.getModel({
+            type: 'TimeEntryItem',
+            scope: this,
+            success: function(model) {
+                this.tei_model = model;
+                deferred.resolve(model);
+            }
+        });
+        return deferred.promise;
     },
     
     _updateData: function() {
@@ -251,7 +272,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                     var value = record.get(columnDataIndex);
                     
                     if ( columnTitle == "Work Product" ) {
-                        columnText = value.Project._refObjectName;
+                        columnText = value.Project && value.Project._refObjectName;
                     }
                     
                     if (!Ext.isEmpty(columnText)){
@@ -264,71 +285,110 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
         });
     },
     
+    _isForCurrentUser: function() {
+        return ( this.timesheet_user.ObjectID == Rally.getApp().getContext().getUser().ObjectID);
+    },
+    
     addRowForItem: function(item) {
         var me = this;
 
         if ( !this._hasRowForItem(item)) {
             var item_type = item.get('_type');
 
-            Rally.data.ModelFactory.getModel({
-                type: 'TimeEntryItem',
-                scope: this,
-                success: function(model) {
-                    var fields = model.getFields();
+            var config = {
+                WorkProduct: {
+                    _refObjectName: item.get('FormattedID') + ":" + item.get('Name'),
+                    _ref: item.get('_ref') 
+                },
+                WeekStartDate: this.startDateString,
+                User: { _ref: '/user/' + this.timesheet_user.ObjectID }
+            };
+            
+            if ( item.get('Project') ) {
+                config.Project = item.get('Project');
+            }
+            
+            if ( item_type == "task" ) {
+                config.TaskDisplayString = item.get('FormattedID') + ":" + item.get('Name');
+                config.Task = { 
+                    _ref: item.get('_ref'),
+                    _refObjectName: config.TaskDisplayString
+                };
+                
+                config.WorkProductDisplayString = item.get('WorkProduct').FormattedID + ":" + item.get('WorkProduct').Name;
+                
+                config.WorkProduct = {
+                    _refObjectName: config.WorkProductDisplayString,
+                    _ref: item.get('WorkProduct')._ref
+                };
+            }
+            
+            if ( !this._isForCurrentUser() ) {
+                // create a shadow item
+                config.ObjectID = -1;
+                config._type = "timeentryitem";
 
-                    var _ref = item.get('_ref');
-                    
-                    var config = {
-                        WorkProduct: { _ref: _ref },
-                        WeekStartDate: this.startDateString
-                    };
-                    
-                    if ( item.get('Project') ) {
-                        config.Project = item.get('Project');
-                    }
-                    
-                    if ( item_type == "task" ) {
-                        config.Task = { _ref: _ref };
-                        config.WorkProduct = { _ref: item.get('WorkProduct')._ref };
-                    }
-                    
-                    var time_entry_item = Ext.create(model,config);
-                    
-                    var fetch = Ext.Array.merge(Rally.technicalservices.TimeModelBuilder.getFetchFields(), this.time_entry_item_fetch);
+                config._refObjectUUID = -1;
+                
+                var data = {
+                    __TimeEntryItem: Ext.create(this.tei_model,config),
+                    __Feature: null,
+                    __Product: config.Project,
+                    __Release: config.WorkProduct.Release,
+                    __Appended: true
+                };
+                
+                var row = Ext.create('TSTableRow',Ext.Object.merge(data, config));
+                row.set('updatable', true); // so we can add values to the week 
+                
+                me.grid.getStore().loadRecords([row], { addRecords: true });
 
-                    time_entry_item.save({
-                        fetch: fetch,
-                        callback: function(result, operation) {
-                            if(operation.wasSuccessful()) {
-                                var product = result.get('Project');
-                                var workproduct = result.get('WorkProduct');
-                                var feature = null;
-                                var release = null;
-                                
-                                if ( !Ext.isEmpty(workproduct) && workproduct.Feature ) {
-                                    feature = workproduct.Feature;
-                                    product = feature.Project;
-                                }
-                                                                
-                                if ( !Ext.isEmpty(workproduct) && workproduct.Release ) {
-                                    release = workproduct.Release;
-                                }
-                                                                
-                                var data = {
-                                    __TimeEntryItem:result,
-                                    __Feature: feature,
-                                    __Product: product,
-                                    __Release: release
-                                };
-                                
-                                var row = Ext.create('TSTableRow',Ext.Object.merge(data, time_entry_item.getData()));
-                                me.grid.getStore().loadRecords([row], { addRecords: true });
-                                me.rows.push(row);
+                me.rows.push(row);
+            } else {
+                
+                var fields = this.tei_model.getFields();
+
+                var time_entry_item = Ext.create(this.tei_model,config);
+                
+                var fetch = Ext.Array.merge(Rally.technicalservices.TimeModelBuilder.getFetchFields(), this.time_entry_item_fetch);
+
+                time_entry_item.save({
+                    fetch: fetch,
+                    callback: function(result, operation) {
+                        if(operation.wasSuccessful()) {
+                            var product = result.get('Project');
+                            var workproduct = result.get('WorkProduct');
+                            var feature = null;
+                            var release = null;
+                            
+                            if ( !Ext.isEmpty(workproduct) && workproduct.Feature ) {
+                                feature = workproduct.Feature;
+                                product = feature.Project;
+                            }
+                                                            
+                            if ( !Ext.isEmpty(workproduct) && workproduct.Release ) {
+                                release = workproduct.Release;
+                            }
+
+                            var data = {
+                                __TimeEntryItem:result,
+                                __Feature: feature,
+                                __Product: product,
+                                __Release: release
+                            };
+                            
+                            var row = Ext.create('TSTableRow',Ext.Object.merge(data, time_entry_item.getData()));
+
+                            me.grid.getStore().loadRecords([row], { addRecords: true });
+                            me.rows.push(row);
+                        } else {
+                            if ( operation.error && operation.error.errors ) {
+                                Ext.Msg.alert("Problem saving time:", operation.error.errors.join(' '));
                             }
                         }
-                    });
-                }
-            });
+                    }
+                });
+            }
         }
     },
     
@@ -408,7 +468,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                 align: 'center',
                 hidden: true,
                 renderer: function(value) {
-                    
+
                     return value.get('User')[me.manager_field] || "none"; 
                 }
             });
@@ -428,11 +488,22 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                 flex: 1,
                 editor: null,
                 renderer: function(value,meta,record) {
+                    
+                    var display_string = "";
+                    
                     if ( record.isLocked() ) {
-                        return "<span class='icon-lock'> </span>" + value._refObjectName;
+                        display_string += "<span class='icon-lock'> </span>";
+                    }
+                    
+                    if ( record.get('__Appended') ) {
+                        display_string += "<span class='red icon-attachment'> </span>";
+                    }
+                    
+                    if ( !Ext.isEmpty(value) ) {
+                        display_string += value._refObjectName;
                     }
 
-                    return value._refObjectName;
+                    return display_string;
                 },
                 exportRenderer: function(value,meta,record) {
                     return value._refObjectName
@@ -451,7 +522,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                     return Ext.String.format("<a target='_blank' href='{0}'>{1}</a>",
                         Rally.nav.Manager.getDetailUrl(value),
                         value._refObjectName
-                    );;
+                    );
                 },
                 exportRenderer: function(value,meta,record) {
                     if ( Ext.isEmpty(value) ) { return ""; }
@@ -511,6 +582,16 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
         var day_width = 50;
         
         var editor_config = function(record,df){
+            
+            if( record && record.isLocked() ) {
+                return false;
+            }
+            
+            if ( ! me.editable && ! record.get('__Appended') ){
+                return false;
+            }
+            
+            
             var config = {
                 xtype:'rallynumberfield',
                 minValue: 0,
@@ -525,16 +606,8 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                 }
             };
             
-            if( ( !Ext.isEmpty(record) && record.isLocked() ) || ! me.editable ){
-                return false;
-            } 
-            
             return config;
         };
-       
-        if ( ! this.editable ) {
-            editor_config = null;
-        }
         
         var weekend_renderer = function(value, meta, record) {
             meta.tdCls = "ts-weekend-cell";

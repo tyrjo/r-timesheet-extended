@@ -17,3 +17,7 @@ td.ts-total-cell {
 td.ts-weekend-cell {
     background-color: #B0E0E6 !important;
 }
+
+span.red {
+    color: red;
+}

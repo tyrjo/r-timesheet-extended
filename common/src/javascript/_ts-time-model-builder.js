@@ -21,6 +21,7 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
                     { name: '__Product',   type: 'object' },
                     { name: '__Total',     type: 'float', defaultValue: 0 },
                     { name: '__SecretKey', type:'auto', defaultValue: 1 },
+                    { name: '__Appended', type: 'boolean', defaultValue: false },
                     { name: '_ReleaseLockFieldName',  type:'string', defaultValue: Rally.technicalservices.TimeModelBuilder.deploy_field }
 
                 ];
@@ -106,7 +107,7 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
                         success: function(tev_model) {
                             var fields = tev_model.getFields();
                             Ext.Array.each(fields, function(field) {
-                                if ( field.name == "TimeEntryItem" || field.name == "DateVal") {
+                                if ( field.name == "TimeEntryItem" || field.name == "DateVal" ) {
                                     field.readOnly = false;
                                     field.persist = true;
                                 }

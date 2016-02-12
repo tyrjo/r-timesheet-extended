@@ -56,7 +56,31 @@ Ext.define('Rally.technicalservices.ManagerDetailDialog', {
             this.record.get('User').ObjectID
         );
         
-        this.down('#popup_left_box').add({
+        var left_box = this.down('#popup_left_box');
+        
+        left_box.add({
+            xtype:'rallybutton',
+            text: '+<span class="icon-task"> </span>',
+            disabled: false,
+            toolTipText: "Search and add Tasks", 
+            listeners: {
+                scope: this,
+                click: this._findAndAddTask
+            }
+        });
+        
+        left_box.add({
+            xtype:'rallybutton',
+            text: '+<span class="icon-story"> </span>',
+            toolTipText: "Search and add User Stories",
+            disabled: false,
+            listeners: {
+                scope: this,
+                click: this._findAndAddStory
+            }
+        });
+        
+        left_box.add({
             xtype:'tscommentbutton',
             toolTipText: 'Read/Add Comments',
             keyPrefix: comment_key
@@ -109,6 +133,150 @@ Ext.define('Rally.technicalservices.ManagerDetailDialog', {
     
     _unapproveTimesheet: function(record) {
         record.unapprove();
+    },
+    
+    _findAndAddTask: function() {
+        var timetable = this.down('tstimetable');
+        
+        var fetch_fields = Ext.Array.merge(
+            Rally.technicalservices.TimeModelBuilder.getFetchFields(),
+            ['WorkProduct','Feature','Project']
+        );
+        
+        if (timetable) {
+            Ext.create('Rally.technicalservices.ChooserDialog', {
+                artifactTypes: ['task'],
+                autoShow: true,
+                multiple: true,
+                title: 'Choose Task(s)',
+                filterableFields: [
+                    {
+                        displayName: 'Formatted ID',
+                        attributeName: 'FormattedID'
+                    },
+                    {
+                        displayName: 'Name',
+                        attributeName: 'Name'
+                    },
+                    {
+                        displayName:'WorkProduct',
+                        attributeName: 'WorkProduct.Name'
+                    },
+                    {
+                        displayName:'Release',
+                        attributeName: 'Release.Name'
+                    },
+                    {
+                        displayName:'Project',
+                        attributeName: 'Project.Name'
+                    },
+                    {
+                        displayName:'Owner',
+                        attributeName: 'Owner'
+                    },
+                    {
+                        displayName: 'State',
+                        attributeName: 'State'
+                    }
+                ],
+                columns: [
+                    {
+                        text: 'ID',
+                        dataIndex: 'FormattedID'
+                    },
+                    'Name',
+                    'WorkProduct',
+                    'Release',
+                    'Project',
+                    'Owner',
+                    'State'
+                ],
+                fetchFields: fetch_fields,
+                listeners: {
+                    artifactchosen: function(dialog, selectedRecords){
+                        if ( !Ext.isArray(selectedRecords) ) {
+                            selectedRecords = [selectedRecords];
+                        }
+                        
+                        Ext.Array.each(selectedRecords, function(selectedRecord){
+                            timetable.addRowForItem(selectedRecord);
+                        });
+                    },
+                    scope: this
+                }
+             });
+        }
+    },
+    
+    _findAndAddStory: function() {
+        var timetable = this.down('tstimetable');
+        if (timetable) {
+            Ext.create('Rally.technicalservices.ChooserDialog', {
+                artifactTypes: ['hierarchicalrequirement'],
+                autoShow: true,
+                title: 'Choose Story(ies)',
+                multiple: true,
+                filterableFields: [
+                    {
+                        displayName: 'Formatted ID',
+                        attributeName: 'FormattedID'
+                    },
+                    {
+                        displayName: 'Name',
+                        attributeName: 'Name'
+                    },
+                    {
+                        displayName:'Feature',
+                        attributeName: 'Feature.Name'
+                    },
+                    {
+                        displayName:'Release',
+                        attributeName: 'Release.Name'
+                    },
+                    {
+                        displayName:'Project',
+                        attributeName: 'Project.Name'
+                    },
+                    {
+                        displayName:'Owner',
+                        attributeName: 'Owner'
+                    },
+                    {
+                        displayName:'State',
+                        attributeName: 'ScheduleState'
+                    }
+                ],
+                columns: [
+                    {
+                        text: 'ID',
+                        dataIndex: 'FormattedID'
+                    },
+                    'Name',
+                    'WorkProduct',
+                    'Release',
+                    'Project',
+                    'Owner',
+                    'ScheduleState'
+                ],
+        
+                fetchFields: Ext.Array.merge(
+                    Rally.technicalservices.TimeModelBuilder.getFetchFields(),
+                    ['WorkProduct','Feature','Project', 'ObjectID', 'Name', 'Release']
+                ),
+                listeners: {
+                    artifactchosen: function(dialog, selectedRecords){
+                        if ( !Ext.isArray(selectedRecords) ) {
+                            selectedRecords = [selectedRecords];
+                        }
+                        
+                        Ext.Array.each(selectedRecords, function(selectedRecord){
+                            timetable.addRowForItem(selectedRecord);
+                        });
+                    },
+                    scope: this
+                }
+             });
+        }
     },
     
     _export: function(){
