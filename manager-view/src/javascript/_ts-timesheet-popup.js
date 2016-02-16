@@ -61,7 +61,7 @@ Ext.define('Rally.technicalservices.ManagerDetailDialog', {
         left_box.add({
             xtype:'rallybutton',
             text: '+<span class="icon-task"> </span>',
-            disabled: false,
+            disabled: (status == "Approved"),
             toolTipText: "Search and add Tasks", 
             listeners: {
                 scope: this,
@@ -73,7 +73,7 @@ Ext.define('Rally.technicalservices.ManagerDetailDialog', {
             xtype:'rallybutton',
             text: '+<span class="icon-story"> </span>',
             toolTipText: "Search and add User Stories",
-            disabled: false,
+            disabled: (status == "Approved"),
             listeners: {
                 scope: this,
                 click: this._findAndAddStory

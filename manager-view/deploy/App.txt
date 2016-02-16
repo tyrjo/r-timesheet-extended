@@ -3,11 +3,11 @@
 <head>
     <title>Time Sheet Approval</title>
     <!--  (c) 2015 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Mon Feb 15 2016 18:57:51 GMT-0800 (PST) -->
+    <!--  Build Date: Mon Feb 15 2016 19:03:52 GMT-0800 (PST) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Mon Feb 15 2016 18:57:51 GMT-0800 (PST)";
-        var CHECKSUM = 393474993520;
+        var APP_BUILD_DATE = "Mon Feb 15 2016 19:03:52 GMT-0800 (PST)";
+        var CHECKSUM = 393708812281;
     </script>
     
     <script type="text/javascript" src="/apps/2.0/sdk.js"></script>
@@ -3635,7 +3635,7 @@ Ext.define('Rally.technicalservices.ManagerDetailDialog', {
         left_box.add({
             xtype:'rallybutton',
             text: '+<span class="icon-task"> </span>',
-            disabled: false,
+            disabled: (status == "Approved"),
             toolTipText: "Search and add Tasks", 
             listeners: {
                 scope: this,
@@ -3647,7 +3647,7 @@ Ext.define('Rally.technicalservices.ManagerDetailDialog', {
             xtype:'rallybutton',
             text: '+<span class="icon-story"> </span>',
             toolTipText: "Search and add User Stories",
-            disabled: false,
+            disabled: (status == "Approved"),
             listeners: {
                 scope: this,
                 click: this._findAndAddStory
