@@ -3,11 +3,11 @@
 <head>
     <title>Extended Timesheet</title>
     <!--  (c) 2015 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Thu Feb 11 2016 19:51:36 GMT-0800 (PST) -->
+    <!--  Build Date: Mon Feb 15 2016 18:57:41 GMT-0800 (PST) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Thu Feb 11 2016 19:51:36 GMT-0800 (PST)";
-        var CHECKSUM = 241172472814;
+        var APP_BUILD_DATE = "Mon Feb 15 2016 18:57:41 GMT-0800 (PST)";
+        var CHECKSUM = 262385255272;
     </script>
     
     <script type="text/javascript" src="/apps/2.0/sdk.js"></script>
@@ -2014,6 +2014,8 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
 
     deploy_field: 'c_IsDeployed',
     
+    appendKeyPrefix: 'rally.technicalservices.timesheet.append',
+
     days: ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'],
     
     build: function(modelType, newModelName) {
@@ -2033,6 +2035,7 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
                     { name: '__Total',     type: 'float', defaultValue: 0 },
                     { name: '__SecretKey', type:'auto', defaultValue: 1 },
                     { name: '__Appended', type: 'boolean', defaultValue: false },
+                    { name: '__PrefID', type:'auto', defaultValue: -1 },
                     { name: '_ReleaseLockFieldName',  type:'string', defaultValue: Rally.technicalservices.TimeModelBuilder.deploy_field }
 
                 ];
@@ -2048,6 +2051,8 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
                     _updateTotal: this._updateTotal,
                     _days: this.days,
                     save: this._save,
+                    _saveAsPref: this._saveAsPref,
+                    _savePreference: this._savePreference,
                     getField: this.getField,
                     clearAndRemove: this.clearAndRemove,
                     isLocked: this._isLocked
@@ -2088,9 +2093,94 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
         this.destroy();
     },
     
+    _saveAsPref: function() {
+        var me = this;
+        var item = this.get('Task') || this.get('WorkProduct');
+
+        var key = Ext.String.format("{0}.{1}.{2}.{3}", 
+            Rally.technicalservices.TimeModelBuilder.appendKeyPrefix,
+            TSDateUtils.formatShiftedDate(this.get('WeekStartDate'),'Y-m-d'),
+            this.get('User').ObjectID,
+            item.ObjectID
+        );
+        
+        var value = Ext.JSON.encode(this.getData());
+        var project_oid = this.get('Project').ObjectID;
+        
+        Rally.data.ModelFactory.getModel({
+            type: 'Preference',
+            success: function(model) {
+
+                var pref_config = {
+                    Name: key,
+                    Value: value,
+                    Project: TSUtilities.getEditableProjectForCurrentUser()
+                }
+
+                var pref = Ext.create(model, pref_config);
+                
+                pref.save({
+                    callback: function(result, operation) {
+                        if(operation.wasSuccessful()) {
+                            me.set('ObjectID', result.get('ObjectID'));
+                            me.set('__PrefID', result.get('ObjectID'));
+                            console.log('saved:', me);
+                        } else {
+                            Ext.Msg.alert('Problem amending', operation.error.errors[0]);
+                        }
+                    }
+                });
+            }
+        });
+    },
+    
+    _savePreference: function(changes) {
+        var oid = this.get('__PrefID');
+        var me = this;
+        
+        Rally.data.ModelFactory.getModel({
+            type: 'Preference',
+            success: function(model) {
+                model.load(oid, {
+                    fetch: ['Name', 'ObjectID', 'Value'],
+                    callback: function(result, operation) {
+                        if(operation.wasSuccessful()) {
+                            result.set('Value', Ext.JSON.encode(me.getData()));
+                            result.save({
+                                callback: function(result, operation) {
+                                    if(operation.wasSuccessful()) {
+                                        console.log('saved:', me);
+                                    } else {
+                                        Ext.Msg.alert('Problem saving change', operation.error.errors[0]);
+                                    }
+                                }
+                            });
+                        }
+                    }
+                });
+            }
+        });
+        
+        Ext.Object.each(changes, function(field_name, value){
+            console.log(field_name, value);
+            
+        });
+    },
+    
     _save: function(v) { 
         var me = this;
         var changes = this.getChanges();
+        console.log('changes',changes);
+
+        if ( this.get('__Appended') && this.get('ObjectID') == -1 ) {
+            this._saveAsPref();
+        }
+        
+        if ( this.get('__Appended') ) {
+            this._savePreference(changes);
+            return;
+        }
+        
         Ext.Object.each(changes, function(field_name, value) {
             var row = this;
             var field = row.getField(field_name);
@@ -2313,12 +2403,14 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
 
         Deft.Chain.sequence([
             this._loadTimeEntryItems,
-            this._loadTimeEntryValues
+            this._loadTimeEntryValues,
+            this._loadTimeEntryAppends
         ],this).then({
             scope: this,
             success: function(results) {
                 var time_entry_items  = results[0];
                 var time_entry_values = results[1];
+                var time_entry_appends = results[2];
                 
                 var rows = Ext.Array.map(time_entry_items, function(item){
                     var product = item.get('Project');
@@ -2350,16 +2442,31 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                 });
                 
                 var rows = this._addTimeEntryValues(rows, time_entry_values);
+                var appended_rows = this._getAppendedRowsFromPreferences(time_entry_appends);
                 
                 this.logger.log('TEIs:', time_entry_items);
                 this.logger.log('Rows:', rows);
+                this.logger.log('Appended Rows:', appended_rows);
 
-                this.rows = rows;
-                this._makeGrid(rows);
+                this.rows = Ext.Array.merge(rows,appended_rows);
+                this._makeGrid(this.rows);
                 this.setLoading(false);
             }
         });
         
+    },
+    
+    _getAppendedRowsFromPreferences: function(prefs) {
+        return Ext.Array.map(prefs, function(pref){
+            var value = Ext.JSON.decode(pref.get('Value'));
+            value.ObjectID = pref.get('ObjectID');
+            value.__PrefID = pref.get('ObjectID');
+
+            var row = Ext.create('TSTableRow', value);
+            row.set('updatable', true); // so we can add values to the week 
+
+            return row;
+        });
     },
     
     _addTimeEntryValues: function(rows, time_entry_values) {
@@ -2420,6 +2527,35 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
             filters: [
                 {property:'TimeEntryItem.WeekStartDate',value:this.startDateString},
                 {property:'TimeEntryItem.User.ObjectID',value:user_oid}
+            ]
+        };
+        
+        return TSUtilities.loadWsapiRecords(config);
+    },
+    
+    _loadTimeEntryAppends: function() {
+        this.setLoading('Loading time entry modifications...');
+        
+        var user_oid = Rally.getApp().getContext().getUser().ObjectID;
+        
+        if ( !Ext.isEmpty(this.timesheet_user) ) {
+            user_oid = this.timesheet_user.ObjectID;
+        }
+        
+        var key = Ext.String.format("{0}.{1}.{2}", 
+            Rally.technicalservices.TimeModelBuilder.appendKeyPrefix,
+            this.startDateString.replace(/T.*$/,''),
+            user_oid
+        );
+        
+        var config = {
+            model: 'Preference',
+            context: {
+                project: null
+            },
+            fetch: ['Name','Value','ObjectID'],
+            filters: [
+                {property:'Name',operator:'contains',value:key}
             ]
         };
         
@@ -2516,10 +2652,14 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
             var config = {
                 WorkProduct: {
                     _refObjectName: item.get('FormattedID') + ":" + item.get('Name'),
-                    _ref: item.get('_ref') 
+                    _ref: item.get('_ref'),
+                    ObjectID: item.get('ObjectID')
                 },
                 WeekStartDate: this.startDateString,
-                User: { _ref: '/user/' + this.timesheet_user.ObjectID }
+                User: { 
+                    _ref: '/user/' + this.timesheet_user.ObjectID,
+                    ObjectID: this.timesheet_user.ObjectID
+                }
             };
             
             if ( item.get('Project') ) {
@@ -2530,14 +2670,16 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                 config.TaskDisplayString = item.get('FormattedID') + ":" + item.get('Name');
                 config.Task = { 
                     _ref: item.get('_ref'),
-                    _refObjectName: config.TaskDisplayString
+                    _refObjectName: config.TaskDisplayString,
+                    ObjectID: item.get('ObjectID')
                 };
                 
                 config.WorkProductDisplayString = item.get('WorkProduct').FormattedID + ":" + item.get('WorkProduct').Name;
                 
                 config.WorkProduct = {
                     _refObjectName: config.WorkProductDisplayString,
-                    _ref: item.get('WorkProduct')._ref
+                    _ref: item.get('WorkProduct')._ref,
+                    ObjectID: item.get('WorkProduct').ObjectID
                 };
             }
             
@@ -2557,8 +2699,9 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                 };
                 
                 var row = Ext.create('TSTableRow',Ext.Object.merge(data, config));
+                row.save();
                 row.set('updatable', true); // so we can add values to the week 
-                
+
                 me.grid.getStore().loadRecords([row], { addRecords: true });
 
                 me.rows.push(row);
@@ -2686,7 +2829,6 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                 align: 'center',
                 hidden: true,
                 renderer: function(value) {
-
                     return value.get('User')[me.manager_field] || "none"; 
                 }
             });
@@ -2737,6 +2879,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                 editor: null,
                 renderer: function(value) {
                     if ( Ext.isEmpty(value) ) { return ""; }
+                    //console.log(value);
                     return Ext.String.format("<a target='_blank' href='{0}'>{1}</a>",
                         Rally.nav.Manager.getDetailUrl(value),
                         value._refObjectName
@@ -2801,14 +2944,16 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
         
         var editor_config = function(record,df){
             
+            console.log('df', df);
+            
             if( record && record.isLocked() ) {
                 return false;
             }
             
-            if ( ! me.editable && ! record.get('__Appended') ){
+            // TODO: Why is record null on tab/return?
+            if ( !me.editable && ( ! record ||  ! record.get('__Appended') ) ){
                 return false;
             }
-            
             
             var config = {
                 xtype:'rallynumberfield',

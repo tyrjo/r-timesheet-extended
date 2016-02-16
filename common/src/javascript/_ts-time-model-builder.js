@@ -3,6 +3,8 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
 
     deploy_field: 'c_IsDeployed',
     
+    appendKeyPrefix: 'rally.technicalservices.timesheet.append',
+
     days: ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'],
     
     build: function(modelType, newModelName) {
@@ -22,6 +24,7 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
                     { name: '__Total',     type: 'float', defaultValue: 0 },
                     { name: '__SecretKey', type:'auto', defaultValue: 1 },
                     { name: '__Appended', type: 'boolean', defaultValue: false },
+                    { name: '__PrefID', type:'auto', defaultValue: -1 },
                     { name: '_ReleaseLockFieldName',  type:'string', defaultValue: Rally.technicalservices.TimeModelBuilder.deploy_field }
 
                 ];
@@ -37,6 +40,8 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
                     _updateTotal: this._updateTotal,
                     _days: this.days,
                     save: this._save,
+                    _saveAsPref: this._saveAsPref,
+                    _savePreference: this._savePreference,
                     getField: this.getField,
                     clearAndRemove: this.clearAndRemove,
                     isLocked: this._isLocked
@@ -77,9 +82,94 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
         this.destroy();
     },
     
+    _saveAsPref: function() {
+        var me = this;
+        var item = this.get('Task') || this.get('WorkProduct');
+
+        var key = Ext.String.format("{0}.{1}.{2}.{3}", 
+            Rally.technicalservices.TimeModelBuilder.appendKeyPrefix,
+            TSDateUtils.formatShiftedDate(this.get('WeekStartDate'),'Y-m-d'),
+            this.get('User').ObjectID,
+            item.ObjectID
+        );
+        
+        var value = Ext.JSON.encode(this.getData());
+        var project_oid = this.get('Project').ObjectID;
+        
+        Rally.data.ModelFactory.getModel({
+            type: 'Preference',
+            success: function(model) {
+
+                var pref_config = {
+                    Name: key,
+                    Value: value,
+                    Project: TSUtilities.getEditableProjectForCurrentUser()
+                }
+
+                var pref = Ext.create(model, pref_config);
+                
+                pref.save({
+                    callback: function(result, operation) {
+                        if(operation.wasSuccessful()) {
+                            me.set('ObjectID', result.get('ObjectID'));
+                            me.set('__PrefID', result.get('ObjectID'));
+                            console.log('saved:', me);
+                        } else {
+                            Ext.Msg.alert('Problem amending', operation.error.errors[0]);
+                        }
+                    }
+                });
+            }
+        });
+    },
+    
+    _savePreference: function(changes) {
+        var oid = this.get('__PrefID');
+        var me = this;
+        
+        Rally.data.ModelFactory.getModel({
+            type: 'Preference',
+            success: function(model) {
+                model.load(oid, {
+                    fetch: ['Name', 'ObjectID', 'Value'],
+                    callback: function(result, operation) {
+                        if(operation.wasSuccessful()) {
+                            result.set('Value', Ext.JSON.encode(me.getData()));
+                            result.save({
+                                callback: function(result, operation) {
+                                    if(operation.wasSuccessful()) {
+                                        console.log('saved:', me);
+                                    } else {
+                                        Ext.Msg.alert('Problem saving change', operation.error.errors[0]);
+                                    }
+                                }
+                            });
+                        }
+                    }
+                });
+            }
+        });
+        
+        Ext.Object.each(changes, function(field_name, value){
+            console.log(field_name, value);
+            
+        });
+    },
+    
     _save: function(v) { 
         var me = this;
         var changes = this.getChanges();
+        console.log('changes',changes);
+
+        if ( this.get('__Appended') && this.get('ObjectID') == -1 ) {
+            this._saveAsPref();
+        }
+        
+        if ( this.get('__Appended') ) {
+            this._savePreference(changes);
+            return;
+        }
+        
         Ext.Object.each(changes, function(field_name, value) {
             var row = this;
             var field = row.getField(field_name);

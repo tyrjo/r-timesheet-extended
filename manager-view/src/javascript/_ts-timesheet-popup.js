@@ -49,7 +49,7 @@ Ext.define('Rally.technicalservices.ManagerDetailDialog', {
     
     _addSelectors: function() {
         var status = this.record.get('__Status');
-                
+         
         var comment_key = Ext.String.format("{0}.{1}.{2}", 
             this.commentKeyPrefix,
             TSDateUtils.formatShiftedDate(this.record.get('WeekStartDate'),'Y-m-d'),
