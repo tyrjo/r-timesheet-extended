@@ -4,6 +4,7 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
     deploy_field: 'c_IsDeployed',
     
     appendKeyPrefix: 'rally.technicalservices.timesheet.append',
+    amendKeyPrefix: 'rally.technicalservices.timesheet.amend',
 
     days: ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'],
     
@@ -24,6 +25,7 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
                     { name: '__Total',     type: 'float', defaultValue: 0 },
                     { name: '__SecretKey', type:'auto', defaultValue: 1 },
                     { name: '__Appended', type: 'boolean', defaultValue: false },
+                    { name: '__Amended', type: 'boolean', defaultValue: false },
                     { name: '__PrefID', type:'auto', defaultValue: -1 },
                     { name: '_ReleaseLockFieldName',  type:'string', defaultValue: Rally.technicalservices.TimeModelBuilder.deploy_field }
 
@@ -85,9 +87,12 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
     _saveAsPref: function() {
         var me = this;
         var item = this.get('Task') || this.get('WorkProduct');
-
+        var prefix = Rally.technicalservices.TimeModelBuilder.appendKeyPrefix;
+        if ( this.get('__Amended') ) {
+            prefix = Rally.technicalservices.TimeModelBuilder.amendKeyPrefix;
+        }
         var key = Ext.String.format("{0}.{1}.{2}.{3}", 
-            Rally.technicalservices.TimeModelBuilder.appendKeyPrefix,
+            prefix,
             TSDateUtils.formatShiftedDate(this.get('WeekStartDate'),'Y-m-d'),
             this.get('User').ObjectID,
             item.ObjectID
@@ -159,13 +164,13 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
     _save: function(v) { 
         var me = this;
         var changes = this.getChanges();
-        console.log('changes',changes);
+        console.log('changes',changes,this);
 
-        if ( this.get('__Appended') && this.get('ObjectID') == -1 ) {
+        if ( ( this.get('__Amended') || this.get('__Appended') ) && this.get('ObjectID') == -1 ) {
             this._saveAsPref();
         }
         
-        if ( this.get('__Appended') ) {
+        if ( this.get('__Appended') || this.get('__Amended') ) {
             this._savePreference(changes);
             return;
         }

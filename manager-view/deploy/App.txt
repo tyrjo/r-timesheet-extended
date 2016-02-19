@@ -3,11 +3,11 @@
 <head>
     <title>Time Sheet Approval</title>
     <!--  (c) 2015 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Thu Feb 18 2016 18:35:36 GMT-0800 (PST) -->
+    <!--  Build Date: Thu Feb 18 2016 20:32:14 GMT-0800 (PST) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Thu Feb 18 2016 18:35:36 GMT-0800 (PST)";
-        var CHECKSUM = 393652818230;
+        var APP_BUILD_DATE = "Thu Feb 18 2016 20:32:14 GMT-0800 (PST)";
+        var CHECKSUM = 465627548136;
     </script>
     
     <script type="text/javascript" src="/apps/2.0/sdk.js"></script>
@@ -1100,6 +1100,313 @@ Ext.define('Rally.technicalservices.FileUtilities', {
     }
 
 });
+Ext.define('Rally.technicalservices.AlterTimeEntryMenuItem', {
+    extend: 'Rally.ui.menu.item.RecordMenuItem',
+    alias: 'widget.tsaltertimeentrymenuitem',
+
+
+    config: {
+        text: 'Alter Values',
+        records: []
+    },
+
+    constructor: function(config) {
+        config = config || {};
+
+        config.predicate = config.predicate || this.shouldShowMenuItem;
+        config.handler   = config.handler || this._alterRecords;
+        
+        this.initConfig(config);
+        this.callParent([config]);
+    },
+    
+    shouldShowMenuItem: function(record) {
+        return !record.isLocked();
+    },
+    _alterRecord: function(record) {
+        var timetable = this.view.ownerCt.ownerCt;
+        
+        timetable.cloneForAppending(record);
+    },
+    
+    _alterRecords: function() {
+        var record = this.record;
+        var records = this.records;
+        
+        if ( records.length === 0 ) {
+            records = [record];
+        }
+        
+        Ext.Array.each(records, function(record) {
+            this._alterRecord(record);
+        },this);
+    }
+});
+Ext.override(Rally.ui.grid.CheckboxModel, {
+    _recordIsSelectable: function(record) {
+        return true;
+    }
+});
+Ext.define('Rally.technicalservices.RemoveTimeEntryMenuItem', {
+    extend: 'Rally.ui.menu.item.RecordMenuItem',
+    alias: 'widget.tsremovetimeentrymenuitem',
+
+
+    config: {
+        text: 'Clear & Remove',
+        records: []
+    },
+
+    constructor: function(config) {
+        config = config || {};
+
+        config.predicate = config.predicate || this.shouldShowMenuItem;
+        config.handler   = config.handler || this._removeRecords;
+        
+        this.initConfig(config);
+        this.callParent([config]);
+    },
+    
+    shouldShowMenuItem: function(record) {
+        return !record.isLocked();
+    },
+    _removeRecord: function(record) {
+        record.clearAndRemove();
+    },
+    
+    _removeRecords: function() {
+        var record = this.record;
+        var records = this.records;
+        
+        if ( records.length === 0 ) {
+            records = [record];
+        }
+        
+        Ext.Array.each(records, function(record) {
+            this._removeRecord(record);
+        },this);
+    }
+});
+
+Ext.define('Rally.technicalservices.TimeEntryRecordMenu', {
+    extend: 'Rally.ui.menu.RecordMenu',
+    alias: 'widget.tstimeentryrecordmenu',
+
+    config: {
+
+        /**
+         * @cfg {Rally.data.Model} record (required)
+         * The record to build the menu for
+         */
+        record: null,
+
+        /**
+         * @cfg {Ext.Element|HTMLElement} (optional) owningEl
+         * The element this menu item is being invoked against.
+         */
+        owningEl: undefined,
+        
+        forModification: false
+
+    },
+
+    initComponent: function() {
+        this.items = this._getMenuItems();
+        
+        this.callParent(arguments);
+    },
+
+    _getMenuItems: function() {
+        var record = this.getRecord(),
+            records = this.records || [],
+            items = [],
+            popoverPlacement = this.popoverPlacement || Rally.ui.popover.Popover.DEFAULT_PLACEMENT;
+
+        console.log('--', record);
+        
+        if ( records && records.length > 0 ) {
+            // bulk edit
+            items.push({
+                xtype: 'tsremovetimeentrymenuitem',
+                view: this.view,
+                record: record,
+                records: records
+            });
+           
+        } else {
+            if ( this.forModification ) {
+                if ( record.get('__Appended') || record.get('__Amended')) {
+//                    items.push({
+//                        xtype: 'tsremovetimeentrymenuitem',
+//                        view: this.view,
+//                        record: record
+//                    });
+                } else {
+                    items.push({
+                        xtype: 'tsaltertimeentrymenuitem',
+                        view: this.view,
+                        record: record
+                    });
+                }
+            } else {
+                items.push({
+                    xtype: 'tsremovetimeentrymenuitem',
+                    view: this.view,
+                    record: record
+                });
+            }
+                    
+        }
+        return items;
+    }
+});
+Ext.define('Rally.technicalservices.grid.TimeTableRowActionColumn', {
+    extend: 'Ext.grid.column.Column',
+    alias: 'widget.tstimetablerowactioncolumn',
+
+    inheritableStatics: {
+        getRequiredFetchFields: function(grid) {
+            return (grid.enableBulkEdit && ['Project', 'Tags']) || [];
+        }
+    },
+    
+    /**
+     * @property {Boolean} sortable False to disable sorting of this column
+     *
+     */
+    sortable: false,
+    /**
+     * @property {Boolean} hideable False to disable hiding of column
+     *
+     */
+    hideable: false,
+    /**
+     * @property {Boolean} resizable False to disable resizing of column
+     *
+     */
+    resizable: false,
+    /**
+     * @property {Boolean} draggable False to disable reordering of a column
+     *
+     */
+    draggable: false,
+    /**
+     * @property {Boolean} menuDisabled True to disable the column header menu containing sort/hide options
+     *
+     */
+    menuDisabled: true,
+    /**
+     * 
+     * @property {Boolean} forModification  True to show menu items for manager appending/changing of timesheet
+     */
+    forModification: false,
+    
+    /**
+     * @property {Number}
+     *
+     */
+    flex: -1,
+    minWidth: Ext.isIE9 ? 22 : 26,
+    maxWidth: Ext.isIE9 ? 22 : 26,
+
+    /**
+     * @property {Boolean}
+     * This column should not show up on print pages that include a printable grid
+     */
+    printable: false,
+
+    tdCls: 'rally-cell-row-action',
+    cls: 'row-action-column-header',
+
+    config: {
+        /**
+         * @cfg {Function} rowActionsFn
+         * @params record {Ext.data.Record} The record to be assigned to record menu items
+         * A list of Rally.ui.menu.Menu#items objects that will be used as the row action options
+         * Each row action can contain a predicate property which will be evaluated to see if the row action should be included
+         * Usage:
+         *      [
+         *          {text: 'Move...', record: record, handler: function(){  // move this.record  }}
+         *      ]
+         */
+        rowActionsFn: null,
+
+        /**
+         * @cfg {Object} scope The scope that the rowActionsFn is called with
+         */
+        scope: null,
+        
+        canUnlock: false
+    },
+
+    constructor: function() {
+        this.callParent(arguments);
+        this.renderer = this._renderGearIcon;
+    },
+
+    initComponent: function() {
+        this.callParent(arguments);
+        this.on('click', this._showMenu, this);
+    },
+
+    onDestroy: function() {
+        if (this.menu) {
+            this.menu.destroy();
+            delete this.menu;
+        }
+
+        this.callParent(arguments);
+    },
+
+    /**
+     * @private
+     * @param value
+     * @param metaData
+     * @param record
+     */
+    _renderGearIcon: function(value, metaData, record) {
+        metaData.tdCls = Rally.util.Test.toBrowserTestCssClass('row-action', Rally.util.Ref.getOidFromRef(record.get('_ref')));
+        return '<div class="row-action-icon icon-gear"/>';
+    },
+
+    /**
+     * @private
+     * @param view
+     * @param el
+     */
+    _showMenu: function(view, el) {
+        var selectedRecord = view.getRecord(Ext.fly(el).parent("tr")),
+            checkedRecords = view.getSelectionModel().getSelection(),
+            grid = view.panel,
+            defaultOptions;
+
+        defaultOptions = {
+            view: view,
+            record: selectedRecord,
+            records: checkedRecords,
+            owningEl: el.parentElement,
+            popoverPlacement: ['bottom', 'top'],
+            canUnlock: this.canUnlock,
+            forModification: this.forModification
+        };
+
+        if (this.rowActionsFn) {
+            this.menu = Ext.create('Rally.technicalservices.TimeEntryRecordMenu', Ext.apply({
+                items: this.rowActionsFn.call(this.scope || this, selectedRecord)
+            }, defaultOptions));
+        } else {
+            this.menu = this._getDefaultRecordMenu(selectedRecord, defaultOptions);
+        }
+
+        this.menu.showBy(Ext.fly(el).down(".row-action-icon"));
+    },
+
+    _getDefaultRecordMenu: function(selectedRecord, defaultOptions) {
+        var menu;
+        var menuOptions = Ext.merge(defaultOptions, this.menuOptions || {});
+        return Ext.create('Rally.technicalservices.TimeEntryRecordMenu', menuOptions);
+    }
+});
 Ext.define('Rally.technicalservices.CommentDialog',{
     extend: 'Rally.ui.dialog.Dialog',
     alias: 'widget.tscommentdialog',
@@ -2015,6 +2322,7 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
     deploy_field: 'c_IsDeployed',
     
     appendKeyPrefix: 'rally.technicalservices.timesheet.append',
+    amendKeyPrefix: 'rally.technicalservices.timesheet.amend',
 
     days: ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'],
     
@@ -2035,6 +2343,7 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
                     { name: '__Total',     type: 'float', defaultValue: 0 },
                     { name: '__SecretKey', type:'auto', defaultValue: 1 },
                     { name: '__Appended', type: 'boolean', defaultValue: false },
+                    { name: '__Amended', type: 'boolean', defaultValue: false },
                     { name: '__PrefID', type:'auto', defaultValue: -1 },
                     { name: '_ReleaseLockFieldName',  type:'string', defaultValue: Rally.technicalservices.TimeModelBuilder.deploy_field }
 
@@ -2096,9 +2405,12 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
     _saveAsPref: function() {
         var me = this;
         var item = this.get('Task') || this.get('WorkProduct');
-
+        var prefix = Rally.technicalservices.TimeModelBuilder.appendKeyPrefix;
+        if ( this.get('__Amended') ) {
+            prefix = Rally.technicalservices.TimeModelBuilder.amendKeyPrefix;
+        }
         var key = Ext.String.format("{0}.{1}.{2}.{3}", 
-            Rally.technicalservices.TimeModelBuilder.appendKeyPrefix,
+            prefix,
             TSDateUtils.formatShiftedDate(this.get('WeekStartDate'),'Y-m-d'),
             this.get('User').ObjectID,
             item.ObjectID
@@ -2170,13 +2482,13 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
     _save: function(v) { 
         var me = this;
         var changes = this.getChanges();
-        console.log('changes',changes);
+        console.log('changes',changes,this);
 
-        if ( this.get('__Appended') && this.get('ObjectID') == -1 ) {
+        if ( ( this.get('__Amended') || this.get('__Appended') ) && this.get('ObjectID') == -1 ) {
             this._saveAsPref();
         }
         
-        if ( this.get('__Appended') ) {
+        if ( this.get('__Appended') || this.get('__Amended') ) {
             this._savePreference(changes);
             return;
         }
@@ -2404,13 +2716,15 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
         Deft.Chain.sequence([
             this._loadTimeEntryItems,
             this._loadTimeEntryValues,
-            this._loadTimeEntryAppends
+            this._loadTimeEntryAppends,
+            this._loadTimeEntryAmends
         ],this).then({
             scope: this,
             success: function(results) {
                 var time_entry_items  = results[0];
                 var time_entry_values = results[1];
                 var time_entry_appends = results[2];
+                var time_entry_amends = results[3];
                 
                 var rows = Ext.Array.map(time_entry_items, function(item){
                     var product = item.get('Project');
@@ -2443,12 +2757,14 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                 
                 var rows = this._addTimeEntryValues(rows, time_entry_values);
                 var appended_rows = this._getAppendedRowsFromPreferences(time_entry_appends);
+                var amended_rows = this._getAmendedRowsFromPreferences(time_entry_amends);
                 
                 this.logger.log('TEIs:', time_entry_items);
                 this.logger.log('Rows:', rows);
                 this.logger.log('Appended Rows:', appended_rows);
+                this.logger.log('Amended Rows:', amended_rows);
 
-                this.rows = Ext.Array.merge(rows,appended_rows);
+                this.rows = Ext.Array.merge(rows,appended_rows,amended_rows);
                 this._makeGrid(this.rows);
                 this.setLoading(false);
             }
@@ -2457,6 +2773,19 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
     },
     
     _getAppendedRowsFromPreferences: function(prefs) {
+        return Ext.Array.map(prefs, function(pref){
+            var value = Ext.JSON.decode(pref.get('Value'));
+            value.ObjectID = pref.get('ObjectID');
+            value.__PrefID = pref.get('ObjectID');
+
+            var row = Ext.create('TSTableRow', value);
+            row.set('updatable', true); // so we can add values to the week 
+
+            return row;
+        });
+    },
+    
+    _getAmendedRowsFromPreferences: function(prefs) {
         return Ext.Array.map(prefs, function(pref){
             var value = Ext.JSON.decode(pref.get('Value'));
             value.ObjectID = pref.get('ObjectID');
@@ -2534,7 +2863,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
     },
     
     _loadTimeEntryAppends: function() {
-        this.setLoading('Loading time entry modifications...');
+        this.setLoading('Loading time entry additions...');
         
         var user_oid = Rally.getApp().getContext().getUser().ObjectID;
         
@@ -2544,6 +2873,35 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
         
         var key = Ext.String.format("{0}.{1}.{2}", 
             Rally.technicalservices.TimeModelBuilder.appendKeyPrefix,
+            this.startDateString.replace(/T.*$/,''),
+            user_oid
+        );
+        
+        var config = {
+            model: 'Preference',
+            context: {
+                project: null
+            },
+            fetch: ['Name','Value','ObjectID'],
+            filters: [
+                {property:'Name',operator:'contains',value:key}
+            ]
+        };
+        
+        return TSUtilities.loadWsapiRecords(config);
+    },
+    
+    _loadTimeEntryAmends: function() {
+        this.setLoading('Loading time entry amendments...');
+        
+        var user_oid = Rally.getApp().getContext().getUser().ObjectID;
+        
+        if ( !Ext.isEmpty(this.timesheet_user) ) {
+            user_oid = this.timesheet_user.ObjectID;
+        }
+        
+        var key = Ext.String.format("{0}.{1}.{2}", 
+            Rally.technicalservices.TimeModelBuilder.amendKeyPrefix,
             this.startDateString.replace(/T.*$/,''),
             user_oid
         );
@@ -2643,10 +3001,37 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
         return ( this.timesheet_user.ObjectID == Rally.getApp().getContext().getUser().ObjectID);
     },
     
+    cloneForAppending: function(record) {
+        var me = this;
+        var item = record.get('WorkProduct');
+        
+        if (! Ext.isEmpty( record.get('Task') ) ) {
+            item = record.get('Task');
+        }
+        
+        var type = item._type;
+        var objectid = item.ObjectID;
+        
+        Rally.data.ModelFactory.getModel({
+            type: type,
+            success: function(model) {
+                model.load(objectid, {
+                    fetch: ['Name', 'FormattedID', 'Project','ObjectID','WorkProduct','Feature'],
+                    callback: function(result, operation) {
+                        if(operation.wasSuccessful()) {
+                            result.set('__Amended', true);
+                            me.addRowForItem(result);
+                        }
+                    }
+                });
+            }
+        });
+    },
+    
     addRowForItem: function(item) {
         var me = this;
 
-        if ( !this._hasRowForItem(item)) {
+        if (  !this._hasRowForItem(item)) {
             var item_type = item.get('_type');
 
             var config = {
@@ -2694,9 +3079,15 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                     __TimeEntryItem: Ext.create(this.tei_model,config),
                     __Feature: null,
                     __Product: config.Project,
-                    __Release: config.WorkProduct.Release,
-                    __Appended: true
+                    __Release: config.WorkProduct.Release
                 };
+                
+                                
+                if ( item.get('__Amended') ) {
+                    data.__Amended = item.get('__Amended');
+                } else {
+                    data.__Appended = true;
+                }
                 
                 var row = Ext.create('TSTableRow',Ext.Object.merge(data, config));
                 row.save();
@@ -2706,7 +3097,6 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
 
                 me.rows.push(row);
             } else {
-                
                 var fields = this.tei_model.getFields();
 
                 var time_entry_item = Ext.create(this.tei_model,config);
@@ -2737,7 +3127,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                                 __Product: product,
                                 __Release: release
                             };
-                            
+
                             var row = Ext.create('TSTableRow',Ext.Object.merge(data, time_entry_item.getData()));
 
                             me.grid.getStore().loadRecords([row], { addRecords: true });
@@ -2755,11 +3145,12 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
     
     _hasRowForItem: function(item) {
         var item_type = item.get('_type');
+        var amender = item.get('__Amended');
         
         var hasRow = false;
         var rows = [];
-        var store_count = this.grid.getStore().getTotalCount();
-        
+        var store_count = this.grid.getStore().data.items.length;  // this.grid.getStore().getTotalCount();
+                
         for ( var i=0; i<store_count; i++ ) {
             rows.push(this.grid.getStore().getAt(i));
         }
@@ -2768,11 +3159,15 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
             if ( row ) { // when clear and remove, we get an undefined row
                 if ( item_type == "task" ) {
                     if ( row.get('Task') && row.get('Task')._ref == item.get('_ref') ) {
-                        hasRow = true;
+                        if ( amender && row.get('__Amended') || !amender ) {
+                            hasRow = true;
+                        }
                     }
                 } else {
                     if ( Ext.isEmpty(row.get('Task')) && row.get('WorkProduct') && row.get('WorkProduct')._ref == item.get('_ref') ) {
-                        hasRow = true;
+                        if ( amender && row.get('__Amended') || !amender ) {
+                            hasRow = true;
+                        }
                     }
                 }
             }
@@ -2785,12 +3180,14 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
         var me = this;
                 
         var columns = [];
+        var isForModification = ! this._isForCurrentUser();
         
-        if ( this.editable ) {
+        if ( this.editable ||  isForModification ) {
             columns.push({
-                xtype: 'tsrowactioncolumn'
+                xtype: 'tstimetablerowactioncolumn',
+                forModification: isForModification
             });
-        }
+        } 
             
         Ext.Array.push(columns, [
             {
@@ -2858,6 +3255,11 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                     if ( record.get('__Appended') ) {
                         display_string += "<span class='red icon-edit'> </span>";
                     }
+                    
+                    if ( record.get('__Amended') ) {
+                        display_string += "<span class='red icon-history'> </span>";
+                    }
+                    
                     
                     if ( !Ext.isEmpty(value) ) {
                         display_string += value._refObjectName;
@@ -2943,16 +3345,15 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
         var day_width = 50;
         
         var editor_config = function(record,df){
-            
-            console.log('df', df);
-            
+                        
             if( record && record.isLocked() ) {
                 return false;
             }
             
             // TODO: Why is record null on tab/return?
-            if ( !me.editable && ( ! record ||  ! record.get('__Appended') ) ){
-                return false;
+            if ( !me.editable ) {
+                if ( !record )                    { return false; }
+                if ( ! record.get('__Appended') && ! record.get('__Amended')  ) { return false; }
             }
             
             var config = {

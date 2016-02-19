@@ -15,7 +15,9 @@ Ext.define('Rally.technicalservices.TimeEntryRecordMenu', {
          * @cfg {Ext.Element|HTMLElement} (optional) owningEl
          * The element this menu item is being invoked against.
          */
-        owningEl: undefined
+        owningEl: undefined,
+        
+        forModification: false
 
     },
 
@@ -31,6 +33,8 @@ Ext.define('Rally.technicalservices.TimeEntryRecordMenu', {
             items = [],
             popoverPlacement = this.popoverPlacement || Rally.ui.popover.Popover.DEFAULT_PLACEMENT;
 
+        console.log('--', record);
+        
         if ( records && records.length > 0 ) {
             // bulk edit
             items.push({
@@ -41,11 +45,27 @@ Ext.define('Rally.technicalservices.TimeEntryRecordMenu', {
             });
            
         } else {
-            items.push({
-                xtype: 'tsremovetimeentrymenuitem',
-                view: this.view,
-                record: record
-            });
+            if ( this.forModification ) {
+                if ( record.get('__Appended') || record.get('__Amended')) {
+//                    items.push({
+//                        xtype: 'tsremovetimeentrymenuitem',
+//                        view: this.view,
+//                        record: record
+//                    });
+                } else {
+                    items.push({
+                        xtype: 'tsaltertimeentrymenuitem',
+                        view: this.view,
+                        record: record
+                    });
+                }
+            } else {
+                items.push({
+                    xtype: 'tsremovetimeentrymenuitem',
+                    view: this.view,
+                    record: record
+                });
+            }
                     
         }
         return items;
