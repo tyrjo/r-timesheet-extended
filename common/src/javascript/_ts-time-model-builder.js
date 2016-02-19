@@ -78,8 +78,29 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
         Ext.Array.each(cells_to_clear, function(cell_to_clear){
             this.set(cell_to_clear,0);
         },this);
-        if ( ! Ext.isEmpty(timeentryitem)){
-            timeentryitem.destroy();
+        
+        if ( this.get('__PrefID') > 0 ) {
+            // destroy the preference
+            var oid = this.get('__PrefID');
+            
+            Rally.data.ModelFactory.getModel({
+                type: 'Preference',
+                success: function(model) {
+                    model.load(oid, {
+                        fetch: ['Name', 'ObjectID', 'Value'],
+                        callback: function(result, operation) {
+                            if(operation.wasSuccessful()) {
+                                result.destroy();
+                            }
+                        }
+                    });
+                }
+            });
+            
+        } else {
+            if ( ! Ext.isEmpty(timeentryitem) ){
+                timeentryitem.destroy();
+            }
         }
         this.destroy();
     },
@@ -118,7 +139,6 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
                         if(operation.wasSuccessful()) {
                             me.set('ObjectID', result.get('ObjectID'));
                             me.set('__PrefID', result.get('ObjectID'));
-                            console.log('saved:', me);
                         } else {
                             Ext.Msg.alert('Problem amending', operation.error.errors[0]);
                         }
@@ -157,14 +177,12 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
         
         Ext.Object.each(changes, function(field_name, value){
             console.log(field_name, value);
-            
         });
     },
     
     _save: function(v) { 
         var me = this;
         var changes = this.getChanges();
-        console.log('changes',changes,this);
 
         if ( ( this.get('__Amended') || this.get('__Appended') ) && this.get('ObjectID') == -1 ) {
             this._saveAsPref();

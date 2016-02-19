@@ -381,6 +381,10 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
         return ( this.timesheet_user.ObjectID == Rally.getApp().getContext().getUser().ObjectID);
     },
     
+    absorbTime: function(record) {
+        console.log('absorb!', record);
+    },
+    
     cloneForAppending: function(record) {
         var me = this;
         var item = record.get('WorkProduct');
@@ -464,7 +468,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                 
                                 
                 if ( item.get('__Amended') ) {
-                    data.__Amended = item.get('__Amended');
+                    data.__Amended = true;
                 } else {
                     data.__Appended = true;
                 }
@@ -736,9 +740,15 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                 if ( ! record.get('__Appended') && ! record.get('__Amended')  ) { return false; }
             }
             
+            var minValue = 0;
+            console.log(record.get('__Amended'));
+            
+            if ( record.get('__Amended') ) {
+                minValue = -24;
+            }
             var config = {
                 xtype:'rallynumberfield',
-                minValue: 0,
+                minValue: minValue,
                 maxValue: 24,
                 selectOnFocus: true,
                 listeners: {

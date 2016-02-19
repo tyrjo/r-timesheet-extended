@@ -32,8 +32,6 @@ Ext.define('Rally.technicalservices.TimeEntryRecordMenu', {
             records = this.records || [],
             items = [],
             popoverPlacement = this.popoverPlacement || Rally.ui.popover.Popover.DEFAULT_PLACEMENT;
-
-        console.log('--', record);
         
         if ( records && records.length > 0 ) {
             // bulk edit
@@ -47,11 +45,11 @@ Ext.define('Rally.technicalservices.TimeEntryRecordMenu', {
         } else {
             if ( this.forModification ) {
                 if ( record.get('__Appended') || record.get('__Amended')) {
-//                    items.push({
-//                        xtype: 'tsremovetimeentrymenuitem',
-//                        view: this.view,
-//                        record: record
-//                    });
+                    items.push({
+                        xtype: 'tsremovetimeentrymenuitem',
+                        view: this.view,
+                        record: record
+                    });
                 } else {
                     items.push({
                         xtype: 'tsaltertimeentrymenuitem',
@@ -65,6 +63,14 @@ Ext.define('Rally.technicalservices.TimeEntryRecordMenu', {
                     view: this.view,
                     record: record
                 });
+                
+                if ( record.get('__Amended') || record.get('__Appended') ) {
+                    items.push({
+                        xtype: 'tsabsorbtimeentrymenuitem',
+                        view: this.view,
+                        record: record
+                    });
+                }
             }
                     
         }
