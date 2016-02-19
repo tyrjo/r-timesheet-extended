@@ -3,11 +3,11 @@
 <head>
     <title>Extended Timesheet</title>
     <!--  (c) 2015 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Mon Feb 15 2016 18:57:41 GMT-0800 (PST) -->
+    <!--  Build Date: Thu Feb 18 2016 18:35:41 GMT-0800 (PST) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Mon Feb 15 2016 18:57:41 GMT-0800 (PST)";
-        var CHECKSUM = 262385255272;
+        var APP_BUILD_DATE = "Thu Feb 18 2016 18:35:41 GMT-0800 (PST)";
+        var CHECKSUM = 262338842517;
     </script>
     
     <script type="text/javascript" src="/apps/2.0/sdk.js"></script>
@@ -2856,7 +2856,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                     }
                     
                     if ( record.get('__Appended') ) {
-                        display_string += "<span class='red icon-attachment'> </span>";
+                        display_string += "<span class='red icon-edit'> </span>";
                     }
                     
                     if ( !Ext.isEmpty(value) ) {

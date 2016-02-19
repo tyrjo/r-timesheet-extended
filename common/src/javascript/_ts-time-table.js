@@ -548,7 +548,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                     }
                     
                     if ( record.get('__Appended') ) {
-                        display_string += "<span class='red icon-attachment'> </span>";
+                        display_string += "<span class='red icon-edit'> </span>";
                     }
                     
                     if ( !Ext.isEmpty(value) ) {
