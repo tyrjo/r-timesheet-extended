@@ -3,11 +3,11 @@
 <head>
     <title>Extended Timesheet</title>
     <!--  (c) 2015 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Thu Feb 18 2016 20:53:24 GMT-0800 (PST) -->
+    <!--  Build Date: Mon Feb 22 2016 19:14:02 GMT-0800 (PST) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Thu Feb 18 2016 20:53:24 GMT-0800 (PST)";
-        var CHECKSUM = 296795947635;
+        var APP_BUILD_DATE = "Mon Feb 22 2016 19:14:02 GMT-0800 (PST)";
+        var CHECKSUM = 306359728124;
     </script>
     
     <script type="text/javascript" src="/apps/2.0/sdk.js"></script>
@@ -502,6 +502,32 @@ Ext.define('TSUtilities', {
         return deferred.promise;
     },
     
+    getPreferenceProject: function() {
+        var app = Rally.getApp();
+        
+        return app.getSetting('preferenceProjectRef');
+    },
+    
+    isEditableProjectForCurrentUser: function(projectRef,scope) {
+        var app = scope || Rally.getApp(),
+            me = this;
+
+        if ( this.currentUserIsAdmin(scope) ) {
+            return true;
+        }
+        
+        var project_oid = this._getOidFromRef(projectRef);
+        var editor_permissions = Ext.Array.filter(app.getContext().getPermissions().userPermissions, function(permission){
+            if ( permission.Role != "Editor" && permission.Role != "ProjectAdmin") {
+                return false;
+            }
+            
+            return ( me._getOidFromRef(permission._ref) == project_oid );
+        });
+        
+        console.log(editor_permissions);
+        return ( editor_permissions.length > 0 );
+    },
     
     getEditableProjectForCurrentUser: function() {
         var app = Rally.getApp();
@@ -534,12 +560,12 @@ Ext.define('TSUtilities', {
     
     _getOidFromRef: function(ref) {
         var ref_array = ref.replace(/\.js$/,'').split(/\//);
-        return ref_array[ref_array.length-1];
+        return ref_array[ref_array.length-1].replace(/\.js/,'');
     },
     
     // true if sub or workspace admin
-    currentUserIsAdmin: function(){
-        var app = Rally.getApp();
+    currentUserIsAdmin: function(scope){
+        var app = scope || Rally.getApp();
         
         if ( app.getContext().getUser().SubscriptionAdmin ) {
             return true;
@@ -2140,7 +2166,7 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
                 var pref_config = {
                     Name: key,
                     Value: value,
-                    Project: TSUtilities.getEditableProjectForCurrentUser()
+                    Project: TSUtilities.getPreferenceProject()
                 }
 
                 var pref = Ext.create(model, pref_config);
@@ -2799,7 +2825,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                 
                                 
                 if ( item.get('__Amended') ) {
-                    data.__Amended = item.get('__Amended');
+                    data.__Amended = true;
                 } else {
                     data.__Appended = true;
                 }
@@ -3072,6 +3098,8 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
             }
             
             var minValue = 0;
+            console.log(record.get('__Amended'));
+            
             if ( record.get('__Amended') ) {
                 minValue = -24;
             }
@@ -3499,13 +3527,24 @@ Ext.define("TSExtendedTimesheet", {
     integrationHeaders : {
         name : "TSExtendedTimesheet"
     },
+    
+    config: {
+        defaultSettings: {
+            preferenceProjectRef: '/project/51712374295'
+        }
+    },
    
     _timeLockKeyPrefix: 'rally.technicalservices.timesheet.weeklock',
     _commentKeyPrefix: 'rally.technicalservices.timesheet.comment',
     _approvalKeyPrefix: 'rally.technicalservices.timesheet.status',
 
     launch: function() {
-        this._addSelectors(this.down('#selector_box'));
+        var preference_project_ref = this.getSetting('preferenceProjectRef');
+        if ( !  TSUtilities.isEditableProjectForCurrentUser(preference_project_ref,this) ) {
+            Ext.Msg.alert('Contact your Administrator', 'This app requires editor access to the preference project.');
+        } else {
+            this._addSelectors(this.down('#selector_box'));
+        }
     },
     
     _addSelectors: function(container) {
@@ -3896,6 +3935,23 @@ Ext.define("TSExtendedTimesheet", {
                 }
              });
         }
+    },
+    
+    getSettingsFields: function() {
+        var me = this;
+        
+        return [{
+            name: 'preferenceProjectRef',
+            xtype:'rallyprojectpicker',
+            fieldLabel: 'Preference Project',
+            workspace: this.getContext().getWorkspaceRef(),
+            showMostRecentlyUsedProjects : false,
+            autoExpand: true,
+            labelWidth: 75,
+            labelAlign: 'left',
+            minWidth: 200,
+            margin: 10
+        }];
     },
     
 //    getOptions: function() {

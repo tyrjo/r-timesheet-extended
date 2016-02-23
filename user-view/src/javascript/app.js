@@ -14,13 +14,24 @@ Ext.define("TSExtendedTimesheet", {
     integrationHeaders : {
         name : "TSExtendedTimesheet"
     },
+    
+    config: {
+        defaultSettings: {
+            preferenceProjectRef: '/project/51712374295'
+        }
+    },
    
     _timeLockKeyPrefix: 'rally.technicalservices.timesheet.weeklock',
     _commentKeyPrefix: 'rally.technicalservices.timesheet.comment',
     _approvalKeyPrefix: 'rally.technicalservices.timesheet.status',
 
     launch: function() {
-        this._addSelectors(this.down('#selector_box'));
+        var preference_project_ref = this.getSetting('preferenceProjectRef');
+        if ( !  TSUtilities.isEditableProjectForCurrentUser(preference_project_ref,this) ) {
+            Ext.Msg.alert('Contact your Administrator', 'This app requires editor access to the preference project.');
+        } else {
+            this._addSelectors(this.down('#selector_box'));
+        }
     },
     
     _addSelectors: function(container) {
@@ -411,6 +422,23 @@ Ext.define("TSExtendedTimesheet", {
                 }
              });
         }
+    },
+    
+    getSettingsFields: function() {
+        var me = this;
+        
+        return [{
+            name: 'preferenceProjectRef',
+            xtype:'rallyprojectpicker',
+            fieldLabel: 'Preference Project',
+            workspace: this.getContext().getWorkspaceRef(),
+            showMostRecentlyUsedProjects : false,
+            autoExpand: true,
+            labelWidth: 75,
+            labelAlign: 'left',
+            minWidth: 200,
+            margin: 10
+        }];
     },
     
 //    getOptions: function() {
