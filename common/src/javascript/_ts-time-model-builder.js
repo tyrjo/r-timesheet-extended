@@ -129,7 +129,7 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
                 var pref_config = {
                     Name: key,
                     Value: value,
-                    Project: TSUtilities.getEditableProjectForCurrentUser()
+                    Project: TSUtilities.getPreferenceProject()
                 }
 
                 var pref = Ext.create(model, pref_config);

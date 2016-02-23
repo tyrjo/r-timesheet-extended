@@ -65,6 +65,32 @@ Ext.define('TSUtilities', {
         return deferred.promise;
     },
     
+    getPreferenceProject: function() {
+        var app = Rally.getApp();
+        
+        return app.getSetting('preferenceProjectRef');
+    },
+    
+    isEditableProjectForCurrentUser: function(projectRef,scope) {
+        var app = scope || Rally.getApp(),
+            me = this;
+
+        if ( this.currentUserIsAdmin(scope) ) {
+            return true;
+        }
+        
+        var project_oid = this._getOidFromRef(projectRef);
+        var editor_permissions = Ext.Array.filter(app.getContext().getPermissions().userPermissions, function(permission){
+            if ( permission.Role != "Editor" && permission.Role != "ProjectAdmin") {
+                return false;
+            }
+            
+            return ( me._getOidFromRef(permission._ref) == project_oid );
+        });
+        
+        console.log(editor_permissions);
+        return ( editor_permissions.length > 0 );
+    },
     
     getEditableProjectForCurrentUser: function() {
         var app = Rally.getApp();
@@ -97,12 +123,12 @@ Ext.define('TSUtilities', {
     
     _getOidFromRef: function(ref) {
         var ref_array = ref.replace(/\.js$/,'').split(/\//);
-        return ref_array[ref_array.length-1];
+        return ref_array[ref_array.length-1].replace(/\.js/,'');
     },
     
     // true if sub or workspace admin
-    currentUserIsAdmin: function(){
-        var app = Rally.getApp();
+    currentUserIsAdmin: function(scope){
+        var app = scope || Rally.getApp();
         
         if ( app.getContext().getUser().SubscriptionAdmin ) {
             return true;
