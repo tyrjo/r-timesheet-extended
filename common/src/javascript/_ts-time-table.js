@@ -383,6 +383,76 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
     
     absorbTime: function(record) {
         console.log('absorb!', record);
+        var me = this;
+        
+        var clone = Ext.clone(record).getData();
+        record.clearAndRemove();
+        
+        if ( clone.__Appended ) {
+            var work_item = clone.Task;
+            
+            if ( Ext.isEmpty(work_item) ) {
+                work_item = clone.WorkProduct;
+            }
+            
+            this._getItemFromRef(work_item._ref).then({
+                success: function(item) {
+                    me.addRowForItem(item).then({
+                        scope:this,
+                        success: function(row) {
+                            console.log('add days to row', row, clone);
+                            var days = ['__Monday','__Tuesday','__Wednesday','__Thursday','__Friday','__Saturday','__Sunday','__Total'];
+
+                            //var days = me._getDayValuesFromRow(clone);
+                            Ext.Array.each(days, function(day) {
+                                if ( clone[day] > 0 ) {
+                                    console.log(day, clone[day]);
+                                    row.set(day,clone[day]);
+                                }
+                                row.save();
+                            });
+//                            _addTimeEntryValue: function(value_item) {
+//        var value_day = value_item.get('DateVal').getUTCDay();
+//        var value_hours = value_item.get('Hours');
+                        },
+                        failure: function() {
+                            
+                        }
+                    });
+                }
+            });
+        }
+    },
+    
+    _getDayValuesFromRow: function(row) {
+        var week_start = row.get('WeekStartDate');
+        var days = [];
+        
+    },
+    
+    _getItemFromRef: function(item_ref) {
+        var deferred = Ext.create('Deft.Deferred');
+        var ref_array = item_ref.split(/\//);
+        
+        var objectid = ref_array.pop();
+        var type = ref_array.pop();
+        
+        Rally.data.ModelFactory.getModel({
+            type: type,
+            success: function(model) {
+                model.load(objectid, {
+                    fetch: ['Name', 'FormattedID', 'Project','ObjectID','WorkProduct'],
+                    callback: function(result, operation) {
+                        if(operation.wasSuccessful()) {
+                            deferred.resolve(result);
+                        }
+                    }
+                });
+            }
+        });
+        
+        
+        return deferred.promise;
     },
     
     cloneForAppending: function(record) {
@@ -413,9 +483,14 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
     },
     
     addRowForItem: function(item) {
-        var me = this;
+        var me = this,
+            deferred = Ext.create('Deft.Deferred');
 
-        if (  !this._hasRowForItem(item)) {
+        console.log('addRowForItem', item);
+        
+        if (  this._hasRowForItem(item)) {
+            console.log('has row already:', item);
+        } else {
             var item_type = item.get('_type');
 
             var config = {
@@ -453,6 +528,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
             }
             
             if ( !this._isForCurrentUser() ) {
+                console.log("Creating a shadow item");
                 // create a shadow item
                 config.ObjectID = -1;
                 config._type = "timeentryitem";
@@ -480,7 +556,9 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                 me.grid.getStore().loadRecords([row], { addRecords: true });
 
                 me.rows.push(row);
+                return row;
             } else {
+                console.log('Add item');
                 var fields = this.tei_model.getFields();
 
                 var time_entry_item = Ext.create(this.tei_model,config);
@@ -516,15 +594,19 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
 
                             me.grid.getStore().loadRecords([row], { addRecords: true });
                             me.rows.push(row);
+                            deferred.resolve(row);
                         } else {
                             if ( operation.error && operation.error.errors ) {
                                 Ext.Msg.alert("Problem saving time:", operation.error.errors.join(' '));
+                                deferred.reject();
                             }
                         }
                     }
                 });
             }
         }
+        
+        return deferred.promise;
     },
     
     _hasRowForItem: function(item) {
