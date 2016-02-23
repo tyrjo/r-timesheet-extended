@@ -387,47 +387,64 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
         
         var clone = Ext.clone(record).getData();
         record.clearAndRemove();
-        
-        if ( clone.__Appended ) {
-            var work_item = clone.Task;
-            
-            if ( Ext.isEmpty(work_item) ) {
-                work_item = clone.WorkProduct;
-            }
-            
-            this._getItemFromRef(work_item._ref).then({
-                success: function(item) {
-                    me.addRowForItem(item).then({
-                        scope:this,
-                        success: function(row) {
-                            console.log('add days to row', row, clone);
-                            var days = ['__Monday','__Tuesday','__Wednesday','__Thursday','__Friday','__Saturday','__Sunday','__Total'];
 
-                            //var days = me._getDayValuesFromRow(clone);
-                            Ext.Array.each(days, function(day) {
-                                if ( clone[day] > 0 ) {
-                                    console.log(day, clone[day]);
-                                    row.set(day,clone[day]);
-                                }
-                                row.save();
-                            });
-//                            _addTimeEntryValue: function(value_item) {
-//        var value_day = value_item.get('DateVal').getUTCDay();
-//        var value_hours = value_item.get('Hours');
-                        },
-                        failure: function() {
-                            
-                        }
-                    });
-                }
-            });
+        if ( clone.__Appended ) {
+            this._absorbAppended(clone);
+        } else {
+            var original_row = this.getRowForAmendedRow(clone);
+            
+            console.log('original row', original_row);
+            
+            if ( ! Ext.isEmpty(original_row) ) {
+                var days = ['__Monday','__Tuesday','__Wednesday','__Thursday','__Friday','__Saturday','__Sunday','__Total'];
+    
+                //var days = me._getDayValuesFromRow(clone);
+                Ext.Array.each(days, function(day) {
+                    var clone_value = clone[day] || 0;
+                    var original_value = original_row.get(day) || 0;
+                    
+                    var new_value = original_value + clone[day];
+                    if ( new_value < 0 ) { new_value = 0; }
+                    if ( new_value > 24 ) { new_value = 24; }
+                    
+                    original_row.set(day,new_value);
+                });
+                original_row.save();
+            } else {
+                this._absorbAppended(clone); // original must have been removed
+            }
         }
     },
     
-    _getDayValuesFromRow: function(row) {
-        var week_start = row.get('WeekStartDate');
-        var days = [];
+    _absorbAppended: function(clone) {
+        var me = this;
+        var work_item = clone.Task;
+            
+        if ( Ext.isEmpty(work_item) ) {
+            work_item = clone.WorkProduct;
+        }
         
+        this._getItemFromRef(work_item._ref).then({
+            success: function(item) {
+                me.addRowForItem(item).then({
+                    scope:this,
+                    success: function(row) {
+                        var days = ['__Monday','__Tuesday','__Wednesday','__Thursday','__Friday','__Saturday','__Sunday','__Total'];
+
+                        //var days = me._getDayValuesFromRow(clone);
+                        Ext.Array.each(days, function(day) {
+                            if ( clone[day] > 0 ) {
+                                row.set(day,clone[day]);
+                            }
+                        });
+                        row.save();
+                    },
+                    failure: function() {
+                        
+                    }
+                });
+            }
+        });
     },
     
     _getItemFromRef: function(item_ref) {
@@ -480,6 +497,38 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                 });
             }
         });
+    },
+    
+    getRowForAmendedRow: function(amended_row) {
+        console.log('getting item row for', amended_row);
+        var work_item = amended_row.Task;
+        if ( Ext.isEmpty(work_item) ) {
+            work_item = amended_row.WorkProduct;
+        }
+        
+        
+        var returnRow = null;
+        var rows = [];
+        var store_count = this.grid.getStore().data.items.length;  // this.grid.getStore().getTotalCount();
+                
+        for ( var i=0; i<store_count; i++ ) {
+            rows.push(this.grid.getStore().getAt(i));
+        }
+        
+        Ext.Array.each(rows, function(row) {
+            if ( row ) { 
+                if ( !row.get('__Amended') ) {
+                    var task_oid = row.get('Task') && row.get('Task').ObjectID;
+                    var wp_oid = row.get('WorkProduct').ObjectID;
+                    
+                    if ( task_oid == work_item.ObjectID || wp_oid == work_item.ObjectID ) {
+                        returnRow = row;
+                    }
+                }
+            }
+        });
+        
+        return returnRow;
     },
     
     addRowForItem: function(item) {
