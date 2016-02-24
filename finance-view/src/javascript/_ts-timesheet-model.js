@@ -12,7 +12,8 @@ Ext.define('TSTimesheet',{
         { name: '__LastUpdateBy', type: 'object' },
         { name: '__LastUpdateDate', type: 'date' },
         { name: '__TimeEntryItems', type: 'object' },
-        { name: '__TimeEntryValues', type: 'object' }
+        { name: '__TimeEntryValues', type: 'object' },
+        { name: '__TimeEntryChanges', type: 'object', defaultValue: [] }
     ],
     
     isSelectable: function() {

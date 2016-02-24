@@ -29,6 +29,7 @@ Ext.define('TSTimesheetFinanceRow',{
     extend: 'Ext.data.Model',
     
     fields: [
+        { name: '__ChangeType', type:'string' },
         { name: '__WorkItem', type:'object' },
         { name: '__WorkItemDisplay', type:'string' },
         { name: 'User', type: 'object' },

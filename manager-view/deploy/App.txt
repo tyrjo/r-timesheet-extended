@@ -3,11 +3,11 @@
 <head>
     <title>Time Sheet Approval</title>
     <!--  (c) 2015 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Mon Feb 22 2016 19:13:58 GMT-0800 (PST) -->
+    <!--  Build Date: Tue Feb 23 2016 10:14:48 GMT-0800 (PST) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Mon Feb 22 2016 19:13:58 GMT-0800 (PST)";
-        var CHECKSUM = 488504835045;
+        var APP_BUILD_DATE = "Tue Feb 23 2016 10:14:48 GMT-0800 (PST)";
+        var CHECKSUM = 513407782622;
     </script>
     
     <script type="text/javascript" src="/apps/2.0/sdk.js"></script>
@@ -3095,6 +3095,93 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
     
     absorbTime: function(record) {
         console.log('absorb!', record);
+        var me = this;
+        
+        var clone = Ext.clone(record).getData();
+        record.clearAndRemove();
+
+        if ( clone.__Appended ) {
+            this._absorbAppended(clone);
+        } else {
+            var original_row = this.getRowForAmendedRow(clone);
+            
+            console.log('original row', original_row);
+            
+            if ( ! Ext.isEmpty(original_row) ) {
+                var days = ['__Monday','__Tuesday','__Wednesday','__Thursday','__Friday','__Saturday','__Sunday','__Total'];
+    
+                //var days = me._getDayValuesFromRow(clone);
+                Ext.Array.each(days, function(day) {
+                    var clone_value = clone[day] || 0;
+                    var original_value = original_row.get(day) || 0;
+                    
+                    var new_value = original_value + clone[day];
+                    if ( new_value < 0 ) { new_value = 0; }
+                    if ( new_value > 24 ) { new_value = 24; }
+                    
+                    original_row.set(day,new_value);
+                });
+                original_row.save();
+            } else {
+                this._absorbAppended(clone); // original must have been removed
+            }
+        }
+    },
+    
+    _absorbAppended: function(clone) {
+        var me = this;
+        var work_item = clone.Task;
+            
+        if ( Ext.isEmpty(work_item) ) {
+            work_item = clone.WorkProduct;
+        }
+        
+        this._getItemFromRef(work_item._ref).then({
+            success: function(item) {
+                me.addRowForItem(item).then({
+                    scope:this,
+                    success: function(row) {
+                        var days = ['__Monday','__Tuesday','__Wednesday','__Thursday','__Friday','__Saturday','__Sunday','__Total'];
+
+                        //var days = me._getDayValuesFromRow(clone);
+                        Ext.Array.each(days, function(day) {
+                            if ( clone[day] > 0 ) {
+                                row.set(day,clone[day]);
+                            }
+                        });
+                        row.save();
+                    },
+                    failure: function() {
+                        
+                    }
+                });
+            }
+        });
+    },
+    
+    _getItemFromRef: function(item_ref) {
+        var deferred = Ext.create('Deft.Deferred');
+        var ref_array = item_ref.split(/\//);
+        
+        var objectid = ref_array.pop();
+        var type = ref_array.pop();
+        
+        Rally.data.ModelFactory.getModel({
+            type: type,
+            success: function(model) {
+                model.load(objectid, {
+                    fetch: ['Name', 'FormattedID', 'Project','ObjectID','WorkProduct'],
+                    callback: function(result, operation) {
+                        if(operation.wasSuccessful()) {
+                            deferred.resolve(result);
+                        }
+                    }
+                });
+            }
+        });
+        
+        
+        return deferred.promise;
     },
     
     cloneForAppending: function(record) {
@@ -3124,10 +3211,47 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
         });
     },
     
+    getRowForAmendedRow: function(amended_row) {
+        console.log('getting item row for', amended_row);
+        var work_item = amended_row.Task;
+        if ( Ext.isEmpty(work_item) ) {
+            work_item = amended_row.WorkProduct;
+        }
+        
+        
+        var returnRow = null;
+        var rows = [];
+        var store_count = this.grid.getStore().data.items.length;  // this.grid.getStore().getTotalCount();
+                
+        for ( var i=0; i<store_count; i++ ) {
+            rows.push(this.grid.getStore().getAt(i));
+        }
+        
+        Ext.Array.each(rows, function(row) {
+            if ( row ) { 
+                if ( !row.get('__Amended') ) {
+                    var task_oid = row.get('Task') && row.get('Task').ObjectID;
+                    var wp_oid = row.get('WorkProduct').ObjectID;
+                    
+                    if ( task_oid == work_item.ObjectID || wp_oid == work_item.ObjectID ) {
+                        returnRow = row;
+                    }
+                }
+            }
+        });
+        
+        return returnRow;
+    },
+    
     addRowForItem: function(item) {
-        var me = this;
+        var me = this,
+            deferred = Ext.create('Deft.Deferred');
 
-        if (  !this._hasRowForItem(item)) {
+        console.log('addRowForItem', item);
+        
+        if (  this._hasRowForItem(item)) {
+            console.log('has row already:', item);
+        } else {
             var item_type = item.get('_type');
 
             var config = {
@@ -3165,6 +3289,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
             }
             
             if ( !this._isForCurrentUser() ) {
+                console.log("Creating a shadow item");
                 // create a shadow item
                 config.ObjectID = -1;
                 config._type = "timeentryitem";
@@ -3192,7 +3317,9 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                 me.grid.getStore().loadRecords([row], { addRecords: true });
 
                 me.rows.push(row);
+                return row;
             } else {
+                console.log('Add item');
                 var fields = this.tei_model.getFields();
 
                 var time_entry_item = Ext.create(this.tei_model,config);
@@ -3228,15 +3355,19 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
 
                             me.grid.getStore().loadRecords([row], { addRecords: true });
                             me.rows.push(row);
+                            deferred.resolve(row);
                         } else {
                             if ( operation.error && operation.error.errors ) {
                                 Ext.Msg.alert("Problem saving time:", operation.error.errors.join(' '));
+                                deferred.reject();
                             }
                         }
                     }
                 });
             }
         }
+        
+        return deferred.promise;
     },
     
     _hasRowForItem: function(item) {
