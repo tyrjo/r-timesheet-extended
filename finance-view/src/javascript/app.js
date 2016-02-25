@@ -14,8 +14,6 @@ Ext.define("TSFinanceReport", {
         {xtype:'container', itemId:'display_box' , region: 'center', layout: { type: 'fit'} }
     ],
 
-    _approvalKeyPrefix: 'rally.technicalservices.timesheet.status',
-
     integrationHeaders : {
         name : "TSFinanceReport"
     },
@@ -449,7 +447,10 @@ Ext.define("TSFinanceReport", {
         
         var stateFilter = this.stateFilterValue;
         
-        var filters = [{property:'Name',operator:'contains',value:this._approvalKeyPrefix}];
+        var filters = [
+            {property:'Name',operator:'contains', value:TSUtilities.approvalKeyPrefix},
+            {property:'Name',operator:'!contains',value: TSUtilities.archiveSuffix}
+        ];
         
         var config = {
             model:'Preference',

@@ -12,7 +12,6 @@ Ext.define("TSTimeSheetApproval", {
     ],
 
     _commentKeyPrefix: 'rally.technicalservices.timesheet.comment',
-    _approvalKeyPrefix: 'rally.technicalservices.timesheet.status',
 
     integrationHeaders : {
         name : "TSTimeSheetApproval"
@@ -289,7 +288,10 @@ Ext.define("TSTimeSheetApproval", {
         this.setLoading("Loading statuses...");
         var stateFilter = this.stateFilterValue;
         
-        var filters = [{property:'Name',operator:'contains',value:this._approvalKeyPrefix}];
+        var filters = [
+            {property:'Name',operator:'contains',value:TSUtilities.approvalKeyPrefix},
+            {property:'Name',operator:'!contains',value: TSUtilities.archiveSuffix}
+        ];
         
         var config = {
             model:'Preference',
@@ -315,7 +317,7 @@ Ext.define("TSTimeSheetApproval", {
                 this.logger.log('Preferences by Key', preferences_by_key);
                 
                 Ext.Array.each(timesheets, function(timesheet){
-                    var key = timesheet.getPartialPreferenceKey();
+                    var key = timesheet.getShortPreferenceKey();
 
                     if (preferences_by_key[key]) {
                         var value = preferences_by_key[key].get('Value');

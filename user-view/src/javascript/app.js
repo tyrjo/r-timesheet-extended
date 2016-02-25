@@ -22,7 +22,6 @@ Ext.define("TSExtendedTimesheet", {
     },
    
     _commentKeyPrefix: 'rally.technicalservices.timesheet.comment',
-    _approvalKeyPrefix: 'rally.technicalservices.timesheet.status',
 
     launch: function() {
         var preference_project_ref = this.getSetting('preferenceProjectRef');
@@ -200,9 +199,9 @@ Ext.define("TSExtendedTimesheet", {
     
     _loadWeekStatusPreference: function() {
         this.logger.log('_loadWeekStatusPreference',this.startDateString);
-            
+        
         var key = Ext.String.format("{0}.{1}.{2}", 
-            this._approvalKeyPrefix,
+            TSUtilities.approvalKeyPrefix,
             this.startDateString,
             this.getContext().getUser().ObjectID
         );
@@ -212,7 +211,10 @@ Ext.define("TSExtendedTimesheet", {
             model:'Preference',
             limit: 1,
             pageSize: 1,
-            filters: [{property:'Name',operator: 'contains', value:key}],
+            filters: [
+                {property:'Name',operator: 'contains', value:key},
+                {property:'Name',operator:'!contains',value: TSUtilities.archiveSuffix}
+            ],
             fetch: ['Name','Value'],
             sorters: [{property:'CreationDate', direction: 'DESC'}]
         };

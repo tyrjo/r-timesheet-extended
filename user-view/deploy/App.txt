@@ -3,11 +3,11 @@
 <head>
     <title>Extended Timesheet</title>
     <!--  (c) 2015 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Wed Feb 24 2016 16:43:00 GMT-0800 (PST) -->
+    <!--  Build Date: Wed Feb 24 2016 17:19:43 GMT-0800 (PST) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Wed Feb 24 2016 16:43:00 GMT-0800 (PST)";
-        var CHECKSUM = 327912081787;
+        var APP_BUILD_DATE = "Wed Feb 24 2016 17:19:43 GMT-0800 (PST)";
+        var CHECKSUM = 328502453823;
     </script>
     
     <script type="text/javascript" src="/apps/2.0/sdk.js"></script>
@@ -439,6 +439,8 @@ Ext.define('TSUtilities', {
     singleton: true,
     
     timeLockKeyPrefix: 'rally.technicalservices.timesheet.weeklock',
+    approvalKeyPrefix: 'rally.technicalservices.timesheet.status',
+
     archiveSuffix: '~archived',
     
     loadWsapiRecords: function(config,returnOperation){
@@ -3675,7 +3677,6 @@ Ext.define("TSExtendedTimesheet", {
     },
    
     _commentKeyPrefix: 'rally.technicalservices.timesheet.comment',
-    _approvalKeyPrefix: 'rally.technicalservices.timesheet.status',
 
     launch: function() {
         var preference_project_ref = this.getSetting('preferenceProjectRef');
@@ -3853,9 +3854,9 @@ Ext.define("TSExtendedTimesheet", {
     
     _loadWeekStatusPreference: function() {
         this.logger.log('_loadWeekStatusPreference',this.startDateString);
-            
+        
         var key = Ext.String.format("{0}.{1}.{2}", 
-            this._approvalKeyPrefix,
+            TSUtilities.approvalKeyPrefix,
             this.startDateString,
             this.getContext().getUser().ObjectID
         );
@@ -3865,7 +3866,10 @@ Ext.define("TSExtendedTimesheet", {
             model:'Preference',
             limit: 1,
             pageSize: 1,
-            filters: [{property:'Name',operator: 'contains', value:key}],
+            filters: [
+                {property:'Name',operator: 'contains', value:key},
+                {property:'Name',operator:'!contains',value: TSUtilities.archiveSuffix}
+            ],
             fetch: ['Name','Value'],
             sorters: [{property:'CreationDate', direction: 'DESC'}]
         };

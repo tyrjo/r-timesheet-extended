@@ -2,6 +2,8 @@ Ext.define('TSUtilities', {
     singleton: true,
     
     timeLockKeyPrefix: 'rally.technicalservices.timesheet.weeklock',
+    approvalKeyPrefix: 'rally.technicalservices.timesheet.status',
+
     archiveSuffix: '~archived',
     
     loadWsapiRecords: function(config,returnOperation){
