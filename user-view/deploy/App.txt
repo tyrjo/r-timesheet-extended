@@ -3,11 +3,11 @@
 <head>
     <title>Extended Timesheet</title>
     <!--  (c) 2015 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Wed Feb 24 2016 18:23:57 GMT-0800 (PST) -->
+    <!--  Build Date: Thu Feb 25 2016 08:49:10 GMT-0800 (PST) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Wed Feb 24 2016 18:23:57 GMT-0800 (PST)";
-        var CHECKSUM = 334293738154;
+        var APP_BUILD_DATE = "Thu Feb 25 2016 08:49:10 GMT-0800 (PST)";
+        var CHECKSUM = 334176495286;
     </script>
     
     <script type="text/javascript" src="/apps/2.0/sdk.js"></script>
@@ -3277,11 +3277,11 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
             
             var minValue = 0;
             
-            if ( record.get('__Amended') ) {
+            if ( record && record.get('__Amended') ) {
                 minValue = -24;
             }
 
-            console.log(record.get('__Amended'), record, minValue);
+            console.log(record, minValue);
 
             return Ext.create('Ext.grid.CellEditor', {
                 field: Ext.create('Rally.ui.NumberField', {

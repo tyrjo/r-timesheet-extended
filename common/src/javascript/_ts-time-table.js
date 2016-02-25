@@ -878,11 +878,11 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
             
             var minValue = 0;
             
-            if ( record.get('__Amended') ) {
+            if ( record && record.get('__Amended') ) {
                 minValue = -24;
             }
 
-            console.log(record.get('__Amended'), record, minValue);
+            console.log(record, minValue);
 
             return Ext.create('Ext.grid.CellEditor', {
                 field: Ext.create('Rally.ui.NumberField', {
