@@ -877,26 +877,29 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
             }
             
             var minValue = 0;
-            console.log(record.get('__Amended'));
             
             if ( record.get('__Amended') ) {
                 minValue = -24;
             }
-            var config = {
-                xtype:'rallynumberfield',
-                minValue: minValue,
-                maxValue: 24,
-                selectOnFocus: true,
-                listeners: {
-                    change: function(field, new_value, old_value) {
-                        if ( Ext.isEmpty(new_value) ) {
-                            field.setValue(0);
+
+            console.log(record.get('__Amended'), record, minValue);
+
+            return Ext.create('Ext.grid.CellEditor', {
+                field: Ext.create('Rally.ui.NumberField', {
+                    xtype:'rallynumberfield',
+                    minValue: minValue,
+                    maxValue: 24,
+                    selectOnFocus: true,
+                    listeners: {
+                        change: function(field, new_value, old_value) {
+                            if ( Ext.isEmpty(new_value) ) {
+                                field.setValue(0);
+                            }
                         }
                     }
-                }
-            };
+                })
+            });
             
-            return config;
         };
         
         var weekend_renderer = function(value, meta, record) {

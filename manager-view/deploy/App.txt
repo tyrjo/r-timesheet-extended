@@ -3,11 +3,11 @@
 <head>
     <title>Time Sheet Approval</title>
     <!--  (c) 2015 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Wed Feb 24 2016 16:11:16 GMT-0800 (PST) -->
+    <!--  Build Date: Wed Feb 24 2016 16:42:56 GMT-0800 (PST) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Wed Feb 24 2016 16:11:16 GMT-0800 (PST)";
-        var CHECKSUM = 523766974778;
+        var APP_BUILD_DATE = "Wed Feb 24 2016 16:42:56 GMT-0800 (PST)";
+        var CHECKSUM = 524492847760;
     </script>
     
     <script type="text/javascript" src="/apps/2.0/sdk.js"></script>
@@ -3590,26 +3590,29 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
             }
             
             var minValue = 0;
-            console.log(record.get('__Amended'));
             
             if ( record.get('__Amended') ) {
                 minValue = -24;
             }
-            var config = {
-                xtype:'rallynumberfield',
-                minValue: minValue,
-                maxValue: 24,
-                selectOnFocus: true,
-                listeners: {
-                    change: function(field, new_value, old_value) {
-                        if ( Ext.isEmpty(new_value) ) {
-                            field.setValue(0);
+
+            console.log(record.get('__Amended'), record, minValue);
+
+            return Ext.create('Ext.grid.CellEditor', {
+                field: Ext.create('Rally.ui.NumberField', {
+                    xtype:'rallynumberfield',
+                    minValue: minValue,
+                    maxValue: 24,
+                    selectOnFocus: true,
+                    listeners: {
+                        change: function(field, new_value, old_value) {
+                            if ( Ext.isEmpty(new_value) ) {
+                                field.setValue(0);
+                            }
                         }
                     }
-                }
-            };
+                })
+            });
             
-            return config;
         };
         
         var weekend_renderer = function(value, meta, record) {
