@@ -28,7 +28,8 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
         editable: true,
         timesheet_user: null,
         timesheet_status: null,
-        manager_field: null
+        manager_field: null,
+        week_locked: false
     },
     
     constructor: function (config) {
@@ -696,6 +697,10 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                 
         var columns = [];
         var isForModification = ! this._isForCurrentUser();
+        
+        if ( this.week_locked ) {
+            isForModification = false;
+        }
         
         if ( this.editable ||  isForModification ) {
             columns.push({

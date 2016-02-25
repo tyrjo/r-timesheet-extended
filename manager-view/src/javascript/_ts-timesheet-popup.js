@@ -19,36 +19,60 @@ Ext.define('Rally.technicalservices.ManagerDetailDialog', {
     initComponent: function() {
         this.callParent(arguments);
     },
-    
+        
     beforeRender: function() {
         this.callParent(arguments);
-        this.add({ 
-            xtype:  'tstimetable',
-            region: 'center',
-            layout: 'fit',
-            startDate: this.record.get('WeekStartDate'),
-            editable: false,
-            manager_field: this.manager_field,
-            timesheet_user: this.record.get('User')
-        });
-        this.addDocked({
-            xtype: 'container',
-            dock: 'bottom',
-            layout: 'hbox',
-            itemId: 'popup_selector_box',
-            padding: 10,
-            items: [
-                {xtype:'container', itemId:'popup_left_box'},
-                {xtype:'container',  flex: 1},
-                {xtype:'container', itemId:'popup_right_box'}
-            ]
-        });
         
-        this._addSelectors();
+        this._loadWeekLockPreference().then({
+            scope: this,
+            success: function(week_lock_prefs) {
+                
+                if ( week_lock_prefs.length > 0 ) {
+                    var value = week_lock_prefs[0].get('Value');
+                    var status_object = Ext.JSON.decode(value);
+                    var locked = false;
+                    
+                    if ( status_object.status == "Locked" ) {
+                        locked = true;
+                    }
+                }
+                this.record.set('__Locked',locked);
+                
+                this.add({ 
+                    xtype:  'tstimetable',
+                    region: 'center',
+                    layout: 'fit',
+                    startDate: this.record.get('WeekStartDate'),
+                    week_locked: locked,
+                    editable: false,
+                    manager_field: this.manager_field,
+                    timesheet_user: this.record.get('User')
+                });
+                this.addDocked({
+                    xtype: 'container',
+                    dock: 'bottom',
+                    layout: 'hbox',
+                    itemId: 'popup_selector_box',
+                    padding: 10,
+                    items: [
+                        {xtype:'container', itemId:'popup_left_box'},
+                        {xtype:'container',  flex: 1},
+                        {xtype:'container', itemId:'popup_right_box'}
+                    ]
+                });
+                
+                this._addSelectors();
+                
+            }, 
+            failure: function(msg) {
+                Ext.Msg.alert('Problem finding lock', msg);
+            }
+        });
     },
     
     _addSelectors: function() {
         var status = this.record.get('__Status');
+        var locked = this.record.get('__Locked');
          
         var comment_key = Ext.String.format("{0}.{1}.{2}", 
             this.commentKeyPrefix,
@@ -61,7 +85,7 @@ Ext.define('Rally.technicalservices.ManagerDetailDialog', {
         left_box.add({
             xtype:'rallybutton',
             text: '+<span class="icon-task"> </span>',
-            disabled: (status == "Approved"),
+            disabled: (status == "Approved" || locked),
             toolTipText: "Search and add Tasks", 
             listeners: {
                 scope: this,
@@ -73,7 +97,7 @@ Ext.define('Rally.technicalservices.ManagerDetailDialog', {
             xtype:'rallybutton',
             text: '+<span class="icon-story"> </span>',
             toolTipText: "Search and add User Stories",
-            disabled: (status == "Approved"),
+            disabled: (status == "Approved" || locked),
             listeners: {
                 scope: this,
                 click: this._findAndAddStory
@@ -125,6 +149,30 @@ Ext.define('Rally.technicalservices.ManagerDetailDialog', {
             }
         });
         
+    },
+    
+    _loadWeekLockPreference: function() {
+        
+        var key = Ext.String.format("{0}.{1}", 
+            TSUtilities.timeLockKeyPrefix,
+            TSDateUtils.formatShiftedDate(this.record.get('WeekStartDate'),'Y-m-d')
+        );
+        
+        var filters = [
+            {property:'Name',operator:'contains', value:key},
+            {property:'Name',operator:'!contains',value:TSUtilities.archiveSuffix }
+        ];
+        
+        var config = {
+            model:'Preference',
+            limit: 1,
+            pageSize: 1,
+            filters: filters,
+            fetch: ['Name','Value'],
+            sorters: [{property:'CreationDate',direction:'DESC'}]
+        };
+        
+        return TSUtilities.loadWsapiRecords(config);
     },
     
     _approveTimesheet: function(record) {

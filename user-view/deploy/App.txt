@@ -3,11 +3,11 @@
 <head>
     <title>Extended Timesheet</title>
     <!--  (c) 2015 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Tue Feb 23 2016 10:15:24 GMT-0800 (PST) -->
+    <!--  Build Date: Wed Feb 24 2016 16:06:14 GMT-0800 (PST) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Tue Feb 23 2016 10:15:24 GMT-0800 (PST)";
-        var CHECKSUM = 326139909748;
+        var APP_BUILD_DATE = "Wed Feb 24 2016 16:06:14 GMT-0800 (PST)";
+        var CHECKSUM = 327342233007;
     </script>
     
     <script type="text/javascript" src="/apps/2.0/sdk.js"></script>
@@ -438,6 +438,9 @@ if (typeof module !== "undefined" && module !== null) {
 Ext.define('TSUtilities', {
     singleton: true,
     
+    timeLockKeyPrefix: 'rally.technicalservices.timesheet.weeklock',
+    archiveSuffix: '~archived',
+    
     loadWsapiRecords: function(config,returnOperation){
         var deferred = Ext.create('Deft.Deferred');
         var me = this;
@@ -470,9 +473,7 @@ Ext.define('TSUtilities', {
         count_check_config.pageSize = 1;
         
         this.loadWsapiRecords(count_check_config, true).then({
-            success: function(operation) {
-                console.log('operation',operation);
-                
+            success: function(operation) {                
                 config.pageSize = 200;
                 config.limit = config.pageSize;
                 var total = operation.resultSet.totalRecords;
@@ -2385,7 +2386,8 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
         editable: true,
         timesheet_user: null,
         timesheet_status: null,
-        manager_field: null
+        manager_field: null,
+        week_locked: false
     },
     
     constructor: function (config) {
@@ -3054,6 +3056,10 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
         var columns = [];
         var isForModification = ! this._isForCurrentUser();
         
+        if ( this.week_locked ) {
+            isForModification = false;
+        }
+        
         if ( this.editable ||  isForModification ) {
             columns.push({
                 xtype: 'tstimetablerowactioncolumn',
@@ -3665,7 +3671,6 @@ Ext.define("TSExtendedTimesheet", {
         }
     },
    
-    _timeLockKeyPrefix: 'rally.technicalservices.timesheet.weeklock',
     _commentKeyPrefix: 'rally.technicalservices.timesheet.comment',
     _approvalKeyPrefix: 'rally.technicalservices.timesheet.status',
 
@@ -3869,16 +3874,21 @@ Ext.define("TSExtendedTimesheet", {
         this.logger.log('_loadWeekLockPreference', this.startDateString);
         
         var key = Ext.String.format("{0}.{1}", 
-            this._timeLockKeyPrefix,
+            TSUtilities.timeLockKeyPrefix,
             this.startDateString
         );
         this.logger.log('finding by key',key);
+        
+        var filters = [
+            {property:'Name',operator:'contains', value:key},
+            {property:'Name',operator:'!contains',value:TSUtilities.archiveSuffix }
+        ];
         
         var config = {
             model:'Preference',
             limit: 1,
             pageSize: 1,
-            filters: [{property:'Name',operator:'contains',value:key}],
+            filters: filters,
             fetch: ['Name','Value'],
             sorters: [{property:'CreationDate',direction:'DESC'}]
         };

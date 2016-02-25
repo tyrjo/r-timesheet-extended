@@ -1,8 +1,6 @@
 Ext.define('TSLockedWeek',{
     extend: 'Ext.data.Model',
-    
-    _timeLockKeyPrefix: 'rally.technicalservices.timesheet.weeklock',
-    
+        
     fields: [
         { name: '__Status', type: 'string', defaultValue: 'Unknown' }, // Open, Approved, Locked
         { name: 'WeekStartDate', type: 'date' },
@@ -14,12 +12,19 @@ Ext.define('TSLockedWeek',{
     isSelectable: function() {
         return true;
     },
+        
+    getShortPreferenceKey: function() {
+        // get or create and then update pref
+        return Ext.String.format("{0}.{1}", 
+            TSUtilities.timeLockKeyPrefix,
+            TSDateUtils.getBeginningOfWeekISOForLocalDate(this.get('WeekStartDate'))
+        );
+    },
     
     getPreferenceKey: function() {
         // get or create and then update pref
-        return Ext.String.format("{0}.{1}.{2}", 
-            this._timeLockKeyPrefix,
-            TSDateUtils.getBeginningOfWeekISOForLocalDate(this.get('WeekStartDate')),
+        return Ext.String.format("{0}.{1}", 
+            this.getShortPreferenceKey(),
             new Date().getTime()
         );
     },
@@ -35,31 +40,20 @@ Ext.define('TSLockedWeek',{
         this.set('__LastUpdateBy', status_owner);
         
         var pref_key = this.getPreferenceKey();
+        var status_object = {
+            status: status,
+            status_date: new Date(),
+            status_owner: status_owner,
+            week_start: TSDateUtils.getBeginningOfWeekISOForLocalDate(this.get('WeekStartDate'))
+        };
         
-        this._findOrCreatePreference(pref_key).then({
+        Deft.Chain.sequence([
+            function() { return this._archivePreferences(this.getShortPreferenceKey()); },
+            function() { return this._makePreference(pref_key,Ext.JSON.encode(status_object)); }
+        ],this).then({
             scope: this,
             success: function(results) {
-                if ( results.length > 0 ) {
-                    var pref = results[0];
-                    
-                    var status_object = {
-                        status: status,
-                        status_date: new Date(),
-                        status_owner: status_owner,
-                        week_start: TSDateUtils.getBeginningOfWeekISOForLocalDate(this.get('WeekStartDate'))
-                    };
-                    
-                    pref.set('Value', Ext.JSON.encode(status_object));
-                    pref.save({
-                        callback: function(result, operation) {
-                            if(!operation.wasSuccessful()) {
-                                Ext.Msg.alert("Problem saving status");
-                            } else {
-                                deferred.resolve(result);
-                            }
-                        }
-                    });
-                }
+                deferred.resolve(results[0]);
             },
             failure: function(msg) {
                 Ext.Msg.alert("Failed to save week lock state to " + pref_key, msg);
@@ -80,30 +74,20 @@ Ext.define('TSLockedWeek',{
         
         var pref_key = this.getPreferenceKey();
         
-        this._findOrCreatePreference(pref_key).then({
+        var status_object = {
+            status: status,
+            status_date: new Date(),
+            status_owner: status_owner,
+            week_start: TSDateUtils.getBeginningOfWeekISOForLocalDate(this.get('WeekStartDate'))
+        };
+        
+        Deft.Chain.sequence([
+            function() { return this._archivePreferences(this.getShortPreferenceKey()); },
+            function() { return this._makePreference(pref_key,Ext.JSON.encode(status_object)); }
+        ],this).then({
             scope: this,
             success: function(results) {
-                if ( results.length > 0 ) {
-                    var pref = results[0];
-                    
-                    var status_object = {
-                        status: status,
-                        status_date: new Date(),
-                        status_owner: status_owner,
-                        week_start: TSDateUtils.getBeginningOfWeekISOForLocalDate(this.get('WeekStartDate'))
-                    };
-                    
-                    pref.set('Value', Ext.JSON.encode(status_object));
-                    pref.save({
-                        callback: function(result, operation) {
-                            if(!operation.wasSuccessful()) {
-                                Ext.Msg.alert("Problem saving status");
-                            } else {
-                                deferred.resolve(result);
-                            }
-                        }
-                    });
-                }
+                deferred.resolve(results[0]);
             },
             failure: function(msg) {
                 Ext.Msg.alert("Failed to save week lock state to " + pref_key, msg);
@@ -113,16 +97,41 @@ Ext.define('TSLockedWeek',{
         
     },
     
-    _findOrCreatePreference: function(key) {
-        var deferred = Ext.create('Deft.Deferred');
+    _archivePreferences: function(key) {
+        var deferred = Ext.create('Deft.Deferred'),
+            me = this;
         
-        Deft.Chain.pipeline([
-            function() { return this._findPreference(key); },
-            function(pref) { return this._makePreference(key,pref); }
-        ],this).then({
+        var filters = [
+            {property:'Name',operator:'contains', value:key},
+            {property:'Name',operator:'!contains',value:TSUtilities.archiveSuffix }
+        ];
+        
+        var config = {
+            model:'Preference',
+            limit: Infinity,
+            filters: filters,
+            fetch: ['Name','Value']
+        };
+        
+        TSUtilities.loadWsapiRecords(config).then({
             scope: this,
-            success: function(results) {
-                deferred.resolve(results);
+            success: function(preferences) {
+                var promises = [];
+                Ext.Array.each(preferences, function(preference) {
+                    preference.set('Project',Rally.getApp().getSetting('preferenceProjectRef'));
+                    preference.set('Name', preference.get('Name') + '.' + TSUtilities.archiveSuffix );
+                    promises.push( function() { return me._savePreference(preference); });
+                },this);
+                
+                Deft.Chain.sequence(promises).then({
+                    success: function(result) {
+                        deferred.resolve(result);
+                    },
+                    failure: function(msg) {
+                        deferred.reject(msg);
+                    }
+                
+                });
             },
             failure: function(msg) {
                 deferred.reject(msg);
@@ -132,39 +141,39 @@ Ext.define('TSLockedWeek',{
         return deferred.promise;
     },
     
-    _findPreference: function(key) {
-        var config = {
-            model:'Preference',
-            filters: [{property: 'Name', value: key}]
-        };
+    _savePreference: function(preference) {
+        var deferred = Ext.create('Deft.Deferred');
         
-        return TSUtilities.loadWsapiRecords(config);
+        preference.save({
+            callback: function(result, operation) {
+                if(operation.wasSuccessful()) {
+                    deferred.resolve(result);
+                } else {
+                    console.log('Problem saving ', preference, operation);
+                    deferred.reject("Could not archive old status");
+                }
+            }
+        });
+        return deferred.promise;
     },
     
     /* leave prefs is null or empty array to create a pref because
      * this is pipelined from the search for a pref.  So we might have
      * gotten something and just want to pass it through
      */
-    _makePreference: function(key,prefs) {
+    _makePreference: function(key, value) {
         var deferred = Ext.create('Deft.Deferred');
-        if ( !Ext.isEmpty(prefs) && ( !Ext.isArray(prefs) || prefs.length > 0 )) {
-            return prefs;
-        }
+        
         Rally.data.ModelFactory.getModel({
             type: 'Preference',
             success: function(model) {
                 var pref_config = {
                     Name: key,
-                    Value: 'Open'
+                    Value: value
                 };
                 
-                if ( Rally.getApp().isExternal() ) {
-                    pref_config.Project = Rally.getApp().getContext().getProjectRef();
-                } else {
-                    pref_config.AppId = Rally.getApp().getAppId();
-                }
+                pref_config.Project = Rally.getApp().getSetting('preferenceProjectRef');
                 
-                console.log("Saving new pref: ", pref_config);
                 var pref = Ext.create(model, pref_config);
                 
                 pref.save({

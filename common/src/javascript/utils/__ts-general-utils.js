@@ -1,6 +1,9 @@
 Ext.define('TSUtilities', {
     singleton: true,
     
+    timeLockKeyPrefix: 'rally.technicalservices.timesheet.weeklock',
+    archiveSuffix: '~archived',
+    
     loadWsapiRecords: function(config,returnOperation){
         var deferred = Ext.create('Deft.Deferred');
         var me = this;
@@ -33,9 +36,7 @@ Ext.define('TSUtilities', {
         count_check_config.pageSize = 1;
         
         this.loadWsapiRecords(count_check_config, true).then({
-            success: function(operation) {
-                console.log('operation',operation);
-                
+            success: function(operation) {                
                 config.pageSize = 200;
                 config.limit = config.pageSize;
                 var total = operation.resultSet.totalRecords;

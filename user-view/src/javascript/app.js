@@ -21,7 +21,6 @@ Ext.define("TSExtendedTimesheet", {
         }
     },
    
-    _timeLockKeyPrefix: 'rally.technicalservices.timesheet.weeklock',
     _commentKeyPrefix: 'rally.technicalservices.timesheet.comment',
     _approvalKeyPrefix: 'rally.technicalservices.timesheet.status',
 
@@ -225,16 +224,21 @@ Ext.define("TSExtendedTimesheet", {
         this.logger.log('_loadWeekLockPreference', this.startDateString);
         
         var key = Ext.String.format("{0}.{1}", 
-            this._timeLockKeyPrefix,
+            TSUtilities.timeLockKeyPrefix,
             this.startDateString
         );
         this.logger.log('finding by key',key);
+        
+        var filters = [
+            {property:'Name',operator:'contains', value:key},
+            {property:'Name',operator:'!contains',value:TSUtilities.archiveSuffix }
+        ];
         
         var config = {
             model:'Preference',
             limit: 1,
             pageSize: 1,
-            filters: [{property:'Name',operator:'contains',value:key}],
+            filters: filters,
             fetch: ['Name','Value'],
             sorters: [{property:'CreationDate',direction:'DESC'}]
         };
