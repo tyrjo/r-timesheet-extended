@@ -1,3 +1,25 @@
+Ext.override(Ext.grid.plugin.CellEditing, {
+    onSpecialKey: function(ed, field, e) {
+        var sm;
+ 
+        if (e.getKey() === e.TAB) {
+            e.stopEvent();
+
+            if (ed) {
+                // Allow the field to act on tabs before onEditorTab, which ends
+                // up calling completeEdit. This is useful for picker type fields.
+                ed.onEditorTab(e);
+            }
+
+            sm = ed.up('tablepanel').getSelectionModel();
+            console.log('--', sm);
+            if (sm.onEditorTab) {
+                return sm.onEditorTab(ed.editingPlugin, e);
+            }
+        }
+    }
+})
+
 Ext.override(Rally.ui.grid.plugin.Validation,{
     _onBeforeEdit: function(editor, object, eOpts) {
         // clear this because it won't let us do the getEditor on cells
@@ -870,12 +892,6 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                 return false;
             }
             
-            // TODO: Why is record null on tab/return?
-            if ( !me.editable ) {
-                if ( !record )                    { return false; }
-                if ( ! record.get('__Appended') && ! record.get('__Amended')  ) { return false; }
-            }
-            
             var minValue = 0;
             
             if ( record && record.get('__Amended') ) {
@@ -884,14 +900,20 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
 
             console.log(record, minValue);
 
+            var disabled = !me.editable;
+            if ( record && ( record.get('__Appended') || record.get('__Amended') ) ) {
+                disabled = false;
+            }
+            
             return Ext.create('Ext.grid.CellEditor', {
                 field: Ext.create('Rally.ui.NumberField', {
                     xtype:'rallynumberfield',
                     minValue: minValue,
                     maxValue: 24,
+                    disabled: disabled,
                     selectOnFocus: true,
                     listeners: {
-                        change: function(field, new_value, old_value) {
+                        change: function(field, new_value, old_value) {1
                             if ( Ext.isEmpty(new_value) ) {
                                 field.setValue(0);
                             }
