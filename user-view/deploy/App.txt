@@ -3,11 +3,11 @@
 <head>
     <title>Extended Timesheet</title>
     <!--  (c) 2015 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Wed Feb 24 2016 17:19:43 GMT-0800 (PST) -->
+    <!--  Build Date: Wed Feb 24 2016 18:23:57 GMT-0800 (PST) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Wed Feb 24 2016 17:19:43 GMT-0800 (PST)";
-        var CHECKSUM = 328502453823;
+        var APP_BUILD_DATE = "Wed Feb 24 2016 18:23:57 GMT-0800 (PST)";
+        var CHECKSUM = 334293738154;
     </script>
     
     <script type="text/javascript" src="/apps/2.0/sdk.js"></script>
@@ -440,6 +440,7 @@ Ext.define('TSUtilities', {
     
     timeLockKeyPrefix: 'rally.technicalservices.timesheet.weeklock',
     approvalKeyPrefix: 'rally.technicalservices.timesheet.status',
+    deletionKeyPrefix: 'rally.technicalservices.timesheet.deletion',
 
     archiveSuffix: '~archived',
     
@@ -2115,34 +2116,72 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
     clearAndRemove: function() {
         var timeentryitem = this.get('__TimeEntryItem');
         var cells_to_clear = ['__Monday','__Tuesday','__Wednesday','__Thursday','__Friday','__Saturday','__Sunday','__Total'];
-        Ext.Array.each(cells_to_clear, function(cell_to_clear){
-            this.set(cell_to_clear,0);
-        },this);
+        var me = this;
         
-        if ( this.get('__PrefID') > 0 ) {
-            // destroy the preference
-            var oid = this.get('__PrefID');
-            
-            Rally.data.ModelFactory.getModel({
-                type: 'Preference',
-                success: function(model) {
-                    model.load(oid, {
-                        fetch: ['Name', 'ObjectID', 'Value'],
-                        callback: function(result, operation) {
-                            if(operation.wasSuccessful()) {
-                                result.destroy();
-                            }
-                        }
-                    });
+        var prefix = TSUtilities.deletionKeyPrefix;
+        
+        var key = Ext.String.format("{0}.{1}.{2}.{3}", 
+            prefix,
+            TSDateUtils.formatShiftedDate(this.get('WeekStartDate'),'Y-m-d'),
+            this.get('User').ObjectID,
+            new Date().getTime()
+        );
+        
+        var data = this.getData();
+        delete data.__TimeEntryItem;
+        
+        var value = Ext.JSON.encode(data);
+        
+        Rally.data.ModelFactory.getModel({
+            type: 'Preference',
+            success: function(model) {
+
+                var pref_config = {
+                    Name: key,
+                    Value: value,
+                    Project: TSUtilities.getPreferenceProject()
                 }
-            });
-            
-        } else {
-            if ( ! Ext.isEmpty(timeentryitem) ){
-                timeentryitem.destroy();
+
+                var pref = Ext.create(model, pref_config);
+                
+                pref.save({
+                    callback: function(result, operation) {
+                        if(operation.wasSuccessful()) {
+                            Ext.Array.each(cells_to_clear, function(cell_to_clear){
+                                this.set(cell_to_clear,0);
+                            },this);
+                            
+                            if ( this.get('__PrefID') > 0 ) {
+                                // destroy the preference
+                                var oid = this.get('__PrefID');
+                                
+                                Rally.data.ModelFactory.getModel({
+                                    type: 'Preference',
+                                    success: function(model) {
+                                        model.load(oid, {
+                                            fetch: ['Name', 'ObjectID', 'Value'],
+                                            callback: function(result, operation) {
+                                                if(operation.wasSuccessful()) {
+                                                    result.destroy();
+                                                }
+                                            }
+                                        });
+                                    }
+                                });
+                                
+                            } else {
+                                if ( ! Ext.isEmpty(timeentryitem) && timeentryitem.data.ObjectID > 0 ){
+                                    timeentryitem.destroy();
+                                }
+                            }
+                            me.destroy();
+                        } else {
+                            Ext.Msg.alert('Problem removing', operation.error.errors[0]);
+                        }
+                    }
+                });
             }
-        }
-        this.destroy();
+        });
     },
     
     _saveAsPref: function() {

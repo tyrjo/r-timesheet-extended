@@ -3,6 +3,7 @@ Ext.define('TSUtilities', {
     
     timeLockKeyPrefix: 'rally.technicalservices.timesheet.weeklock',
     approvalKeyPrefix: 'rally.technicalservices.timesheet.status',
+    deletionKeyPrefix: 'rally.technicalservices.timesheet.deletion',
 
     archiveSuffix: '~archived',
     
