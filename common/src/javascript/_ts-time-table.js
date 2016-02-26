@@ -420,6 +420,8 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
     
     _absorbAppended: function(clone) {
         var me = this;
+        console.log("_absorbAppended", clone);
+        
         var work_item = clone.Task;
             
         if ( Ext.isEmpty(work_item) ) {
@@ -428,7 +430,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
         
         this._getItemFromRef(work_item._ref).then({
             success: function(item) {
-                me.addRowForItem(item).then({
+                me.addRowForItem(item,true).then({
                     scope:this,
                     success: function(row) {
                         var days = ['__Monday','__Tuesday','__Wednesday','__Thursday','__Friday','__Saturday','__Sunday','__Total'];
@@ -533,20 +535,22 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
         return returnRow;
     },
     
-    addRowForItem: function(item) {
+    // use force=true to ignore the fact that there's already a row (for appending)
+    addRowForItem: function(item,force) {
         var me = this,
             deferred = Ext.create('Deft.Deferred');
 
-        console.log('addRowForItem', item);
+        console.log('addRowForItem', item, force);
         
-        if (  this._hasRowForItem(item)) {
+        if ( !force && this._hasRowForItem(item) ) {
             console.log('has row already:', item);
         } else {
             var item_type = item.get('_type');
 
             var config = {
+                WorkProductDisplayString: item.get('FormattedID') + ":" + item.get('Name'),
                 WorkProduct: {
-                    _refObjectName: item.get('FormattedID') + ":" + item.get('Name'),
+                    _refObjectName: item.get('Name'),
                     _ref: item.get('_ref'),
                     ObjectID: item.get('ObjectID')
                 },
@@ -572,14 +576,14 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                 config.WorkProductDisplayString = item.get('WorkProduct').FormattedID + ":" + item.get('WorkProduct').Name;
                 
                 config.WorkProduct = {
-                    _refObjectName: config.WorkProductDisplayString,
+                    _refObjectName: item.get('WorkProduct').Name,
                     _ref: item.get('WorkProduct')._ref,
                     ObjectID: item.get('WorkProduct').ObjectID
                 };
             }
             
             if ( !this._isForCurrentUser() ) {
-                console.log("Creating a shadow item");
+                console.log("Creating a shadow item", config);
                 // create a shadow item
                 config.ObjectID = -1;
                 config._type = "timeentryitem";

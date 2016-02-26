@@ -73,6 +73,8 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
     },
     
     clearAndRemove: function() {
+        console.log('clearAndRemove');
+        
         var timeentryitem = this.get('__TimeEntryItem');
         var cells_to_clear = ['__Monday','__Tuesday','__Wednesday','__Thursday','__Friday','__Saturday','__Sunday','__Total'];
         var me = this;
@@ -84,12 +86,18 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
             new Date().getTime()
         );
         
+        console.log('  deletion key:', key, this);
+        
         var data = this.getData();
+        
         delete data.__TimeEntryItem;
         
+        Ext.Array.each(cells_to_clear, function(cell_to_clear) {
+            delete data[cell_to_clear + "_record"];
+        });
+
         var value = Ext.JSON.encode(data);
-        
-        console.log('Create deletion pref');
+                
         Rally.data.ModelFactory.getModel({
             type: 'Preference',
             success: function(model) {

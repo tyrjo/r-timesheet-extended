@@ -86,7 +86,7 @@ Ext.define('Rally.technicalservices.ManagerDetailDialog', {
             xtype:'rallybutton',
             text: '+<span class="icon-task"> </span>',
             disabled: (status == "Approved" || locked),
-            toolTipText: "Search and add Tasks", 
+            toolTipText: "Search and add Tasks",
             listeners: {
                 scope: this,
                 click: this._findAndAddTask
@@ -239,6 +239,9 @@ Ext.define('Rally.technicalservices.ManagerDetailDialog', {
                     'Owner',
                     'State'
                 ],
+                storeConfig: {
+                    filters: [{property:'Release.' + Rally.technicalservices.TimeModelBuilder.deploy_field, operator: '!=', value: true }]
+                },
                 fetchFields: fetch_fields,
                 listeners: {
                     artifactchosen: function(dialog, selectedRecords){
