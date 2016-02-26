@@ -277,25 +277,29 @@ Ext.define("TSFinanceReport", {
                                 
                 Deft.Chain.sequence([
                     function() { return me._loadAdditionalTasks(task_oids); },
-                    function() { return me._loadAdditionalStories(workproduct_oids); }
+                    function() { return me._loadAdditionalStories(workproduct_oids); },
+                    function() { return me._loadAdditionalDefects(workproduct_oids); }
                 ],this).then({
                     scope: this,
                     success: function(results) {
                         var tasks   = results[0];
                         var stories = results[1];
+                        var defects = results[2];
 
                         var tasks_by_objectid = {};
                         Ext.Array.each(tasks, function(task) { tasks_by_objectid[task.get('ObjectID')] = task.getData(); });
                         var stories_by_objectid = {};
                         Ext.Array.each(stories, function(story) { stories_by_objectid[story.get('ObjectID')] = story.getData(); });
-                        
+                        var defects_by_objectid = {};
+                        Ext.Array.each(defects, function(defect) { defects_by_objectid[defect.get('ObjectID')] = defect.getData(); });
+                                                
                         Ext.Array.each(changes, function(change){
                             if ( change.Task && change.Task.ObjectID ) {
                                 change.Task = tasks_by_objectid[change.Task.ObjectID];
                             }
                             
                             if ( change.WorkProduct && change.WorkProduct.ObjectID ) {
-                                change.WorkProduct = stories_by_objectid[change.WorkProduct.ObjectID];
+                                change.WorkProduct = stories_by_objectid[change.WorkProduct.ObjectID] || defects_by_objectid[change.WorkProduct.ObjectID] || "missing";
                             }
                         });
                         
@@ -377,17 +381,21 @@ Ext.define("TSFinanceReport", {
                                 
                 Deft.Chain.sequence([
                     function() { return me._loadAdditionalTasks(task_oids); },
-                    function() { return me._loadAdditionalStories(workproduct_oids); }
+                    function() { return me._loadAdditionalStories(workproduct_oids); },
+                    function() { return me._loadAdditionalDefects(workproduct_oids); }
                 ],this).then({
                     scope: this,
                     success: function(results) {
                         var tasks   = results[0];
                         var stories = results[1];
+                        var defects = results[2];
 
                         var tasks_by_objectid = {};
                         Ext.Array.each(tasks, function(task) { tasks_by_objectid[task.get('ObjectID')] = task.getData(); });
                         var stories_by_objectid = {};
                         Ext.Array.each(stories, function(story) { stories_by_objectid[story.get('ObjectID')] = story.getData(); });
+                        var defects_by_objectid = {};
+                        Ext.Array.each(defects, function(defect) { defects_by_objectid[defect.get('ObjectID')] = defect.getData(); });
                         
                         Ext.Array.each(changes, function(change){
                             if ( change.Task && change.Task.ObjectID ) {
@@ -395,7 +403,7 @@ Ext.define("TSFinanceReport", {
                             }
                             
                             if ( change.WorkProduct && change.WorkProduct.ObjectID ) {
-                                change.WorkProduct = stories_by_objectid[change.WorkProduct.ObjectID];
+                                change.WorkProduct = stories_by_objectid[change.WorkProduct.ObjectID] || defects_by_objectid[change.WorkProduct.ObjectID] || "missing";
                             }
                         });
                         
@@ -429,6 +437,19 @@ Ext.define("TSFinanceReport", {
     _loadAdditionalStories: function(oids) {
         var config = {
             model: 'HierarchicalRequirement',
+            context: { project: null },
+            fetch: ['FormattedID','ObjectID','Name','c_ActivityType','c_ProjectActivityType','Feature','Project',
+                'Release','c_DecommissionDate','State','c_DeploymentDate'
+            ],
+            filters: Rally.data.wsapi.Filter.or( Ext.Array.map(oids, function(oid) { return { property:'ObjectID', value: oid }; }) )
+        };
+        
+        return TSUtilities.loadWsapiRecords(config);
+    },
+    
+    _loadAdditionalDefects: function(oids) {
+        var config = {
+            model: 'Defect',
             context: { project: null },
             fetch: ['FormattedID','ObjectID','Name','c_ActivityType','c_ProjectActivityType','Feature','Project',
                 'Release','c_DecommissionDate','State','c_DeploymentDate'
@@ -510,7 +531,7 @@ Ext.define("TSFinanceReport", {
         Ext.Array.each(time_entry_items, function(item){
             var key = Ext.String.format("{0}_{1}",
                 item.get('User').ObjectID,
-                Rally.util.DateTime.toIsoString(item.get('WeekStartDate'))
+                TSDateUtils.formatShiftedDate(item.get('WeekStartDate'),'Y-m-d')
             );
             
             if ( ! timesheets[key] ) {
@@ -573,15 +594,21 @@ Ext.define("TSFinanceReport", {
             var item_oid = work_item.ObjectID;
             
             var user_oid = change.User.ObjectID;
-            var week_start_date = change.WeekStartDate;
+            
+            var name_array = change.key.split('.');
+            var week_start_date = name_array[4];
             
             var key = user_oid + "_" + week_start_date;
+            
+            console.log(key, change);
             
             if ( Ext.isEmpty( changes_by_user_and_date[key] )) {
                 changes_by_user_and_date[key] = [];
             }
             changes_by_user_and_date[key].push(change);
         });
+        
+        console.log(timesheets);
         
         Ext.Object.each(timesheets, function(key,timesheet){
             if ( changes_by_user_and_date[key] ) {
@@ -675,7 +702,8 @@ Ext.define("TSFinanceReport", {
     },
     
     _getRowsFromChangesInTimesheets: function(timesheets) {
-        var rows = [];
+        var rows = [],
+            me = this;
         var days = Rally.technicalservices.TimeModelBuilder.days;
         
         Ext.Object.each(timesheets, function(key,timesheet){
@@ -683,6 +711,8 @@ Ext.define("TSFinanceReport", {
             var week_start = timesheet.get('WeekStartDate');
 
             Ext.Array.each(changes, function(change){
+                me.logger.log('change', change);
+                
                 var change_type = change.__Appended ? "Appended" : "Amended";
                 var isOpEx = false;
                 
@@ -737,7 +767,7 @@ Ext.define("TSFinanceReport", {
                             __LastUpdateDate  : timesheet.get('__LastUpdateDate'),
                             DateVal           : day_date,
                             Hours             : day_value,
-                            __Release         : change.WorkProduct.Release,
+                            __Release         : release,
                             __Product         : product,
                             __IsOpEx          : isOpEx,
                             __WorkItem        : change.WorkProduct,
