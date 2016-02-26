@@ -76,11 +76,9 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
         var timeentryitem = this.get('__TimeEntryItem');
         var cells_to_clear = ['__Monday','__Tuesday','__Wednesday','__Thursday','__Friday','__Saturday','__Sunday','__Total'];
         var me = this;
-        
-        var prefix = TSUtilities.deletionKeyPrefix;
-        
+                
         var key = Ext.String.format("{0}.{1}.{2}.{3}", 
-            prefix,
+            TSUtilities.deletionKeyPrefix,
             TSDateUtils.formatShiftedDate(this.get('WeekStartDate'),'Y-m-d'),
             this.get('User').ObjectID,
             new Date().getTime()
@@ -91,6 +89,7 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
         
         var value = Ext.JSON.encode(data);
         
+        console.log('Create deletion pref');
         Rally.data.ModelFactory.getModel({
             type: 'Preference',
             success: function(model) {
@@ -105,14 +104,17 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
                 
                 pref.save({
                     callback: function(result, operation) {
+                        console.log('Saved deletion preference', result);
+                        
                         if(operation.wasSuccessful()) {
                             Ext.Array.each(cells_to_clear, function(cell_to_clear){
-                                this.set(cell_to_clear,0);
-                            },this);
+                                me.set(cell_to_clear,0);
+                            },me);
                             
-                            if ( this.get('__PrefID') > 0 ) {
+                            if ( me.get('__PrefID') > 0 ) {
                                 // destroy the preference
-                                var oid = this.get('__PrefID');
+                                var oid = me.get('__PrefID');
+                                console.log('Getting ', oid);
                                 
                                 Rally.data.ModelFactory.getModel({
                                     type: 'Preference',
@@ -121,6 +123,7 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
                                             fetch: ['Name', 'ObjectID', 'Value'],
                                             callback: function(result, operation) {
                                                 if(operation.wasSuccessful()) {
+                                                    console.log('Destroying ', result.get('ObjectID'));
                                                     result.destroy();
                                                 }
                                             }
@@ -129,6 +132,7 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
                                 });
                                 
                             } else {
+                                console.log("Does not have an existing pref ID", this);
                                 if ( ! Ext.isEmpty(timeentryitem) && timeentryitem.data.ObjectID > 0 ){
                                     timeentryitem.destroy();
                                 }

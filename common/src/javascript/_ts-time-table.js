@@ -1,25 +1,3 @@
-Ext.override(Ext.grid.plugin.CellEditing, {
-    onSpecialKey: function(ed, field, e) {
-        var sm;
- 
-        if (e.getKey() === e.TAB) {
-            e.stopEvent();
-
-            if (ed) {
-                // Allow the field to act on tabs before onEditorTab, which ends
-                // up calling completeEdit. This is useful for picker type fields.
-                ed.onEditorTab(e);
-            }
-
-            sm = ed.up('tablepanel').getSelectionModel();
-            console.log('--', sm);
-            if (sm.onEditorTab) {
-                return sm.onEditorTab(ed.editingPlugin, e);
-            }
-        }
-    }
-})
-
 Ext.override(Rally.ui.grid.plugin.Validation,{
     _onBeforeEdit: function(editor, object, eOpts) {
         // clear this because it won't let us do the getEditor on cells
@@ -433,6 +411,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                     original_row.set(day,new_value);
                 });
                 original_row.save();
+                
             } else {
                 this._absorbAppended(clone); // original must have been removed
             }
