@@ -70,6 +70,8 @@ Ext.define('Rally.technicalservices.FileUtilities', {
     },
     _getCSVFromWsapiBackedGrid: function(grid,skip_headers) {
         var deferred = Ext.create('Deft.Deferred');
+        this.logger.log("_getCSVFromWsapiBackedGrid", grid, skip_headers);
+        
         var store = Ext.create('Rally.data.wsapi.Store',{
             fetch: grid.getStore().config.fetch,
             filters: grid.getStore().config.filters,
@@ -213,7 +215,7 @@ Ext.define('Rally.technicalservices.FileUtilities', {
         var columns = grid.columns;
         
         Ext.Array.each(columns, function (column) {
-            if (column.xtype != 'rallyrowactioncolumn'  && column.xtype != 'tsrowactioncolumn') {
+            if (column.xtype != 'rallyrowactioncolumn'  && column.xtype != 'tsrowactioncolumn' && !column._exportHide) {
                 if (column.dataIndex) {
                     var column_name = column.dataIndex;
                     

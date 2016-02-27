@@ -494,14 +494,18 @@ Ext.define("TSTimeSheetApproval", {
         
         this.logger.log('_export',grid);
 
-        var filename = Ext.String.format('manager-time-report.csv');
+        var filename = 'manager-time-report.csv';
 
         this.setLoading("Generating CSV");
         
         var promises = [];
         
+        this.logger.log('before selected list');
         var selected = grid.getSelectionModel().getSelection();
+        this.logger.log('selected', selected);
+        
         if ( !selected || selected.length == 0 ){
+            this.logger.log('export selected items');
             promises.push(function() {return Rally.technicalservices.FileUtilities.getCSVFromGrid(this,grid) });
         }
         
@@ -514,6 +518,8 @@ Ext.define("TSTimeSheetApproval", {
         Deft.Chain.sequence(promises).then({
             scope: this,
             success: function(results){
+                this.logger.log('got csv', results);
+                
                 var csv = results.join('\r\n');
                 
                 if (csv && csv.length > 0){
@@ -527,13 +533,15 @@ Ext.define("TSTimeSheetApproval", {
     },
     
     _getCSVFromTimesheet: function(timesheet,skip_headers) {
-        var deferred = Ext.create('Deft.Deferred');
-        var me = this;
+        var deferred = Ext.create('Deft.Deferred'),
+            me = this;
+
+        this.logger.log('_getCSVFromTimesheet', timesheet, skip_headers);
         
         var status = timesheet.get('__Status');
                     
         var timetable = Ext.create('Rally.technicalservices.TimeTable',{
-            weekStart: timesheet.get('WeekStartDate'),
+            startDate: timesheet.get('WeekStartDate'),
             editable: false,
             timesheet_status: timesheet.get('__Status'),
             timesheet_user: timesheet.get('User'),

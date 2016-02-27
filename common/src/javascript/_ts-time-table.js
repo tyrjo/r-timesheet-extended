@@ -34,6 +34,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
     
     constructor: function (config) {
         this.mergeConfig(config);
+        console.log('construct timetable', config);
         
         if (Ext.isEmpty(config.startDate) || !Ext.isDate(config.startDate)) {
             throw "Rally.technicalservices.TimeTable requires startDate parameter (JavaScript Date)";
@@ -710,7 +711,8 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
         if ( this.editable ||  isForModification ) {
             columns.push({
                 xtype: 'tstimetablerowactioncolumn',
-                forModification: isForModification
+                forModification: isForModification,
+                _exportHide: true
             });
         } 
             

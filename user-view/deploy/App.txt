@@ -3,11 +3,11 @@
 <head>
     <title>Extended Timesheet</title>
     <!--  (c) 2015 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Fri Feb 26 2016 10:41:44 GMT+0530 (IST) -->
+    <!--  Build Date: Fri Feb 26 2016 17:50:42 GMT-0800 (PST) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Fri Feb 26 2016 10:41:44 GMT+0530 (IST)";
-        var CHECKSUM = 337781459257;
+        var APP_BUILD_DATE = "Fri Feb 26 2016 17:50:42 GMT-0800 (PST)";
+        var CHECKSUM = 338935003260;
     </script>
     
     <script type="text/javascript" src="/apps/2.0/sdk.js"></script>
@@ -941,6 +941,8 @@ Ext.define('Rally.technicalservices.FileUtilities', {
     },
     _getCSVFromWsapiBackedGrid: function(grid,skip_headers) {
         var deferred = Ext.create('Deft.Deferred');
+        this.logger.log("_getCSVFromWsapiBackedGrid", grid, skip_headers);
+        
         var store = Ext.create('Rally.data.wsapi.Store',{
             fetch: grid.getStore().config.fetch,
             filters: grid.getStore().config.filters,
@@ -1084,7 +1086,7 @@ Ext.define('Rally.technicalservices.FileUtilities', {
         var columns = grid.columns;
         
         Ext.Array.each(columns, function (column) {
-            if (column.xtype != 'rallyrowactioncolumn'  && column.xtype != 'tsrowactioncolumn') {
+            if (column.xtype != 'rallyrowactioncolumn'  && column.xtype != 'tsrowactioncolumn' && !column._exportHide) {
                 if (column.dataIndex) {
                     var column_name = column.dataIndex;
                     
@@ -2445,6 +2447,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
     
     constructor: function (config) {
         this.mergeConfig(config);
+        console.log('construct timetable', config);
         
         if (Ext.isEmpty(config.startDate) || !Ext.isDate(config.startDate)) {
             throw "Rally.technicalservices.TimeTable requires startDate parameter (JavaScript Date)";
@@ -3121,7 +3124,8 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
         if ( this.editable ||  isForModification ) {
             columns.push({
                 xtype: 'tstimetablerowactioncolumn',
-                forModification: isForModification
+                forModification: isForModification,
+                _exportHide: true
             });
         } 
             
