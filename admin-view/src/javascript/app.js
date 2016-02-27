@@ -16,8 +16,12 @@ Ext.define("TSAdmin", {
         name : "TSAdmin"
     },
     
-    _approvalKeyPrefix: 'rally.technicalservices.timesheet.status',
-    _timeLockKeyPrefix: 'rally.technicalservices.timesheet.weeklock',
+    config: {
+        defaultSettings: {
+            preferenceProjectRef: '/project/51712374295'
+        }
+    },
+    
     
     launch: function() {
         var me = this;
@@ -59,12 +63,13 @@ Ext.define("TSAdmin", {
         this.setLoading("Loading statuses...");
         
         var filters = [
-            {property:'Name',operator:'contains',value:this._timeLockKeyPrefix}
+            {property:'Name',operator:'contains', value:TSUtilities.timeLockKeyPrefix},
+            {property:'Name',operator:'!contains',value:TSUtilities.archiveSuffix }
         ];
         
         var config = {
             model:'Preference',
-            limit: 'Infinity',
+            limit: Infinity,
             filters: filters,
             fetch: ['Name','Value'],
             sorters: [{property:'CreationDate', direction:'ASC'}]
@@ -73,6 +78,8 @@ Ext.define("TSAdmin", {
         TSUtilities.loadWsapiRecords(config).then({
             scope: this,
             success: function(preferences) {
+                this.logger.log('Found ', preferences.length, ' preferences', preferences);
+                
                 var statuses =  Ext.Array.map(preferences, function(preference){
                     var status_object = Ext.JSON.decode(preference.get('Value'));
                     
@@ -165,7 +172,8 @@ Ext.define("TSAdmin", {
             {dataIndex: '__Status', text: 'Status'},
             {dataIndex: '__LastUpdateBy', text: 'Changed by', renderer: function(value, meta, record) {
                 return value._refObjectName;
-            }}
+            }},
+            {dataIndex: '__LastUpdateDate', text: 'Changed on' }
         ]);
     },
     
@@ -202,6 +210,24 @@ Ext.define("TSAdmin", {
         });
         
     },
+    
+    getSettingsFields: function() {
+        var me = this;
+        
+        return [{
+            name: 'preferenceProjectRef',
+            xtype:'rallyprojectpicker',
+            fieldLabel: 'Preference Project',
+            workspace: this.getContext().getWorkspaceRef(),
+            showMostRecentlyUsedProjects : false,
+            autoExpand: true,
+            labelWidth: 75,
+            labelAlign: 'left',
+            minWidth: 200,
+            margin: 10
+        }];
+    },
+    
 //    getOptions: function() {
 //        return [
 //            {

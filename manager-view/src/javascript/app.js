@@ -12,7 +12,6 @@ Ext.define("TSTimeSheetApproval", {
     ],
 
     _commentKeyPrefix: 'rally.technicalservices.timesheet.comment',
-    _approvalKeyPrefix: 'rally.technicalservices.timesheet.status',
 
     integrationHeaders : {
         name : "TSTimeSheetApproval"
@@ -23,12 +22,18 @@ Ext.define("TSTimeSheetApproval", {
     config: {
         defaultSettings: {
             managerField: 'DisplayName',
-            showAllForAdmins: true
+            showAllForAdmins: true,
+            preferenceProjectRef: '/project/51712374295'
         }
     },
     
     launch: function() {
-        this._addSelectors(this.down('#selector_box'));
+        var preference_project_ref = this.getSetting('preferenceProjectRef');
+        if ( !  TSUtilities.isEditableProjectForCurrentUser(preference_project_ref,this) ) {
+            Ext.Msg.alert('Contact your Administrator', 'This app requires editor access to the preference project.');
+        } else {
+            this._addSelectors(this.down('#selector_box'));
+        }
     },
     
     _addSelectors: function(container) {
@@ -176,7 +181,6 @@ Ext.define("TSTimeSheetApproval", {
         if ( start_calendar && to_calendar ) {
             go_button && go_button.setDisabled(false);
         }
-
     },
     
     _updateData: function() {
@@ -284,7 +288,10 @@ Ext.define("TSTimeSheetApproval", {
         this.setLoading("Loading statuses...");
         var stateFilter = this.stateFilterValue;
         
-        var filters = [{property:'Name',operator:'contains',value:this._approvalKeyPrefix}];
+        var filters = [
+            {property:'Name',operator:'contains',value:TSUtilities.approvalKeyPrefix},
+            {property:'Name',operator:'!contains',value: TSUtilities.archiveSuffix}
+        ];
         
         var config = {
             model:'Preference',
@@ -310,7 +317,7 @@ Ext.define("TSTimeSheetApproval", {
                 this.logger.log('Preferences by Key', preferences_by_key);
                 
                 Ext.Array.each(timesheets, function(timesheet){
-                    var key = timesheet.getPartialPreferenceKey();
+                    var key = timesheet.getShortPreferenceKey();
 
                     if (preferences_by_key[key]) {
                         var value = preferences_by_key[key].get('Value');
@@ -487,14 +494,18 @@ Ext.define("TSTimeSheetApproval", {
         
         this.logger.log('_export',grid);
 
-        var filename = Ext.String.format('manager-time-report.csv');
+        var filename = 'manager-time-report.csv';
 
         this.setLoading("Generating CSV");
         
         var promises = [];
         
+        this.logger.log('before selected list');
         var selected = grid.getSelectionModel().getSelection();
+        this.logger.log('selected', selected);
+        
         if ( !selected || selected.length == 0 ){
+            this.logger.log('export selected items');
             promises.push(function() {return Rally.technicalservices.FileUtilities.getCSVFromGrid(this,grid) });
         }
         
@@ -507,6 +518,8 @@ Ext.define("TSTimeSheetApproval", {
         Deft.Chain.sequence(promises).then({
             scope: this,
             success: function(results){
+                this.logger.log('got csv', results);
+                
                 var csv = results.join('\r\n');
                 
                 if (csv && csv.length > 0){
@@ -520,13 +533,15 @@ Ext.define("TSTimeSheetApproval", {
     },
     
     _getCSVFromTimesheet: function(timesheet,skip_headers) {
-        var deferred = Ext.create('Deft.Deferred');
-        var me = this;
+        var deferred = Ext.create('Deft.Deferred'),
+            me = this;
+
+        this.logger.log('_getCSVFromTimesheet', timesheet, skip_headers);
         
         var status = timesheet.get('__Status');
                     
         var timetable = Ext.create('Rally.technicalservices.TimeTable',{
-            weekStart: timesheet.get('WeekStartDate'),
+            startDate: timesheet.get('WeekStartDate'),
             editable: false,
             timesheet_status: timesheet.get('__Status'),
             timesheet_user: timesheet.get('User'),
@@ -609,6 +624,17 @@ Ext.define("TSTimeSheetApproval", {
             fieldLabel: '',
             margin: '0 0 25 10',
             boxLabel: 'Show All<br/><span style="color:#999999;"><i>Tick to show all timesheets regardless of manager for admins.</i></span>'
+        },{
+            name: 'preferenceProjectRef',
+            xtype:'rallyprojectpicker',
+            fieldLabel: 'Preference Project',
+            workspace: this.getContext().getWorkspaceRef(),
+            showMostRecentlyUsedProjects : false,
+            autoExpand: true,
+            labelWidth: 75,
+            labelAlign: 'left',
+            minWidth: 200,
+            margin: 10
         },
         {
             name: 'managerField',

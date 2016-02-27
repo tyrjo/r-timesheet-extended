@@ -1,6 +1,6 @@
-Ext.define('Rally.technicalservices.grid.RowActionColumn', {
+Ext.define('Rally.technicalservices.grid.TimeTableRowActionColumn', {
     extend: 'Ext.grid.column.Column',
-    alias: 'widget.tsrowactioncolumn',
+    alias: 'widget.tstimetablerowactioncolumn',
 
     inheritableStatics: {
         getRequiredFetchFields: function(grid) {
@@ -33,6 +33,12 @@ Ext.define('Rally.technicalservices.grid.RowActionColumn', {
      *
      */
     menuDisabled: true,
+    /**
+     * 
+     * @property {Boolean} forModification  True to show menu items for manager appending/changing of timesheet
+     */
+    forModification: false,
+    
     /**
      * @property {Number}
      *
@@ -118,7 +124,8 @@ Ext.define('Rally.technicalservices.grid.RowActionColumn', {
             records: checkedRecords,
             owningEl: el.parentElement,
             popoverPlacement: ['bottom', 'top'],
-            canUnlock: this.canUnlock
+            canUnlock: this.canUnlock,
+            forModification: this.forModification
         };
 
         if (this.rowActionsFn) {

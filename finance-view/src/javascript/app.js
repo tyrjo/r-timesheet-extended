@@ -2,7 +2,8 @@ Ext.define("TSFinanceReport", {
     extend: 'Rally.app.App',
     componentCls: 'app',
     logger: new Rally.technicalservices.Logger(),
-defaults: { margin: 10 },
+
+    defaults: { margin: 10 },
     
     layout: 'border', 
     
@@ -12,8 +13,6 @@ defaults: { margin: 10 },
         {xtype:'container', itemId:'selector_box', region: 'north',  layout: { type:'hbox' }},
         {xtype:'container', itemId:'display_box' , region: 'center', layout: { type: 'fit'} }
     ],
-
-    _approvalKeyPrefix: 'rally.technicalservices.timesheet.status',
 
     integrationHeaders : {
         name : "TSFinanceReport"
@@ -130,6 +129,7 @@ defaults: { margin: 10 },
             },
             failure: function(msg) {
                 Ext.Msg.alert('Problem loading users with timesheets', msg);
+                this.setLoading(false);
             }
         });
     },
@@ -186,15 +186,20 @@ defaults: { margin: 10 },
         
         Deft.Chain.sequence([
             function() { return TSUtilities.loadWsapiRecordsWithParallelPages(teitem_config);  },
-            function() { return TSUtilities.loadWsapiRecordsWithParallelPages(tevalue_config); }
+            function() { return TSUtilities.loadWsapiRecordsWithParallelPages(tevalue_config); },
+            function() { return me._loadTimeEntryAppends(); },
+            function() { return me._loadTimeEntryAmends(); }
         ],this).then({
             scope: this,
             success: function(results) {
                 var time_entry_items  = results[0];
                 var time_entry_values = results[1];
+                var time_entry_appends = results[2];
+                var time_entry_amends = results[3];
                 
-                var timesheets = this._getTimesheetsFromTimeEntryItems(time_entry_items);
+                var timesheets = this._getTimesheetsFromTimeEntryItems(time_entry_items);  // key is user_startdate
                 timesheets = this._addTimeValuesToTimeSheets(timesheets,time_entry_values);
+                timesheets = this._addChangesToTimeSheets(timesheets, Ext.Array.merge(time_entry_appends, time_entry_amends));
                 
                 deferred.resolve( Ext.Array.map(Ext.Object.getValues(timesheets), function(timesheet){
                     return Ext.create('TSTimesheet',timesheet);
@@ -210,6 +215,251 @@ defaults: { margin: 10 },
         return deferred.promise;
     },
     
+    _loadTimeEntryAppends: function() {
+        var deferred = Ext.create('Deft.Deferred'),
+            me = this;
+        
+        this.setLoading('Loading time entry additions...');
+
+        var key = Ext.String.format("{0}", 
+            Rally.technicalservices.TimeModelBuilder.appendKeyPrefix
+        );
+        
+        var config = {
+            model: 'Preference',
+            context: {
+                project: null
+            },
+            fetch: ['Name','Value','ObjectID'],
+            filters: [
+                {property:'Name',operator:'contains',value:key}
+            ]
+        };
+        
+        TSUtilities.loadWsapiRecords(config).then({
+            success: function(results) {
+                var changes = Ext.Array.map(results, function(result){
+                    var key = result.get('Name');
+                    var value = result.get('Value');
+                    var change = Ext.JSON.decode(value);
+                    
+                    change.key = key;
+                    return change;
+                });
+                
+                // need to get workproduct, task, release and feature
+                var task_oids = Ext.Array.unique(
+                    Ext.Array.filter(
+                        Ext.Array.map(
+                            changes, 
+                            function(change) { 
+                                return change.Task && change.Task.ObjectID; 
+                            }
+                        ),
+                        function(oid) {
+                            return ( !Ext.isEmpty(oid) ) ; 
+                        }
+                    )
+                );
+                var workproduct_oids = Ext.Array.unique(
+                    Ext.Array.filter(
+                        Ext.Array.map(
+                            changes, 
+                            function(change) { 
+                                return change.WorkProduct && change.WorkProduct.ObjectID; 
+                            }
+                        ),
+                        function(oid) {
+                            return ( !Ext.isEmpty(oid) ) ; 
+                        }
+                    )
+                );
+                                
+                Deft.Chain.sequence([
+                    function() { return me._loadAdditionalTasks(task_oids); },
+                    function() { return me._loadAdditionalStories(workproduct_oids); },
+                    function() { return me._loadAdditionalDefects(workproduct_oids); }
+                ],this).then({
+                    scope: this,
+                    success: function(results) {
+                        var tasks   = results[0];
+                        var stories = results[1];
+                        var defects = results[2];
+
+                        var tasks_by_objectid = {};
+                        Ext.Array.each(tasks, function(task) { tasks_by_objectid[task.get('ObjectID')] = task.getData(); });
+                        var stories_by_objectid = {};
+                        Ext.Array.each(stories, function(story) { stories_by_objectid[story.get('ObjectID')] = story.getData(); });
+                        var defects_by_objectid = {};
+                        Ext.Array.each(defects, function(defect) { defects_by_objectid[defect.get('ObjectID')] = defect.getData(); });
+                                                
+                        Ext.Array.each(changes, function(change){
+                            if ( change.Task && change.Task.ObjectID ) {
+                                change.Task = tasks_by_objectid[change.Task.ObjectID];
+                            }
+                            
+                            if ( change.WorkProduct && change.WorkProduct.ObjectID ) {
+                                change.WorkProduct = stories_by_objectid[change.WorkProduct.ObjectID] || defects_by_objectid[change.WorkProduct.ObjectID] || "missing";
+                            }
+                        });
+                        
+                        deferred.resolve(changes);
+                    },
+                    failure: function(msg) { 
+                        deferred.reject(msg);
+                    }
+                });
+                
+            },
+            failure: function(msg) {
+                deferred.reject(msg);
+            }
+        });
+        
+        return deferred.promise;
+    },
+    
+    _loadTimeEntryAmends: function() {
+        var deferred = Ext.create('Deft.Deferred'),
+            me = this;
+        
+        this.setLoading('Loading time entry amendments...');
+        
+        var key = Ext.String.format("{0}", 
+            Rally.technicalservices.TimeModelBuilder.amendKeyPrefix
+        );
+        
+        var config = {
+            model: 'Preference',
+            context: {
+                project: null
+            },
+            fetch: ['Name','Value','ObjectID'],
+            filters: [
+                {property:'Name',operator:'contains',value:key}
+            ]
+        };
+        
+        TSUtilities.loadWsapiRecords(config).then({
+            success: function(results) {
+                var changes = Ext.Array.map(results, function(result){
+                    var key = result.get('Name');
+                    var value = result.get('Value');
+                    var change = Ext.JSON.decode(value);
+                    
+                    change.key = key;
+                    return change;
+                });
+                
+                // need to get workproduct, task, release and feature
+                var task_oids = Ext.Array.unique(
+                    Ext.Array.filter(
+                        Ext.Array.map(
+                            changes, 
+                            function(change) { 
+                                return change.Task && change.Task.ObjectID; 
+                            }
+                        ),
+                        function(oid) {
+                            return ( !Ext.isEmpty(oid) ) ; 
+                        }
+                    )
+                );
+                var workproduct_oids = Ext.Array.unique(
+                    Ext.Array.filter(
+                        Ext.Array.map(
+                            changes, 
+                            function(change) { 
+                                return change.WorkProduct && change.WorkProduct.ObjectID; 
+                            }
+                        ),
+                        function(oid) {
+                            return ( !Ext.isEmpty(oid) ) ; 
+                        }
+                    )
+                );
+                                
+                Deft.Chain.sequence([
+                    function() { return me._loadAdditionalTasks(task_oids); },
+                    function() { return me._loadAdditionalStories(workproduct_oids); },
+                    function() { return me._loadAdditionalDefects(workproduct_oids); }
+                ],this).then({
+                    scope: this,
+                    success: function(results) {
+                        var tasks   = results[0];
+                        var stories = results[1];
+                        var defects = results[2];
+
+                        var tasks_by_objectid = {};
+                        Ext.Array.each(tasks, function(task) { tasks_by_objectid[task.get('ObjectID')] = task.getData(); });
+                        var stories_by_objectid = {};
+                        Ext.Array.each(stories, function(story) { stories_by_objectid[story.get('ObjectID')] = story.getData(); });
+                        var defects_by_objectid = {};
+                        Ext.Array.each(defects, function(defect) { defects_by_objectid[defect.get('ObjectID')] = defect.getData(); });
+                        
+                        Ext.Array.each(changes, function(change){
+                            if ( change.Task && change.Task.ObjectID ) {
+                                change.Task = tasks_by_objectid[change.Task.ObjectID];
+                            }
+                            
+                            if ( change.WorkProduct && change.WorkProduct.ObjectID ) {
+                                change.WorkProduct = stories_by_objectid[change.WorkProduct.ObjectID] || defects_by_objectid[change.WorkProduct.ObjectID] || "missing";
+                            }
+                        });
+                        
+                        deferred.resolve(changes);
+                    },
+                    failure: function(msg) { 
+                        deferred.reject(msg);
+                    }
+                });
+            },
+            failure: function(msg) {
+                deferred.reject(msg);
+            }
+        });
+        
+        return deferred.promise;
+        
+    },
+    
+    _loadAdditionalTasks: function(oids) {
+        var config = {
+            model: 'Task',
+            context: { project: null },
+            fetch: ['FormattedID','ObjectID','Name','c_ActivityType','c_ProjectActivityType'],
+            filters: Rally.data.wsapi.Filter.or( Ext.Array.map(oids, function(oid) { return { property:'ObjectID', value: oid }; }) )
+        };
+        
+        return TSUtilities.loadWsapiRecords(config);
+    },
+    
+    _loadAdditionalStories: function(oids) {
+        var config = {
+            model: 'HierarchicalRequirement',
+            context: { project: null },
+            fetch: ['FormattedID','ObjectID','Name','c_ActivityType','c_ProjectActivityType','Feature','Project',
+                'Release','c_DecommissionDate','State','c_DeploymentDate'
+            ],
+            filters: Rally.data.wsapi.Filter.or( Ext.Array.map(oids, function(oid) { return { property:'ObjectID', value: oid }; }) )
+        };
+        
+        return TSUtilities.loadWsapiRecords(config);
+    },
+    
+    _loadAdditionalDefects: function(oids) {
+        var config = {
+            model: 'Defect',
+            context: { project: null },
+            fetch: ['FormattedID','ObjectID','Name','c_ActivityType','c_ProjectActivityType','Feature','Project',
+                'Release','c_DecommissionDate','State','c_DeploymentDate'
+            ],
+            filters: Rally.data.wsapi.Filter.or( Ext.Array.map(oids, function(oid) { return { property:'ObjectID', value: oid }; }) )
+        };
+        
+        return TSUtilities.loadWsapiRecords(config);
+    },
+    
     _loadPreferences: function(timesheets) {
         var deferred = Ext.create('Deft.Deferred');
         this.setLoading("Loading statuses...");
@@ -218,7 +468,10 @@ defaults: { margin: 10 },
         
         var stateFilter = this.stateFilterValue;
         
-        var filters = [{property:'Name',operator:'contains',value:this._approvalKeyPrefix}];
+        var filters = [
+            {property:'Name',operator:'contains', value:TSUtilities.approvalKeyPrefix},
+            {property:'Name',operator:'!contains',value: TSUtilities.archiveSuffix}
+        ];
         
         var config = {
             model:'Preference',
@@ -278,7 +531,7 @@ defaults: { margin: 10 },
         Ext.Array.each(time_entry_items, function(item){
             var key = Ext.String.format("{0}_{1}",
                 item.get('User').ObjectID,
-                Rally.util.DateTime.toIsoString(item.get('WeekStartDate'))
+                TSDateUtils.formatShiftedDate(item.get('WeekStartDate'),'Y-m-d')
             );
             
             if ( ! timesheets[key] ) {
@@ -329,10 +582,60 @@ defaults: { margin: 10 },
         
     },
     
+    _addChangesToTimeSheets: function(timesheets, changes) {
+        var changes_by_user_and_date = {};
+        
+        Ext.Array.each(changes, function(change){
+            var work_item = change.Task;
+            if ( Ext.isEmpty(work_item) ) {
+                work_item = change.WorkProduct;
+            }
+            
+            var item_oid = work_item.ObjectID;
+            
+            var user_oid = change.User.ObjectID;
+            
+            var name_array = change.key.split('.');
+            var week_start_date = name_array[4];
+            
+            var key = user_oid + "_" + week_start_date;
+            
+            console.log(key, change);
+            
+            if ( Ext.isEmpty( changes_by_user_and_date[key] )) {
+                changes_by_user_and_date[key] = [];
+            }
+            changes_by_user_and_date[key].push(change);
+        });
+        
+        console.log(timesheets);
+        
+        Ext.Object.each(timesheets, function(key,timesheet){
+            if ( changes_by_user_and_date[key] ) {
+                if ( Ext.isEmpty(timesheet.__TimeEntryChanges ) ) {
+                    timesheet.__TimeEntryChanges = [];
+                }
+                
+                var saved_changes = timesheet.__TimeEntryChanges;
+                timesheet.__TimeEntryChanges = Ext.Array.push(saved_changes, changes_by_user_and_date[key]);
+            }
+        });
+        return timesheets;
+    },
+    
     _getRowsFromTimesheets: function(timesheets){
         this.logger.log("timesheets", timesheets);
         
+        var rows = this._getRowsFromTimeValuesInTimesheets(timesheets);
+        
+        var additional_rows = this._getRowsFromChangesInTimesheets(timesheets);
+        
+        return Ext.Array.merge(rows,additional_rows);
+    },
+    
+    _getRowsFromTimeValuesInTimesheets: function(timesheets) {
         var rows = [];
+        
         Ext.Object.each(timesheets, function(key,timesheet){
             var time_values = timesheet.get('__TimeEntryValues');
             Ext.Array.each(time_values, function(time_value){
@@ -392,9 +695,92 @@ defaults: { margin: 10 },
                 
             });
         });
+                
+        return Ext.Array.map(rows, function(row){
+            return Ext.create('TSTimesheetFinanceRow',row);
+        });
+    },
+    
+    _getRowsFromChangesInTimesheets: function(timesheets) {
+        var rows = [],
+            me = this;
+        var days = Rally.technicalservices.TimeModelBuilder.days;
         
-        this.logger.log('rows', rows);
-        
+        Ext.Object.each(timesheets, function(key,timesheet){
+            var changes = timesheet.get('__TimeEntryChanges') || [];
+            var week_start = timesheet.get('WeekStartDate');
+
+            Ext.Array.each(changes, function(change){
+                me.logger.log('change', change);
+                
+                var change_type = change.__Appended ? "Appended" : "Amended";
+                var isOpEx = false;
+                
+                var product = change.Project;
+                var workproduct = change.WorkProduct;
+                var feature = null;
+                var release = null;
+                
+                if ( !Ext.isEmpty(workproduct) && workproduct.Feature ) {
+                    feature = workproduct.Feature;
+                    product = feature.Project;
+                }
+                
+                if ( !Ext.isEmpty(workproduct) && workproduct.Release ) {
+                    release = workproduct.Release;
+                }
+                
+                var task = change.Task;
+                if ( !Ext.isEmpty(task) ) {
+                    if ( !Ext.isEmpty(task.c_ActivityType) && !/CapEx/.test(task.c_ActivityType) && !/^-/.test(task.c_ActivityType)) {
+                        isOpEx = true;
+                    }
+                }
+                
+                if ( !Ext.isEmpty(workproduct)  ) {
+                    if ( !Ext.isEmpty(workproduct.c_ActivityType) && !/CapEx/.test(workproduct.c_ActivityType) ) {
+                        isOpEx = true;
+                    }
+                }
+                
+                if ( !Ext.isEmpty(feature) ) {
+                    if ( !Ext.isEmpty(workproduct.c_ActivityType) && !/CapEx/.test(workproduct.c_ActivityType) ) {
+                        isOpEx = true;
+                    }
+                }
+                
+                Ext.Array.each(days, function(day, idx){
+                    var day_value = change['__' + day];
+                    if (!Ext.isEmpty(day_value) && day_value !== 0 ) {
+                        var day_date = Rally.util.DateTime.add(week_start, 'day', idx);
+                        
+                        rows.push({
+                            __ChangeType      : change_type,
+                            WeekStartDate     : timesheet.get('WeekStartDate'),
+                            User              : timesheet.get('User'),
+                            __Location        : timesheet.get('User').OfficeLocation,
+                            __AssociateID     : timesheet.get('User').NetworkID,
+                            __EmployeeType    : timesheet.get('User').c_EmployeeType,
+                            __CostCenter      : timesheet.get('User').CostCenter,
+                            __Status          : timesheet.get('__Status'),
+                            __LastUpdateBy    : timesheet.get('__LastUpdateBy'),
+                            __LastUpdateDate  : timesheet.get('__LastUpdateDate'),
+                            DateVal           : day_date,
+                            Hours             : day_value,
+                            __Release         : release,
+                            __Product         : product,
+                            __IsOpEx          : isOpEx,
+                            __WorkItem        : change.WorkProduct,
+                            __WorkItemDisplay : change.WorkProduct.FormattedID + ": " + change.WorkProduct.Name,
+                            __Task            : change.Task,
+                            __TaskDisplay     : change.Task.FormattedID + ": " + change.Task.Name
+                        });
+                    }
+                });
+            });
+            
+        });
+                
         return Ext.Array.map(rows, function(row){
             return Ext.create('TSTimesheetFinanceRow',row);
         });
@@ -424,7 +810,7 @@ defaults: { margin: 10 },
     
     _getColumns: function() {
         var columns = [];
-        
+        columns.push({dataIndex:'__ChangeType',text:' '});
         columns.push({dataIndex:'User',text:'User', renderer: function(v) { return v._refObjectName; }});
         columns.push({dataIndex:'__Location',text:'Location' });
         columns.push({dataIndex:'__AssociateID',text:'Associate ID' });
@@ -434,21 +820,7 @@ defaults: { margin: 10 },
         }});
         
         columns.push({dataIndex:'DateVal',text:'Work Date', align: 'center', renderer: function(v) {
-            var offset = v.getTimezoneOffset();
-            
-            var week_date = v;
-            //console.log(offset);  // 480 is pacific, -330 is india
-            // datevals are set to the london midnight for that day, so shifting to pacific
-            // will put Tuesday on Monday, but India will be fine for week day
-            
-            if ( offset > 0 ) {
-                week_date = Rally.util.DateTime.add(v,'minute',offset);
-            }
-            
-            var display_value = Ext.util.Format.date(week_date,'m/d/y');
-            //console.log(v, week_date, display_value);
-            
-            return display_value;
+            return TSDateUtils.formatShiftedDate(v,'Y-m-d');
         }});
         
         columns.push({dataIndex:'Hours',  text:'Actual Hours', align: 'right'});

@@ -14,13 +14,22 @@ Ext.define("TSExtendedTimesheet", {
     integrationHeaders : {
         name : "TSExtendedTimesheet"
     },
+    
+    config: {
+        defaultSettings: {
+            preferenceProjectRef: '/project/51712374295'
+        }
+    },
    
-    _timeLockKeyPrefix: 'rally.technicalservices.timesheet.weeklock',
     _commentKeyPrefix: 'rally.technicalservices.timesheet.comment',
-    _approvalKeyPrefix: 'rally.technicalservices.timesheet.status',
 
     launch: function() {
-        this._addSelectors(this.down('#selector_box'));
+        var preference_project_ref = this.getSetting('preferenceProjectRef');
+        if ( !  TSUtilities.isEditableProjectForCurrentUser(preference_project_ref,this) ) {
+            Ext.Msg.alert('Contact your Administrator', 'This app requires editor access to the preference project.');
+        } else {
+            this._addSelectors(this.down('#selector_box'));
+        }
     },
     
     _addSelectors: function(container) {
@@ -190,9 +199,9 @@ Ext.define("TSExtendedTimesheet", {
     
     _loadWeekStatusPreference: function() {
         this.logger.log('_loadWeekStatusPreference',this.startDateString);
-            
+        
         var key = Ext.String.format("{0}.{1}.{2}", 
-            this._approvalKeyPrefix,
+            TSUtilities.approvalKeyPrefix,
             this.startDateString,
             this.getContext().getUser().ObjectID
         );
@@ -202,7 +211,10 @@ Ext.define("TSExtendedTimesheet", {
             model:'Preference',
             limit: 1,
             pageSize: 1,
-            filters: [{property:'Name',operator: 'contains', value:key}],
+            filters: [
+                {property:'Name',operator: 'contains', value:key},
+                {property:'Name',operator:'!contains',value: TSUtilities.archiveSuffix}
+            ],
             fetch: ['Name','Value'],
             sorters: [{property:'CreationDate', direction: 'DESC'}]
         };
@@ -214,16 +226,21 @@ Ext.define("TSExtendedTimesheet", {
         this.logger.log('_loadWeekLockPreference', this.startDateString);
         
         var key = Ext.String.format("{0}.{1}", 
-            this._timeLockKeyPrefix,
+            TSUtilities.timeLockKeyPrefix,
             this.startDateString
         );
         this.logger.log('finding by key',key);
+        
+        var filters = [
+            {property:'Name',operator:'contains', value:key},
+            {property:'Name',operator:'!contains',value:TSUtilities.archiveSuffix }
+        ];
         
         var config = {
             model:'Preference',
             limit: 1,
             pageSize: 1,
-            filters: [{property:'Name',operator:'contains',value:key}],
+            filters: filters,
             fetch: ['Name','Value'],
             sorters: [{property:'CreationDate',direction:'DESC'}]
         };
@@ -411,6 +428,23 @@ Ext.define("TSExtendedTimesheet", {
                 }
              });
         }
+    },
+    
+    getSettingsFields: function() {
+        var me = this;
+        
+        return [{
+            name: 'preferenceProjectRef',
+            xtype:'rallyprojectpicker',
+            fieldLabel: 'Preference Project',
+            workspace: this.getContext().getWorkspaceRef(),
+            showMostRecentlyUsedProjects : false,
+            autoExpand: true,
+            labelWidth: 75,
+            labelAlign: 'left',
+            minWidth: 200,
+            margin: 10
+        }];
     },
     
 //    getOptions: function() {

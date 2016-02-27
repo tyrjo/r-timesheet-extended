@@ -13,6 +13,7 @@ module.exports = function(grunt) {
         config.js_files = grunt.file.expand([
             '../common/src/javascript/utils/*.js',
             '../common/src/javascript/*.js',
+            '../common/src/javascript/timesheet_menu/*.js',
             'src/javascript/utils/*.js',
             'src/javascript/menu/*.js',
             'src/javascript/*.js'
