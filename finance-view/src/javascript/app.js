@@ -124,6 +124,9 @@ Ext.define("TSFinanceReport", {
         ],this).then({
             scope: this,
             success: function(timesheets) {
+                this.setLoading("Preparing Data...");
+                
+                this.logger.log("Prepare rows");
                 var time_rows = this._getRowsFromTimesheets(timesheets);
                 this._addGrid(this.down('#display_box'), time_rows);
             },
@@ -136,26 +139,21 @@ Ext.define("TSFinanceReport", {
     
     _loadTimesheets: function() {
         var deferred = Ext.create('Deft.Deferred'),
+            tei_filters = [],
+            tev_filters = [],
             me = this;
         this.setLoading("Loading timesheets...");
         
-        var tei_filters = [{property:'ObjectID', operator: '>', value: 0 }];
-        var tev_filters = [{property:'ObjectID', operator: '>', value: 0 }];
+        var selector_start_date = this.down('#from_date_selector').getValue();
         
-        if (this.down('#from_date_selector') ) {
-            var selector_start_date = this.down('#from_date_selector').getValue();
-            
-            var tei_start_date = TSDateUtils.getBeginningOfWeekISOForLocalDate(selector_start_date,true);
-            var tev_start_date = Rally.util.DateTime.toIsoString(selector_start_date ,false).replace(/T.*$/,'T00:00:00.000Z');
-            tei_filters.push({property:'WeekStartDate', operator: '>=', value:tei_start_date});
-            tev_filters.push({property:'DateVal', operator: '>=', value:tev_start_date});
-        }
-        
-        if (this.down('#to_date_selector') ) {
-            var end_date = TSDateUtils.formatShiftedDate( this.down('#to_date_selector').getValue(), 'Y-m-d');
-            tei_filters.push({property:'WeekStartDate', operator: '<=', value:end_date});
-            tev_filters.push({property:'DateVal', operator: '<=', value:end_date});
-        }
+        var tei_start_date = TSDateUtils.getBeginningOfWeekISOForLocalDate(selector_start_date,true);
+        var tev_start_date = Rally.util.DateTime.toIsoString(selector_start_date ,false).replace(/T.*$/,'T00:00:00.000Z');
+        tei_filters.push({property:'WeekStartDate', operator: '>=', value:tei_start_date});
+        tev_filters.push({property:'DateVal', operator: '>=', value:tev_start_date});
+
+        var end_date = TSDateUtils.formatShiftedDate( this.down('#to_date_selector').getValue(), 'Y-m-d');
+        tei_filters.push({property:'WeekStartDate', operator: '<=', value:end_date});
+        tev_filters.push({property:'DateVal', operator: '<=', value:end_date});
         
         var teitem_config = {
             model:'TimeEntryItem',
@@ -194,12 +192,17 @@ Ext.define("TSFinanceReport", {
             success: function(results) {
                 var time_entry_items  = results[0];
                 var time_entry_values = results[1];
-                var time_entry_appends = results[2];
-                var time_entry_amends = results[3];
+                var time_entry_appends = results[2] || [];
+                var time_entry_amends = results[3] || [];
                 
                 var timesheets = this._getTimesheetsFromTimeEntryItems(time_entry_items);  // key is user_startdate
                 timesheets = this._addTimeValuesToTimeSheets(timesheets,time_entry_values);
-                timesheets = this._addChangesToTimeSheets(timesheets, Ext.Array.merge(time_entry_appends, time_entry_amends));
+                
+                var changes =  Ext.Array.merge(time_entry_appends, time_entry_amends);
+                
+                if ( changes.length > 0 ) {
+                    timesheets = this._addChangesToTimeSheets(timesheets,changes);
+                }
                 
                 deferred.resolve( Ext.Array.map(Ext.Object.getValues(timesheets), function(timesheet){
                     return Ext.create('TSTimesheet',timesheet);
@@ -303,6 +306,7 @@ Ext.define("TSFinanceReport", {
                             }
                         });
                         
+                        me.logger.log('Found changes: ', changes.length);
                         deferred.resolve(changes);
                     },
                     failure: function(msg) { 
@@ -407,6 +411,7 @@ Ext.define("TSFinanceReport", {
                             }
                         });
                         
+                        me.logger.log('Found amends: ', changes.length);
                         deferred.resolve(changes);
                     },
                     failure: function(msg) { 
@@ -424,47 +429,61 @@ Ext.define("TSFinanceReport", {
     },
     
     _loadAdditionalTasks: function(oids) {
+        var filters = [{property:'ObjectID', value: -1}];
+        if ( oids.length > 0 ) {
+             filters = Rally.data.wsapi.Filter.or( Ext.Array.map(oids, function(oid) { return { property:'ObjectID', value: oid }; }) );
+        }
         var config = {
             model: 'Task',
             context: { project: null },
             fetch: ['FormattedID','ObjectID','Name','c_ActivityType','c_ProjectActivityType'],
-            filters: Rally.data.wsapi.Filter.or( Ext.Array.map(oids, function(oid) { return { property:'ObjectID', value: oid }; }) )
+            filters: filters
         };
         
         return TSUtilities.loadWsapiRecords(config);
     },
     
     _loadAdditionalStories: function(oids) {
+        var filters = [{property:'ObjectID', value: -1}];
+        if ( oids.length > 0 ) {
+            filters = Rally.data.wsapi.Filter.or( Ext.Array.map(oids, function(oid) { return { property:'ObjectID', value: oid }; }) );
+        }
         var config = {
             model: 'HierarchicalRequirement',
             context: { project: null },
             fetch: ['FormattedID','ObjectID','Name','c_ActivityType','c_ProjectActivityType','Feature','Project',
                 'Release','c_DecommissionDate','State','c_DeploymentDate'
             ],
-            filters: Rally.data.wsapi.Filter.or( Ext.Array.map(oids, function(oid) { return { property:'ObjectID', value: oid }; }) )
+            filters: filters
         };
         
         return TSUtilities.loadWsapiRecords(config);
     },
     
     _loadAdditionalDefects: function(oids) {
+        var filters = [{property:'ObjectID', value: -1}];
+        if ( oids.length > 0 ) {
+             filters = Rally.data.wsapi.Filter.or( Ext.Array.map(oids, function(oid) { return { property:'ObjectID', value: oid }; }) );
+        }
+        
         var config = {
             model: 'Defect',
             context: { project: null },
             fetch: ['FormattedID','ObjectID','Name','c_ActivityType','c_ProjectActivityType','Feature','Project',
                 'Release','c_DecommissionDate','State','c_DeploymentDate'
             ],
-            filters: Rally.data.wsapi.Filter.or( Ext.Array.map(oids, function(oid) { return { property:'ObjectID', value: oid }; }) )
+            filters: filters
         };
         
         return TSUtilities.loadWsapiRecords(config);
     },
     
     _loadPreferences: function(timesheets) {
-        var deferred = Ext.create('Deft.Deferred');
+        var deferred = Ext.create('Deft.Deferred'),
+            me = this;
         this.setLoading("Loading statuses...");
         
-        this.logger.log("_loadPreferences", timesheets);
+        this.logger.log("_loadPreferences");
         
         var stateFilter = this.stateFilterValue;
         
@@ -484,6 +503,7 @@ Ext.define("TSFinanceReport", {
         TSUtilities.loadWsapiRecords(config).then({
             scope: this,
             success: function(preferences) {
+                this.logger.log("Found preferences ", preferences.length);
                 var preferences_by_key = {};
                 
                 Ext.Array.each(preferences, function(pref){
@@ -497,7 +517,21 @@ Ext.define("TSFinanceReport", {
                 Ext.Array.each(timesheets, function(timesheet){
                     var key = timesheet.getPreferenceKey();
                     if (preferences_by_key[key]) {
-                        var status_object = Ext.JSON.decode(preferences_by_key[key].get('Value'));
+                        //me.logger.log('pref for  ', key, preferences_by_key[key]);
+
+                        var value = preferences_by_key[key].get('Value');
+                        if ( Ext.isEmpty(value) ) {
+                            me.logger.log("value is empty ", preferences_by_key, key);
+                            return;
+                        }
+                        
+                        if ( !/\{/.test(value) ) {
+                            me.logger.log('! value is not a json string:', key, preferences_by_key[key]);
+                            return;
+                        }
+                        
+                        var status_object = Ext.JSON.decode(value);
+
                         timesheet.set('__Status', status_object.status || "Open");
                         timesheet.set('__LastUpdateBy', status_object.status_owner._refObjectName || "");
                         timesheet.set('__LastUpdateDate', status_object.status_date);
@@ -506,17 +540,11 @@ Ext.define("TSFinanceReport", {
                         timesheet.set('__Status', 'Open');
                     }
                 });
-                
-                var filtered_timesheets = Ext.Array.filter(timesheets, function(timesheet){
-                    if (stateFilter == "ALL") {
-                        return true;
-                    }
-                    
-                    return ( timesheet.get('__Status') == stateFilter );
-                });
+
+                this.logger.log('Made timesheets: ', timesheets.length);
                 
                 this.setLoading(false);
-                deferred.resolve(filtered_timesheets);
+                deferred.resolve(timesheets);
                 
             },
             failure: function(msg){
@@ -599,17 +627,13 @@ Ext.define("TSFinanceReport", {
             var week_start_date = name_array[4];
             
             var key = user_oid + "_" + week_start_date;
-            
-            console.log(key, change);
-            
+                        
             if ( Ext.isEmpty( changes_by_user_and_date[key] )) {
                 changes_by_user_and_date[key] = [];
             }
             changes_by_user_and_date[key].push(change);
         });
-        
-        console.log(timesheets);
-        
+                
         Ext.Object.each(timesheets, function(key,timesheet){
             if ( changes_by_user_and_date[key] ) {
                 if ( Ext.isEmpty(timesheet.__TimeEntryChanges ) ) {
@@ -806,6 +830,7 @@ Ext.define("TSFinanceReport", {
             enableBulkEdit: false,
             showPagingToolbar: false
         });
+        this.setLoading(false);
     },
     
     _getColumns: function() {
