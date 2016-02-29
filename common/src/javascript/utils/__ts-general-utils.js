@@ -10,6 +10,8 @@ Ext.define('TSUtilities', {
     loadWsapiRecords: function(config,returnOperation){
         var deferred = Ext.create('Deft.Deferred');
         var me = this;
+        console.log('config: ', config);
+        
         var default_config = {
             model: 'Defect',
             fetch: ['ObjectID']
