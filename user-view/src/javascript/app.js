@@ -226,7 +226,8 @@ Ext.define("TSExtendedTimesheet", {
             me = this;
         this.setLoading('Reviewing Past Timesheets');
         
-        var this_week_start = TSDateUtils.getBeginningOfWeekISOForLocalDate(new Date());
+        //var this_week_start = TSDateUtils.getBeginningOfWeekISOForLocalDate(new Date());
+        var this_week_start = TSDateUtils.formatShiftedDate(new Date(),'Y-m-d');
         
         var append_filters = Rally.data.wsapi.Filter.and([
             { property: 'Name', operator:'contains', value: Rally.technicalservices.TimeModelBuilder.appendKeyPrefix },
@@ -320,16 +321,29 @@ Ext.define("TSExtendedTimesheet", {
                         gridReady: function(t, grid) {
                             if ( grid.getStore().isLoading() ) {
                                 grid.getStore().on('load', function() {
-                                    this._absorbChanges(t,changes);
+                                    this._absorbChanges(t,changes).then({
+                                        success: function(results) {
+                                            deferred.resolve(1);
+                                        },
+                                        failure: function(msg) { 
+                                            deferred.reject(msg);
+                                        }
+                                    });
                                 }, this, { single: true });
                             } else {
-                                this._absorbChanges(t,changes);
+                                this._absorbChanges(t,changes).then({
+                                    success: function(results) {
+                                        deferred.resolve(1);
+                                    },
+                                    failure: function(msg) { 
+                                        deferred.reject(msg);
+                                    }
+                                });
                             }
                         }
                     }
                 });
                 
-                deferred.resolve(1);
             },
             failure: function(msg) {
                 deferred.reject(msg);
@@ -340,15 +354,19 @@ Ext.define("TSExtendedTimesheet", {
     },
     
     _absorbChanges: function(timetable,changes) {
+        var promises = [];
+        
         Ext.Array.each(changes, function(change) {
             var value = Ext.JSON.decode(change.get('Value'));
             value.ObjectID = change.get('ObjectID');
             value.__PrefID = change.get('ObjectID');
             
             var row = Ext.create('TSTableRow', value);
-            
+            promises.push( function() { return timetable.absorbTime(row); });
             timetable.absorbTime(row);
         });
+        
+        return Deft.Chain.sequence(promises);
     },
 
     _loadWeekStatusPreference: function() {

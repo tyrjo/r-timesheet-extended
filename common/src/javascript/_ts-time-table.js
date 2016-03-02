@@ -389,19 +389,22 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
         record.clearAndRemove();
 
         if ( clone.__Appended ) {
-            this._absorbAppended(clone);
+            return this._absorbAppended(clone);
         } else {
             var original_row = this.getRowForAmendedRow(clone);
                         
             if ( Ext.isEmpty(original_row) ) {
-                this._absorbAppended(clone); // original must have been removed
+                return this._absorbAppended(clone); // original must have been removed
             } else {
-                this._absorbAmended(clone);
+                return this._absorbAmended(clone);
             }
         }
+        
     },
     
     _absorbAmended: function(clone) {
+        var deferred = Ext.create('Deft.Deferred');
+        
         var days = ['__Monday','__Tuesday','__Wednesday','__Thursday','__Friday','__Saturday','__Sunday','__Total'];
         var original_row = this.getRowForAmendedRow(clone);
 
@@ -416,10 +419,21 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
             
             original_row.set(day,new_value);
         });
-        original_row.save();
+        original_row.save({
+            callback: function(result, operation) {
+                if ( operation.wasSuccessful() ) {
+                    deferred.resolve(result);
+                } else {
+                    deferred.reject(operation & operation.error & operation.error.errors.join('. '));
+                }
+            }
+        });
+        
+        return deferred.promise;
     },
     
     _absorbAppended: function(clone) {
+        var deferred = Ext.create('Deft.Deferred');
         var me = this;
         
         var work_item = clone.Task;
@@ -441,14 +455,23 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                                 row.set(day,clone[day]);
                             }
                         });
-                        row.save();
+                        row.save({
+                            callback: function(result, operation) {
+                                if ( operation.wasSuccessful() ) {
+                                    deferred.resolve(result);
+                                } else {
+                                    deferred.reject(operation & operation.error & operation.error.errors.join('. '));
+                                }
+                            }
+                        });
                     },
                     failure: function() {
-                        
+                        deferred.reject('Problem adding row');
                     }
                 });
             }
         });
+        return deferred.promise;
     },
     
     _getItemFromRef: function(item_ref) {
