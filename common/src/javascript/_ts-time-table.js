@@ -384,44 +384,57 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
     },
     
     absorbTime: function(record) {
-        console.log('absorb!', record);
-        var me = this;
         
         var clone = Ext.clone(record).getData();
         record.clearAndRemove();
 
         if ( clone.__Appended ) {
-            this._absorbAppended(clone);
+            return this._absorbAppended(clone);
         } else {
             var original_row = this.getRowForAmendedRow(clone);
-            
-            console.log('original row', original_row);
-            
-            if ( ! Ext.isEmpty(original_row) ) {
-                var days = ['__Monday','__Tuesday','__Wednesday','__Thursday','__Friday','__Saturday','__Sunday','__Total'];
-    
-                //var days = me._getDayValuesFromRow(clone);
-                Ext.Array.each(days, function(day) {
-                    var clone_value = clone[day] || 0;
-                    var original_value = original_row.get(day) || 0;
-                    
-                    var new_value = original_value + clone[day];
-                    if ( new_value < 0 ) { new_value = 0; }
-                    if ( new_value > 24 ) { new_value = 24; }
-                    
-                    original_row.set(day,new_value);
-                });
-                original_row.save();
-                
+                        
+            if ( Ext.isEmpty(original_row) ) {
+                return this._absorbAppended(clone); // original must have been removed
             } else {
-                this._absorbAppended(clone); // original must have been removed
+                return this._absorbAmended(clone);
             }
         }
+        
+    },
+    
+    _absorbAmended: function(clone) {
+        var deferred = Ext.create('Deft.Deferred');
+        
+        var days = ['__Monday','__Tuesday','__Wednesday','__Thursday','__Friday','__Saturday','__Sunday','__Total'];
+        var original_row = this.getRowForAmendedRow(clone);
+
+        //var days = me._getDayValuesFromRow(clone);
+        Ext.Array.each(days, function(day) {
+            var clone_value = clone[day] || 0;
+            var original_value = original_row.get(day) || 0;
+            
+            var new_value = original_value + clone[day];
+            if ( new_value < 0 ) { new_value = 0; }
+            if ( new_value > 24 ) { new_value = 24; }
+            
+            original_row.set(day,new_value);
+        });
+        original_row.save({
+            callback: function(result, operation) {
+                if ( operation.wasSuccessful() ) {
+                    deferred.resolve(result);
+                } else {
+                    deferred.reject(operation & operation.error & operation.error.errors.join('. '));
+                }
+            }
+        });
+        
+        return deferred.promise;
     },
     
     _absorbAppended: function(clone) {
+        var deferred = Ext.create('Deft.Deferred');
         var me = this;
-        console.log("_absorbAppended", clone);
         
         var work_item = clone.Task;
             
@@ -442,14 +455,23 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                                 row.set(day,clone[day]);
                             }
                         });
-                        row.save();
+                        row.save({
+                            callback: function(result, operation) {
+                                if ( operation.wasSuccessful() ) {
+                                    deferred.resolve(result);
+                                } else {
+                                    deferred.reject(operation & operation.error & operation.error.errors.join('. '));
+                                }
+                            }
+                        });
                     },
                     failure: function() {
-                        
+                        deferred.reject('Problem adding row');
                     }
                 });
             }
         });
+        return deferred.promise;
     },
     
     _getItemFromRef: function(item_ref) {
@@ -942,5 +964,6 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
     getGrid: function() {
         return this.down('rallygrid');
     }
+    
 
 });

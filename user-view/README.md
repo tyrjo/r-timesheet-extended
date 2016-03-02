@@ -2,12 +2,19 @@
 
 An app to replace the Rally timesheet.
 
+Manager can create append and amendments to existing timesheets.  When the user loads her current timesheet, 
+the app will look back for appends/amends to past timesheets, check if each is an approved timesheet and if so will
+absort the change.
+
+For open timesheets, the user can choose to absort or remove the change.
 
 ## Development Notes
 
 * Caution: "Feature"
 * Caution: Locking of rows depends on a custom boolean field on Release called "c_IsDeployed"  (note the capital I)
 * Override in the time grid in order to allow for variable selection of editor
+
+* On absorb, the preference representing the append/amend will be saved with .~archived appended to the name.
 
 
 ### First Load

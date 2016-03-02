@@ -3,11 +3,11 @@
 <head>
     <title>Extended Timesheet</title>
     <!--  (c) 2015 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Fri Feb 26 2016 17:50:42 GMT-0800 (PST) -->
+    <!--  Build Date: Wed Mar 02 2016 10:07:15 GMT-0800 (PST) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Fri Feb 26 2016 17:50:42 GMT-0800 (PST)";
-        var CHECKSUM = 338935003260;
+        var APP_BUILD_DATE = "Wed Mar 02 2016 10:07:15 GMT-0800 (PST)";
+        var CHECKSUM = 384664194447;
     </script>
     
     <script type="text/javascript" src="/apps/2.0/sdk.js"></script>
@@ -447,6 +447,7 @@ Ext.define('TSUtilities', {
     loadWsapiRecords: function(config,returnOperation){
         var deferred = Ext.create('Deft.Deferred');
         var me = this;
+        
         var default_config = {
             model: 'Defect',
             fetch: ['ObjectID']
@@ -866,6 +867,61 @@ Ext.define('TSDateUtils', {
         }
 
         return Ext.util.Format.date(jsdate,format);
+    },
+    
+    // returns a promise, fulfills with a boolean
+    isApproved: function(week_start_iso, user_oid) {
+        var deferred = Ext.create('Deft.Deferred');
+        
+        var short_iso_date = week_start_iso;
+        var key_user_oid = user_oid || Rally.getApp().getContext().getUser().ObjectID;
+        
+        var key = Ext.String.format("{0}.{1}.{2}", 
+            TSUtilities.approvalKeyPrefix,
+            short_iso_date,
+            key_user_oid
+        );
+        
+        this._loadWeekStatusPreference(key).then({
+            success: function(preference) {
+                if (preference.length === 0) { 
+                    deferred.resolve(false);
+                    return;
+                }
+                var value = preference[0].get('Value');
+                if ( /{/.test(value) ) {
+                    var status_object = Ext.JSON.decode(value);
+                    if ( status_object.status == "Approved" ) { 
+                        deferred.resolve(true);
+                        return;
+                    }
+                }
+                
+                deferred.resolve(false);
+            },
+            failure: function(msg) {
+                deferred.reject(msg);
+            }
+        });
+        
+        return deferred.promise;
+    },
+    
+    _loadWeekStatusPreference: function(key) {
+        
+        var config = {
+            model:'Preference',
+            limit: 1,
+            pageSize: 1,
+            filters: [
+                {property:'Name',operator: 'contains', value:key},
+                {property:'Name',operator:'!contains',value: TSUtilities.archiveSuffix}
+            ],
+            fetch: ['Name','Value'],
+            sorters: [{property:'CreationDate', direction: 'DESC'}]
+        };
+        
+        return TSUtilities.loadWsapiRecords(config);
     }
 });
 
@@ -2797,44 +2853,57 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
     },
     
     absorbTime: function(record) {
-        console.log('absorb!', record);
-        var me = this;
         
         var clone = Ext.clone(record).getData();
         record.clearAndRemove();
 
         if ( clone.__Appended ) {
-            this._absorbAppended(clone);
+            return this._absorbAppended(clone);
         } else {
             var original_row = this.getRowForAmendedRow(clone);
-            
-            console.log('original row', original_row);
-            
-            if ( ! Ext.isEmpty(original_row) ) {
-                var days = ['__Monday','__Tuesday','__Wednesday','__Thursday','__Friday','__Saturday','__Sunday','__Total'];
-    
-                //var days = me._getDayValuesFromRow(clone);
-                Ext.Array.each(days, function(day) {
-                    var clone_value = clone[day] || 0;
-                    var original_value = original_row.get(day) || 0;
-                    
-                    var new_value = original_value + clone[day];
-                    if ( new_value < 0 ) { new_value = 0; }
-                    if ( new_value > 24 ) { new_value = 24; }
-                    
-                    original_row.set(day,new_value);
-                });
-                original_row.save();
-                
+                        
+            if ( Ext.isEmpty(original_row) ) {
+                return this._absorbAppended(clone); // original must have been removed
             } else {
-                this._absorbAppended(clone); // original must have been removed
+                return this._absorbAmended(clone);
             }
         }
+        
+    },
+    
+    _absorbAmended: function(clone) {
+        var deferred = Ext.create('Deft.Deferred');
+        
+        var days = ['__Monday','__Tuesday','__Wednesday','__Thursday','__Friday','__Saturday','__Sunday','__Total'];
+        var original_row = this.getRowForAmendedRow(clone);
+
+        //var days = me._getDayValuesFromRow(clone);
+        Ext.Array.each(days, function(day) {
+            var clone_value = clone[day] || 0;
+            var original_value = original_row.get(day) || 0;
+            
+            var new_value = original_value + clone[day];
+            if ( new_value < 0 ) { new_value = 0; }
+            if ( new_value > 24 ) { new_value = 24; }
+            
+            original_row.set(day,new_value);
+        });
+        original_row.save({
+            callback: function(result, operation) {
+                if ( operation.wasSuccessful() ) {
+                    deferred.resolve(result);
+                } else {
+                    deferred.reject(operation & operation.error & operation.error.errors.join('. '));
+                }
+            }
+        });
+        
+        return deferred.promise;
     },
     
     _absorbAppended: function(clone) {
+        var deferred = Ext.create('Deft.Deferred');
         var me = this;
-        console.log("_absorbAppended", clone);
         
         var work_item = clone.Task;
             
@@ -2855,14 +2924,23 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                                 row.set(day,clone[day]);
                             }
                         });
-                        row.save();
+                        row.save({
+                            callback: function(result, operation) {
+                                if ( operation.wasSuccessful() ) {
+                                    deferred.resolve(result);
+                                } else {
+                                    deferred.reject(operation & operation.error & operation.error.errors.join('. '));
+                                }
+                            }
+                        });
                     },
                     failure: function() {
-                        
+                        deferred.reject('Problem adding row');
                     }
                 });
             }
         });
+        return deferred.promise;
     },
     
     _getItemFromRef: function(item_ref) {
@@ -3355,6 +3433,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
     getGrid: function() {
         return this.down('rallygrid');
     }
+    
 
 });
 
@@ -3740,11 +3819,24 @@ Ext.define("TSExtendedTimesheet", {
 
     launch: function() {
         var preference_project_ref = this.getSetting('preferenceProjectRef');
-        if ( !  TSUtilities.isEditableProjectForCurrentUser(preference_project_ref,this) ) {
-            Ext.Msg.alert('Contact your Administrator', 'This app requires editor access to the preference project.');
-        } else {
-            this._addSelectors(this.down('#selector_box'));
-        }
+        
+        this._absorbOldApprovedTimesheets().then({
+            scope: this,
+            success: function(results) {
+                this.setLoading(false);
+                
+                this.logger.log("Updated ", results, " timesheets");
+                
+                if ( !  TSUtilities.isEditableProjectForCurrentUser(preference_project_ref,this) ) {
+                    Ext.Msg.alert('Contact your Administrator', 'This app requires editor access to the preference project.');
+                } else {
+                    this._addSelectors(this.down('#selector_box'));
+                }
+            },
+            failure: function(msg) {
+                Ext.Msg.alert("Problem Reviewing Past Timesheets", msg);
+            }
+        });
     },
     
     _addSelectors: function(container) {
@@ -3912,6 +4004,165 @@ Ext.define("TSExtendedTimesheet", {
         });
     },
     
+    _getWeekStartFromKey: function(key) {
+        var name_array = key.get('Name').split('.');
+        
+        if ( name_array.length < 5 ) {
+            return null;
+        }
+        
+        return name_array[4];
+        
+    },
+    
+    _absorbOldApprovedTimesheets: function() {
+        var deferred = Ext.create('Deft.Deferred'),
+            me = this;
+        this.setLoading('Reviewing Past Timesheets');
+        
+        //var this_week_start = TSDateUtils.getBeginningOfWeekISOForLocalDate(new Date());
+        var this_week_start = TSDateUtils.formatShiftedDate(new Date(),'Y-m-d');
+        
+        var append_filters = Rally.data.wsapi.Filter.and([
+            { property: 'Name', operator:'contains', value: Rally.technicalservices.TimeModelBuilder.appendKeyPrefix },
+            { property: 'Name', operator:'<', value: Rally.technicalservices.TimeModelBuilder.appendKeyPrefix + '.' + this_week_start },
+            { property: 'Name', operator:'contains', value: this.getContext().getUser().ObjectID}
+        ]);
+        
+        var amend_filters = Rally.data.wsapi.Filter.and([
+            { property: 'Name', operator:'contains', value: Rally.technicalservices.TimeModelBuilder.amendKeyPrefix },
+            { property: 'Name', operator:'<', value: Rally.technicalservices.TimeModelBuilder.amendKeyPrefix + '.' + this_week_start },
+            { property: 'Name', operator:'contains', value: this.getContext().getUser().ObjectID}
+        ]);
+        
+        var change_filters = append_filters.or(amend_filters);
+        
+        var non_archived_filters = Rally.data.wsapi.Filter.and([
+            { property: 'Name', operator:'!contains', value: TSUtilities.archiveSuffix }
+        ]);
+        
+        var filters = change_filters.and(non_archived_filters);
+        
+        this.logger.log("Check old timesheets", this_week_start, filters.toString());
+        
+        var config = {
+            model: 'Preference',
+            filters: filters,
+            fetch: ['Name','Value','ObjectID'],
+            sorters: [{property:'Name', direction: 'DESC'}]
+        }
+        
+        TSUtilities.loadWsapiRecords(config).then({
+            scope: this,
+            success: function(preferences) {
+                    
+                    var week_hash = {};
+                    Ext.Array.each(preferences, function(preference){
+                        var key = me._getWeekStartFromKey(preference);
+                        if ( Ext.isEmpty(week_hash[key]) ) { 
+                            week_hash[key] = [];
+                        }
+                        week_hash[key].push(preference);
+                    });
+                    
+                                        
+                    var promises = [];
+                    
+                    Ext.Object.each(week_hash, function(changed_week, preferences){
+                        promises.push( function() { return me._absorbOldApprovedTimesheet(changed_week,preferences); } );
+                    });
+                    
+                    Deft.Chain.sequence(promises).then({
+                        success: function(results) {
+                            deferred.resolve(Ext.Array.sum(results));
+                        },
+                        failure: function(msg) { deferred.reject(msg); }
+                    
+                    });
+            },
+            failure: function(msg) { deferred.reject(msg); }
+        });
+        
+        return deferred.promise;
+    },
+    
+    _absorbOldApprovedTimesheet: function(week_start,changes) {
+        var deferred = Ext.create('Deft.Deferred'),
+            me = this;
+            
+        // is this approved?
+        this.setLoading('Reviewing ' + week_start);
+        this.logger.log('  ', week_start);
+        
+        TSDateUtils.isApproved(week_start).then({
+            scope: this,
+            success: function(result) {
+                if ( !result ) {
+                    this.logger.log("  Not approved; skipping");
+                    deferred.resolve(0);
+                    return;
+                }
+                
+                this.setLoading('Absorbing Manager Change ' + week_start);
+                
+                var timetable = Ext.create('Rally.technicalservices.TimeTable',{
+                    startDate: Ext.Date.parse(week_start,'Y-m-d'),
+                    editable: false,
+                    timesheet_status: 'Approved',
+                    timesheet_user: this.getContext().getUser(),
+                    listeners: {
+                        scope: this,
+                        gridReady: function(t, grid) {
+                            if ( grid.getStore().isLoading() ) {
+                                grid.getStore().on('load', function() {
+                                    this._absorbChanges(t,changes).then({
+                                        success: function(results) {
+                                            deferred.resolve(1);
+                                        },
+                                        failure: function(msg) { 
+                                            deferred.reject(msg);
+                                        }
+                                    });
+                                }, this, { single: true });
+                            } else {
+                                this._absorbChanges(t,changes).then({
+                                    success: function(results) {
+                                        deferred.resolve(1);
+                                    },
+                                    failure: function(msg) { 
+                                        deferred.reject(msg);
+                                    }
+                                });
+                            }
+                        }
+                    }
+                });
+                
+            },
+            failure: function(msg) {
+                deferred.reject(msg);
+            }
+            
+        });
+        return deferred.promise;
+    },
+    
+    _absorbChanges: function(timetable,changes) {
+        var promises = [];
+        
+        Ext.Array.each(changes, function(change) {
+            var value = Ext.JSON.decode(change.get('Value'));
+            value.ObjectID = change.get('ObjectID');
+            value.__PrefID = change.get('ObjectID');
+            
+            var row = Ext.create('TSTableRow', value);
+            promises.push( function() { return timetable.absorbTime(row); });
+            timetable.absorbTime(row);
+        });
+        
+        return Deft.Chain.sequence(promises);
+    },
+
     _loadWeekStatusPreference: function() {
         this.logger.log('_loadWeekStatusPreference',this.startDateString);
         

@@ -25,11 +25,24 @@ Ext.define("TSExtendedTimesheet", {
 
     launch: function() {
         var preference_project_ref = this.getSetting('preferenceProjectRef');
-        if ( !  TSUtilities.isEditableProjectForCurrentUser(preference_project_ref,this) ) {
-            Ext.Msg.alert('Contact your Administrator', 'This app requires editor access to the preference project.');
-        } else {
-            this._addSelectors(this.down('#selector_box'));
-        }
+        
+        this._absorbOldApprovedTimesheets().then({
+            scope: this,
+            success: function(results) {
+                this.setLoading(false);
+                
+                this.logger.log("Updated ", results, " timesheets");
+                
+                if ( !  TSUtilities.isEditableProjectForCurrentUser(preference_project_ref,this) ) {
+                    Ext.Msg.alert('Contact your Administrator', 'This app requires editor access to the preference project.');
+                } else {
+                    this._addSelectors(this.down('#selector_box'));
+                }
+            },
+            failure: function(msg) {
+                Ext.Msg.alert("Problem Reviewing Past Timesheets", msg);
+            }
+        });
     },
     
     _addSelectors: function(container) {
@@ -197,6 +210,165 @@ Ext.define("TSExtendedTimesheet", {
         });
     },
     
+    _getWeekStartFromKey: function(key) {
+        var name_array = key.get('Name').split('.');
+        
+        if ( name_array.length < 5 ) {
+            return null;
+        }
+        
+        return name_array[4];
+        
+    },
+    
+    _absorbOldApprovedTimesheets: function() {
+        var deferred = Ext.create('Deft.Deferred'),
+            me = this;
+        this.setLoading('Reviewing Past Timesheets');
+        
+        //var this_week_start = TSDateUtils.getBeginningOfWeekISOForLocalDate(new Date());
+        var this_week_start = TSDateUtils.formatShiftedDate(new Date(),'Y-m-d');
+        
+        var append_filters = Rally.data.wsapi.Filter.and([
+            { property: 'Name', operator:'contains', value: Rally.technicalservices.TimeModelBuilder.appendKeyPrefix },
+            { property: 'Name', operator:'<', value: Rally.technicalservices.TimeModelBuilder.appendKeyPrefix + '.' + this_week_start },
+            { property: 'Name', operator:'contains', value: this.getContext().getUser().ObjectID}
+        ]);
+        
+        var amend_filters = Rally.data.wsapi.Filter.and([
+            { property: 'Name', operator:'contains', value: Rally.technicalservices.TimeModelBuilder.amendKeyPrefix },
+            { property: 'Name', operator:'<', value: Rally.technicalservices.TimeModelBuilder.amendKeyPrefix + '.' + this_week_start },
+            { property: 'Name', operator:'contains', value: this.getContext().getUser().ObjectID}
+        ]);
+        
+        var change_filters = append_filters.or(amend_filters);
+        
+        var non_archived_filters = Rally.data.wsapi.Filter.and([
+            { property: 'Name', operator:'!contains', value: TSUtilities.archiveSuffix }
+        ]);
+        
+        var filters = change_filters.and(non_archived_filters);
+        
+        this.logger.log("Check old timesheets", this_week_start, filters.toString());
+        
+        var config = {
+            model: 'Preference',
+            filters: filters,
+            fetch: ['Name','Value','ObjectID'],
+            sorters: [{property:'Name', direction: 'DESC'}]
+        }
+        
+        TSUtilities.loadWsapiRecords(config).then({
+            scope: this,
+            success: function(preferences) {
+                    
+                    var week_hash = {};
+                    Ext.Array.each(preferences, function(preference){
+                        var key = me._getWeekStartFromKey(preference);
+                        if ( Ext.isEmpty(week_hash[key]) ) { 
+                            week_hash[key] = [];
+                        }
+                        week_hash[key].push(preference);
+                    });
+                    
+                                        
+                    var promises = [];
+                    
+                    Ext.Object.each(week_hash, function(changed_week, preferences){
+                        promises.push( function() { return me._absorbOldApprovedTimesheet(changed_week,preferences); } );
+                    });
+                    
+                    Deft.Chain.sequence(promises).then({
+                        success: function(results) {
+                            deferred.resolve(Ext.Array.sum(results));
+                        },
+                        failure: function(msg) { deferred.reject(msg); }
+                    
+                    });
+            },
+            failure: function(msg) { deferred.reject(msg); }
+        });
+        
+        return deferred.promise;
+    },
+    
+    _absorbOldApprovedTimesheet: function(week_start,changes) {
+        var deferred = Ext.create('Deft.Deferred'),
+            me = this;
+            
+        // is this approved?
+        this.setLoading('Reviewing ' + week_start);
+        this.logger.log('  ', week_start);
+        
+        TSDateUtils.isApproved(week_start).then({
+            scope: this,
+            success: function(result) {
+                if ( !result ) {
+                    this.logger.log("  Not approved; skipping");
+                    deferred.resolve(0);
+                    return;
+                }
+                
+                this.setLoading('Absorbing Manager Change ' + week_start);
+                
+                var timetable = Ext.create('Rally.technicalservices.TimeTable',{
+                    startDate: Ext.Date.parse(week_start,'Y-m-d'),
+                    editable: false,
+                    timesheet_status: 'Approved',
+                    timesheet_user: this.getContext().getUser(),
+                    listeners: {
+                        scope: this,
+                        gridReady: function(t, grid) {
+                            if ( grid.getStore().isLoading() ) {
+                                grid.getStore().on('load', function() {
+                                    this._absorbChanges(t,changes).then({
+                                        success: function(results) {
+                                            deferred.resolve(1);
+                                        },
+                                        failure: function(msg) { 
+                                            deferred.reject(msg);
+                                        }
+                                    });
+                                }, this, { single: true });
+                            } else {
+                                this._absorbChanges(t,changes).then({
+                                    success: function(results) {
+                                        deferred.resolve(1);
+                                    },
+                                    failure: function(msg) { 
+                                        deferred.reject(msg);
+                                    }
+                                });
+                            }
+                        }
+                    }
+                });
+                
+            },
+            failure: function(msg) {
+                deferred.reject(msg);
+            }
+            
+        });
+        return deferred.promise;
+    },
+    
+    _absorbChanges: function(timetable,changes) {
+        var promises = [];
+        
+        Ext.Array.each(changes, function(change) {
+            var value = Ext.JSON.decode(change.get('Value'));
+            value.ObjectID = change.get('ObjectID');
+            value.__PrefID = change.get('ObjectID');
+            
+            var row = Ext.create('TSTableRow', value);
+            promises.push( function() { return timetable.absorbTime(row); });
+            timetable.absorbTime(row);
+        });
+        
+        return Deft.Chain.sequence(promises);
+    },
+
     _loadWeekStatusPreference: function() {
         this.logger.log('_loadWeekStatusPreference',this.startDateString);
         
