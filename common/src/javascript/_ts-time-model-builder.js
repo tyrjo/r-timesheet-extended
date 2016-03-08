@@ -27,8 +27,8 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
                     { name: '__Appended', type: 'boolean', defaultValue: false },
                     { name: '__Amended', type: 'boolean', defaultValue: false },
                     { name: '__PrefID', type:'auto', defaultValue: -1 },
-                    { name: '_ReleaseLockFieldName',  type:'string', defaultValue: Rally.technicalservices.TimeModelBuilder.deploy_field }
-
+                    { name: '_ReleaseLockFieldName',  type:'string', defaultValue: Rally.technicalservices.TimeModelBuilder.deploy_field },
+                    { name: '__Pinned', type: 'boolean' }
                 ];
                 
                 var day_fields = this._getDayFields();
@@ -46,7 +46,8 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
                     _savePreference: this._savePreference,
                     getField: this.getField,
                     clearAndRemove: this.clearAndRemove,
-                    isLocked: this._isLocked
+                    isLocked: this._isLocked,
+                    isPinned: this._isPinned
                 });
                 
                 this.model = new_model;
@@ -61,6 +62,10 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
         return [ 'ObjectID', 'Name', 'Release', 'User', 'UserName', this.deploy_field ];
     },
     
+    _isPinned: function() {
+        return this.get('__Pinned');
+    },
+    
     _isLocked: function (fieldName, newValue) {
         var release = this.get('__Release');
         var lock_field_name = this.get('_ReleaseLockFieldName');
@@ -72,9 +77,7 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
         return release[lock_field_name];
     },
     
-    clearAndRemove: function() {
-        console.log('clearAndRemove');
-        
+    clearAndRemove: function() {        
         var timeentryitem = this.get('__TimeEntryItem');
         var cells_to_clear = ['__Monday','__Tuesday','__Wednesday','__Thursday','__Friday','__Saturday','__Sunday','__Total'];
         var me = this;
@@ -85,9 +88,7 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
             this.get('User').ObjectID,
             new Date().getTime()
         );
-        
-        console.log('  deletion key:', key, this);
-        
+                
         var data = this.getData();
         
         delete data.__TimeEntryItem;

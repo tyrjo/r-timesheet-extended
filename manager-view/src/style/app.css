@@ -19,3 +19,11 @@
 .x-window {
     border: 2px solid black !important;
 }
+
+td.ts-total-cell {
+    background-color: #eee !important;
+}
+
+.x-grid-row-summary {
+    background-color: #eee;
+}

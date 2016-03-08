@@ -423,7 +423,7 @@ Ext.define("TSExtendedTimesheet", {
     _addCurrentTasks: function() {
         var timetable = this.down('tstimetable');
         if (timetable) {
-            this.setLoading("Finding current tasks...");
+            this.setLoading("Finding my current tasks...");
             var config = {
                 model: 'Task',
                 context: {
@@ -447,13 +447,72 @@ Ext.define("TSExtendedTimesheet", {
                         timetable.addRowForItem(task);
                     });
                     
-                    this.setLoading(false);
+                    this._addPinnedItems();
                 },
                 failure: function(msg) {
                     Ext.Msg.alert("Problem loading current tasks", msg);
                 }
             });
         }
+    },
+    
+    _addPinnedItems: function() {
+        var me = this;
+        this.setLoading('Adding Pinned Items');
+        Deft.Chain.sequence([ 
+            function() { return me._addPinnedItemsByType('hierarchicalrequirement'); },
+            function() { return me._addPinnedItemsByType('defect'); },
+            function() { return me._addPinnedItemsByType('task'); }
+            
+        ]).then({
+            scope: this,
+            success: function() {
+                this.setLoading(false);
+            },
+            failure: function(msg) {
+                Ext.Msg.alert("Problem loading pinned items",msg);
+            }
+        });
+    },
+    
+    _addPinnedItemsByType: function(type) {
+        var deferred = Ext.create('Deft.Deferred');
+        var timetable = this.down('tstimetable');
+        
+        if (!timetable) {
+            return; 
+        }
+        
+        this.setLoading("Finding items of type " + type + "...");
+        
+        var oids = timetable.getDefaultPreference().getPinnedOIDs();
+        
+        var config = {
+            model: type,
+            context: {
+                project: null
+            },
+            fetch: Ext.Array.merge(
+                Rally.technicalservices.TimeModelBuilder.getFetchFields(),
+                ['ObjectID','Name','FormattedID','WorkProduct','Project','Release']
+            ),
+            filters: Rally.data.wsapi.Filter.or(Ext.Array.map(oids, function(oid) { return {property:'ObjectID',value:oid}; }))
+        };
+        
+        TSUtilities.loadWsapiRecords(config).then({
+            scope: this,
+            success: function(items) {
+                Ext.Array.each(items, function(item){
+                    timetable.addRowForItem(item);
+                });
+                deferred.resolve(items);
+            },
+            failure: function(msg) {
+                deferred.reject(msg);
+            }
+        });
+        
+        return deferred.promise;
     },
     
     _findAndAddTask: function() {

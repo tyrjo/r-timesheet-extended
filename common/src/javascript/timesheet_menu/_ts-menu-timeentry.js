@@ -70,6 +70,18 @@ Ext.define('Rally.technicalservices.TimeEntryRecordMenu', {
                         view: this.view,
                         record: record
                     });
+                } else {
+                    items.push({
+                        xtype: 'tspintimeentrymenuitem',
+                        view: this.view,
+                        record: record
+                    });
+                    items.push({
+                        xtype: 'tsunpintimeentrymenuitem',
+                        view: this.view,
+                        record: record
+                    });
+                    
                 }
             }
                     
