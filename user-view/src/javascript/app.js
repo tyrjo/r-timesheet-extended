@@ -84,7 +84,7 @@ Ext.define("TSExtendedTimesheet", {
         container.add({
             xtype:'rallybutton',
             text: 'Add My Tasks',
-            toolTipText: "(in current iteration)", 
+            toolTipText: "(in current iteration or set as default)", 
             padding: 2,
             disabled: true,
             listeners: {
@@ -457,7 +457,14 @@ Ext.define("TSExtendedTimesheet", {
     },
     
     _addPinnedItems: function() {
-        var me = this;
+        var me = this,
+            timetable = this.down('tstimetable');
+
+        if ( timetable.getDefaultPreference().getPinnedOIDs().length === 0 ) {
+            this.setLoading(false);
+            return;
+        }
+        
         this.setLoading('Adding Pinned Items');
         Deft.Chain.sequence([ 
             function() { return me._addPinnedItemsByType('hierarchicalrequirement'); },
