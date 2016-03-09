@@ -43,34 +43,44 @@ Ext.define('TSDefaultPreference',{
         };
         
         var pinned_items = Ext.Array.merge(this.getPinnedItems(), [target_record_item]);
-        
-        console.log(' pinned items: ', pinned_items, Ext.JSON.encode(pinned_items));
-        
+                
         this.set('Value', Ext.JSON.encode(pinned_items) );
         
         return this.save();
     },
     
     removePin: function(record) {
-        var task = record.get('Task');
-        var workproduct = record.get('WorkProduct');
         
-        var target_record_oid = workproduct.ObjectID;
-        var name = workproduct._refObjectName;
+        var record_type = record.get('_type');
+        var name = "";
+        var target_record_oid = -1;
         
-        if ( !Ext.isEmpty(task) ) {
-            target_record_oid = task.ObjectID;
-            name = task._refObjectName;
+        if ( record_type == 'hierarchicalrequirement' || record_type == 'defect' || record_type == 'task' ) {
+            name = record.get('Name');
+            target_record_oid = record.get('ObjectID');
+        } else {
+            var task = record.get('Task');
+            var workproduct = record.get('WorkProduct');
+                        
+            target_record_oid = workproduct.ObjectID;
+            name = workproduct._refObjectName;
+            
+            if ( !Ext.isEmpty(task) ) {
+                target_record_oid = task.ObjectID;
+                name = task._refObjectName;
+            }
         }
-       
-        Rally.ui.notify.Notifier.show({message: 'Removed Default Item: ' + name});
-
+        
         var pinned_items = Ext.Array.filter(this.getPinnedItems(), function(item) {
             var oid = item.ObjectID;
-            return ( oid == target_record_oid );
+            console.log('comparing ', oid, target_record_oid);
+            
+            return ( oid != target_record_oid );
         });
         
         this.set('Value', Ext.JSON.encode(pinned_items) );
+
+        Rally.ui.notify.Notifier.show({message: 'Removed Default Item: ' + name});
         
         return this.save();
     },
@@ -115,7 +125,7 @@ Ext.define('TSDefaultPreference',{
             pref.save({
                 callback: function(result, operation) {
                     if(operation.wasSuccessful()) {
-                        me.set('__Pref', result);
+                        me.set('__Preference', result);
                         deferred.resolve(me);
                     } else {
                         deferred.reject(operation.error.errors[0]);
@@ -128,8 +138,10 @@ Ext.define('TSDefaultPreference',{
     },
     
     createPreference: function() {
-        var deferred = Ext.create('Deft.Deferred');
-        var me = this;
+        var deferred = Ext.create('Deft.Deferred'),
+            me = this;
+            
+        console.log('createPreference', me.get('Name'));
         
         Rally.data.ModelFactory.getModel({
             type: 'Preference',
@@ -145,7 +157,8 @@ Ext.define('TSDefaultPreference',{
                 pref.save({
                     callback: function(result, operation) {
                         if(operation.wasSuccessful()) {
-                            me.set('__Pref', result);
+                            me.set('__Preference', result);
+                            console.log('preference created', me.get('Name'));
                             deferred.resolve(me);
                         } else {
                             deferred.reject(operation.error.errors[0]);

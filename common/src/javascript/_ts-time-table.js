@@ -279,6 +279,9 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
             ]
         };
         
+        this.logger.log('finding by key',key);
+
+        
         return TSUtilities.loadWsapiRecords(config);
     },
     
@@ -296,6 +299,9 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
             this.startDateString.replace(/T.*$/,''),
             user_oid
         );
+        
+        this.logger.log('finding by key',key);
+
         
         var config = {
             model: 'Preference',
@@ -329,6 +335,8 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
             user_oid
         );
         
+        this.logger.log('finding by key',key);
+
         var config = {
             model: 'Preference',
             context: {
@@ -520,7 +528,14 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
     },
     
     pinTime: function(record) {
-        this.timePreference.addPin(record).then({
+        if ( this.updatePinProcess && this.updatePinProcess.getState() === 'pending' ) {
+            console.log('pinning in process...');
+        } else {
+            console.log('-- ', this.updatePinProcess && this.updatePinProcess.getState());
+        }
+        
+        this.updatePinProcess = this.timePreference.addPin(record);
+        this.updatePinProcess.then({
             success: function() {
                 record.set('__Pinned', true);
             },
@@ -532,15 +547,25 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
     },
     
     unpinTime: function(record) {
-        this.timePreference.removePin(record).then({
+        var deferred = Ext.create('Deft.Deferred');
+        
+        if ( this.updatePinProcess && this.updatePinProcess.getState() === 'pending' ) {
+            console.log('pinning in process...');
+        } else {
+            console.log('-- ', this.updatePinProcess && this.updatePinProcess.getState());
+        }
+        
+        this.updatePinProcess = this.timePreference.removePin(record);
+        this.updatePinProcess.then({
             success: function() {
                 record.set('__Pinned', false);
+                deferred.resolve(record);
             },
             failure: function(msg){
-                Ext.Msg.alert("Problem saving pin:", msg);
+                deferred.reject(msg);
             }
         });
-        
+        return deferred.promise;
     },
     
     _isItemPinned: function(item) {
