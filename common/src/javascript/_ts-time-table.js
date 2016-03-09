@@ -425,6 +425,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
     },
     
     absorbTime: function(record) {
+        console.log('absorbTime', record);
         
         var clone = Ext.clone(record).getData();
         record.clearAndRemove();
@@ -460,22 +461,23 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
             
             original_row.set(day,new_value);
         });
-        original_row.save({
-            callback: function(result, operation) {
-                if ( operation.wasSuccessful() ) {
-                    deferred.resolve(result);
-                } else {
-                    deferred.reject(operation & operation.error & operation.error.errors.join('. '));
-                }
+        
+        original_row.save().then({
+            success: function(result) {
+                deferred.resolve(result);
+            },
+            failure: function(msg) {
+                deferred.reject(msg);
             }
+        
         });
         
         return deferred.promise;
     },
     
     _absorbAppended: function(clone) {
-        var deferred = Ext.create('Deft.Deferred');
-        var me = this;
+        var deferred = Ext.create('Deft.Deferred'),
+            me = this;
         
         var work_item = clone.Task;
             
@@ -496,20 +498,25 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                                 row.set(day,clone[day]);
                             }
                         });
-                        row.save({
-                            callback: function(result, operation) {
-                                if ( operation.wasSuccessful() ) {
-                                    deferred.resolve(result);
-                                } else {
-                                    deferred.reject(operation & operation.error & operation.error.errors.join('. '));
-                                }
+                        
+                        console.log('++ saving row:', row);
+                        row.save().then({
+                            success: function(result) {
+                                console.log('++ row saved');
+                                deferred.resolve(result);
+                            },
+                            failure: function(msg) {
+                                deferred.reject(msg);
                             }
                         });
                     },
-                    failure: function() {
-                        deferred.reject('Problem adding row');
+                    failure: function(msg) {
+                        deferred.reject(msg);
                     }
                 });
+            },
+            failure: function(msg) {
+                deferred.reject(msg);
             }
         });
         return deferred.promise;
@@ -541,6 +548,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
     
     _isItemPinned: function(item) {
         this.logger.log('is Item pinned?', item);
+        if ( Ext.isEmpty(this.timePreference) ) { return false; }
         return this.timePreference.isPinned(item);
     },
     
@@ -734,19 +742,27 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                                 __Feature: feature,
                                 __Product: product,
                                 __Release: release,
-                                __Pinned: me._isItemPinned(result)
+                                __Pinned: me._isItemPinned(result) || false
                             };
 
+                            console.log('Creating row with data', data);
+                            
                             var row = Ext.create('TSTableRow',Ext.Object.merge(data, time_entry_item.getData()));
 
+                            console.log('Got row', row);
+                            
                             me.grid.getStore().loadRecords([row], { addRecords: true });
                             me.rows.push(row);
+                            
+                            console.log('resolving with', row);
                             deferred.resolve(row);
                         } else {
                             if ( operation.error && operation.error.errors ) {
+                                console.log("ERROR:", operation);
                                 Ext.Msg.alert("Problem saving time:", operation.error.errors.join(' '));
                                 deferred.reject();
                             }
+                            deferred.resolve();
                         }
                     }
                 });

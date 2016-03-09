@@ -47,7 +47,9 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
                     getField: this.getField,
                     clearAndRemove: this.clearAndRemove,
                     isLocked: this._isLocked,
-                    isPinned: this._isPinned
+                    isPinned: this._isPinned,
+                    _saveTEV: this._saveTEV,
+                    _createTEV: this._createTEV
                 });
                 
                 this.model = new_model;
@@ -112,8 +114,8 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
                 var pref = Ext.create(model, pref_config);
                 
                 pref.save({
-                    callback: function(result, operation) {
-                        console.log('Saved deletion preference', result);
+                    callback: function(deleted_pref, operation) {
+                        console.log('Saved deletion preference', deleted_pref);
                         
                         if(operation.wasSuccessful()) {
                             Ext.Array.each(cells_to_clear, function(cell_to_clear){
@@ -226,13 +228,63 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
             }
         });
         
-        Ext.Object.each(changes, function(field_name, value){
-            console.log(field_name, value);
+    },
+    
+    _saveTEV: function(src) {
+        var deferred = Ext.create('Deft.Deferred');
+        console.log('save', src);
+        src.save({
+            callback: function() {
+                deferred.resolve();
+            }
         });
+        return deferred.promise;
+    },
+    
+    _createTEV: function(src_field_name, row, time_entry_item, index, value, week_start, date_val) {
+        var deferred = Ext.create('Deft.Deferred'),
+            me = this;
+        
+        Rally.data.ModelFactory.getModel({
+            type: 'TimeEntryValue',
+            scope: this,
+            success: function(tev_model) {
+                var fields = tev_model.getFields();
+                Ext.Array.each(fields, function(field) {
+                    if ( field.name == "TimeEntryItem" || field.name == "DateVal" ) {
+                        field.readOnly = false;
+                        field.persist = true;
+                    }
+                });
+                src = Ext.create(tev_model,{
+                    Hours: value,
+                    TimeEntryItem: { _ref: time_entry_item.get('_ref') },
+                    DateVal: date_val
+                });
+                
+                console.log('-- another saving spot');
+                
+                src.save({
+                    callback: function(result, operation) {
+                        
+                        if(operation.wasSuccessful()) {
+                            row.set(src_field_name, result);
+                            me._updateTotal();
+                        }
+                    }
+                });
+
+                deferred.resolve();    
+            }
+        });
+        
+        return deferred.promise;
     },
     
     _save: function(v) { 
-        var me = this;
+        var deferred = Ext.create('Deft.Deferred'),
+            me = this;
+            
         var changes = this.getChanges();
 
         if ( ( this.get('__Amended') || this.get('__Appended') ) && this.get('ObjectID') == -1 ) {
@@ -243,6 +295,10 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
             this._savePreference(changes);
             return;
         }
+        
+        console.log('-- about to save');
+        
+        var promises = [];
         
         Ext.Object.each(changes, function(field_name, value) {
             var row = this;
@@ -256,8 +312,10 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
                     // the other record exists
                     src.set('Hours', value);
                     // TODO: check for errors on return 
-                    src.save();
                     me._updateTotal();
+                    
+                    promises.push(function() { return me._saveTEV(src) });
+                    
                 } else {
                     // need to create a new record
                     var time_entry_item = this.get('__TimeEntryItem');
@@ -265,37 +323,33 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
                     var week_start = time_entry_item.get('WeekStartDate');
                     var date_val = Rally.util.DateTime.add(week_start, 'day', index);
                     
-                    Rally.data.ModelFactory.getModel({
-                        type: 'TimeEntryValue',
-                        scope: this,
-                        success: function(tev_model) {
-                            var fields = tev_model.getFields();
-                            Ext.Array.each(fields, function(field) {
-                                if ( field.name == "TimeEntryItem" || field.name == "DateVal" ) {
-                                    field.readOnly = false;
-                                    field.persist = true;
-                                }
-                            });
-                            src = Ext.create(tev_model,{
-                                Hours: value,
-                                TimeEntryItem: { _ref: time_entry_item.get('_ref') },
-                                DateVal: date_val
-                            });
-                            
-                            src.save({
-                                callback: function(result, operation) {
-                                    if(operation.wasSuccessful()) {
-                                        row.set(src_field_name, result);
-                                        me._updateTotal();
-                                    }
-                                }
-                            });
-                        }
-                    });
+                    promises.push(function() { return me._createTEV(src_field_name, row, time_entry_item, index, value, week_start, date_val); });
+                    
                 }
             }
         },this);
+        
+        console.log('-- some promises', promises.length);
+        
+        if ( promises.length === 0 ) { 
+            deferred.resolve(); 
+            return deferred;
+        }
+        Deft.Chain.sequence(promises).then({
+            success: function(result) {
+                console.log( '-- promises resolved');
+                
+                deferred.resolve(result);
+            },
+            failures: function(msg) {
+                deferred.reject(msg);
+            }
+        });
+        
+        return deferred.promise;
+        
     },
+    
     getField: function(field_name) {
         var fields = this.fields.items;
         var field = null;

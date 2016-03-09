@@ -3,11 +3,11 @@
 <head>
     <title>Extended Timesheet</title>
     <!--  (c) 2015 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Tue Mar 08 2016 14:28:59 GMT-0800 (PST) -->
+    <!--  Build Date: Tue Mar 08 2016 16:52:36 GMT-0800 (PST) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Tue Mar 08 2016 14:28:59 GMT-0800 (PST)";
-        var CHECKSUM = 450383420388;
+        var APP_BUILD_DATE = "Tue Mar 08 2016 16:52:36 GMT-0800 (PST)";
+        var CHECKSUM = 463566841010;
     </script>
     
     <script type="text/javascript" src="/apps/2.0/sdk.js"></script>
@@ -2303,7 +2303,9 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
                     getField: this.getField,
                     clearAndRemove: this.clearAndRemove,
                     isLocked: this._isLocked,
-                    isPinned: this._isPinned
+                    isPinned: this._isPinned,
+                    _saveTEV: this._saveTEV,
+                    _createTEV: this._createTEV
                 });
                 
                 this.model = new_model;
@@ -2368,8 +2370,8 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
                 var pref = Ext.create(model, pref_config);
                 
                 pref.save({
-                    callback: function(result, operation) {
-                        console.log('Saved deletion preference', result);
+                    callback: function(deleted_pref, operation) {
+                        console.log('Saved deletion preference', deleted_pref);
                         
                         if(operation.wasSuccessful()) {
                             Ext.Array.each(cells_to_clear, function(cell_to_clear){
@@ -2482,13 +2484,63 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
             }
         });
         
-        Ext.Object.each(changes, function(field_name, value){
-            console.log(field_name, value);
+    },
+    
+    _saveTEV: function(src) {
+        var deferred = Ext.create('Deft.Deferred');
+        console.log('save', src);
+        src.save({
+            callback: function() {
+                deferred.resolve();
+            }
         });
+        return deferred.promise;
+    },
+    
+    _createTEV: function(src_field_name, row, time_entry_item, index, value, week_start, date_val) {
+        var deferred = Ext.create('Deft.Deferred'),
+            me = this;
+        
+        Rally.data.ModelFactory.getModel({
+            type: 'TimeEntryValue',
+            scope: this,
+            success: function(tev_model) {
+                var fields = tev_model.getFields();
+                Ext.Array.each(fields, function(field) {
+                    if ( field.name == "TimeEntryItem" || field.name == "DateVal" ) {
+                        field.readOnly = false;
+                        field.persist = true;
+                    }
+                });
+                src = Ext.create(tev_model,{
+                    Hours: value,
+                    TimeEntryItem: { _ref: time_entry_item.get('_ref') },
+                    DateVal: date_val
+                });
+                
+                console.log('-- another saving spot');
+                
+                src.save({
+                    callback: function(result, operation) {
+                        
+                        if(operation.wasSuccessful()) {
+                            row.set(src_field_name, result);
+                            me._updateTotal();
+                        }
+                    }
+                });
+
+                deferred.resolve();    
+            }
+        });
+        
+        return deferred.promise;
     },
     
     _save: function(v) { 
-        var me = this;
+        var deferred = Ext.create('Deft.Deferred'),
+            me = this;
+            
         var changes = this.getChanges();
 
         if ( ( this.get('__Amended') || this.get('__Appended') ) && this.get('ObjectID') == -1 ) {
@@ -2499,6 +2551,10 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
             this._savePreference(changes);
             return;
         }
+        
+        console.log('-- about to save');
+        
+        var promises = [];
         
         Ext.Object.each(changes, function(field_name, value) {
             var row = this;
@@ -2512,8 +2568,10 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
                     // the other record exists
                     src.set('Hours', value);
                     // TODO: check for errors on return 
-                    src.save();
                     me._updateTotal();
+                    
+                    promises.push(function() { return me._saveTEV(src) });
+                    
                 } else {
                     // need to create a new record
                     var time_entry_item = this.get('__TimeEntryItem');
@@ -2521,37 +2579,33 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
                     var week_start = time_entry_item.get('WeekStartDate');
                     var date_val = Rally.util.DateTime.add(week_start, 'day', index);
                     
-                    Rally.data.ModelFactory.getModel({
-                        type: 'TimeEntryValue',
-                        scope: this,
-                        success: function(tev_model) {
-                            var fields = tev_model.getFields();
-                            Ext.Array.each(fields, function(field) {
-                                if ( field.name == "TimeEntryItem" || field.name == "DateVal" ) {
-                                    field.readOnly = false;
-                                    field.persist = true;
-                                }
-                            });
-                            src = Ext.create(tev_model,{
-                                Hours: value,
-                                TimeEntryItem: { _ref: time_entry_item.get('_ref') },
-                                DateVal: date_val
-                            });
-                            
-                            src.save({
-                                callback: function(result, operation) {
-                                    if(operation.wasSuccessful()) {
-                                        row.set(src_field_name, result);
-                                        me._updateTotal();
-                                    }
-                                }
-                            });
-                        }
-                    });
+                    promises.push(function() { return me._createTEV(src_field_name, row, time_entry_item, index, value, week_start, date_val); });
+                    
                 }
             }
         },this);
+        
+        console.log('-- some promises', promises.length);
+        
+        if ( promises.length === 0 ) { 
+            deferred.resolve(); 
+            return deferred;
+        }
+        Deft.Chain.sequence(promises).then({
+            success: function(result) {
+                console.log( '-- promises resolved');
+                
+                deferred.resolve(result);
+            },
+            failures: function(msg) {
+                deferred.reject(msg);
+            }
+        });
+        
+        return deferred.promise;
+        
     },
+    
     getField: function(field_name) {
         var fields = this.fields.items;
         var field = null;
@@ -3052,6 +3106,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
     },
     
     absorbTime: function(record) {
+        console.log('absorbTime', record);
         
         var clone = Ext.clone(record).getData();
         record.clearAndRemove();
@@ -3087,22 +3142,23 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
             
             original_row.set(day,new_value);
         });
-        original_row.save({
-            callback: function(result, operation) {
-                if ( operation.wasSuccessful() ) {
-                    deferred.resolve(result);
-                } else {
-                    deferred.reject(operation & operation.error & operation.error.errors.join('. '));
-                }
+        
+        original_row.save().then({
+            success: function(result) {
+                deferred.resolve(result);
+            },
+            failure: function(msg) {
+                deferred.reject(msg);
             }
+        
         });
         
         return deferred.promise;
     },
     
     _absorbAppended: function(clone) {
-        var deferred = Ext.create('Deft.Deferred');
-        var me = this;
+        var deferred = Ext.create('Deft.Deferred'),
+            me = this;
         
         var work_item = clone.Task;
             
@@ -3123,20 +3179,25 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                                 row.set(day,clone[day]);
                             }
                         });
-                        row.save({
-                            callback: function(result, operation) {
-                                if ( operation.wasSuccessful() ) {
-                                    deferred.resolve(result);
-                                } else {
-                                    deferred.reject(operation & operation.error & operation.error.errors.join('. '));
-                                }
+                        
+                        console.log('++ saving row:', row);
+                        row.save().then({
+                            success: function(result) {
+                                console.log('++ row saved');
+                                deferred.resolve(result);
+                            },
+                            failure: function(msg) {
+                                deferred.reject(msg);
                             }
                         });
                     },
-                    failure: function() {
-                        deferred.reject('Problem adding row');
+                    failure: function(msg) {
+                        deferred.reject(msg);
                     }
                 });
+            },
+            failure: function(msg) {
+                deferred.reject(msg);
             }
         });
         return deferred.promise;
@@ -3168,6 +3229,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
     
     _isItemPinned: function(item) {
         this.logger.log('is Item pinned?', item);
+        if ( Ext.isEmpty(this.timePreference) ) { return false; }
         return this.timePreference.isPinned(item);
     },
     
@@ -3361,19 +3423,27 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                                 __Feature: feature,
                                 __Product: product,
                                 __Release: release,
-                                __Pinned: me._isItemPinned(result)
+                                __Pinned: me._isItemPinned(result) || false
                             };
 
+                            console.log('Creating row with data', data);
+                            
                             var row = Ext.create('TSTableRow',Ext.Object.merge(data, time_entry_item.getData()));
 
+                            console.log('Got row', row);
+                            
                             me.grid.getStore().loadRecords([row], { addRecords: true });
                             me.rows.push(row);
+                            
+                            console.log('resolving with', row);
                             deferred.resolve(row);
                         } else {
                             if ( operation.error && operation.error.errors ) {
+                                console.log("ERROR:", operation);
                                 Ext.Msg.alert("Problem saving time:", operation.error.errors.join(' '));
                                 deferred.reject();
                             }
+                            deferred.resolve();
                         }
                     }
                 });
@@ -4397,6 +4467,8 @@ Ext.define("TSExtendedTimesheet", {
                         promises.push( function() { return me._absorbOldApprovedTimesheet(changed_week,preferences); } );
                     });
                     
+                    me.logger.log("Starting chain: ", promises.length);
+                    
                     Deft.Chain.sequence(promises).then({
                         success: function(results) {
                             deferred.resolve(Ext.Array.sum(results));
@@ -4442,6 +4514,7 @@ Ext.define("TSExtendedTimesheet", {
                                 grid.getStore().on('load', function() {
                                     this._absorbChanges(t,changes).then({
                                         success: function(results) {
+                                            console.log('a');
                                             deferred.resolve(1);
                                         },
                                         failure: function(msg) { 
@@ -4452,6 +4525,7 @@ Ext.define("TSExtendedTimesheet", {
                             } else {
                                 this._absorbChanges(t,changes).then({
                                     success: function(results) {
+                                        console.log('b');
                                         deferred.resolve(1);
                                     },
                                     failure: function(msg) { 
@@ -4473,7 +4547,10 @@ Ext.define("TSExtendedTimesheet", {
     },
     
     _absorbChanges: function(timetable,changes) {
+        var deferred = Ext.create('Deft.Deferred');
+        
         var promises = [];
+        this.logger.log('changes:', changes);
         
         Ext.Array.each(changes, function(change) {
             var value = Ext.JSON.decode(change.get('Value'));
@@ -4482,10 +4559,20 @@ Ext.define("TSExtendedTimesheet", {
             
             var row = Ext.create('TSTableRow', value);
             promises.push( function() { return timetable.absorbTime(row); });
-            timetable.absorbTime(row);
         });
         
-        return Deft.Chain.sequence(promises);
+        this.logger.log('Sequence of promises', promises.length);
+        
+        Deft.Chain.sequence(promises).then({
+            success: function(results) {
+                console.log('done _absorbChanges');
+                deferred.resolve(results);
+            },
+            failure: function(msg) {
+                deferred.reject(msg);
+            }
+        });
+        return deferred.promise;
     },
 
     _loadWeekStatusPreference: function() {

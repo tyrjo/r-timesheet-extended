@@ -278,6 +278,8 @@ Ext.define("TSExtendedTimesheet", {
                         promises.push( function() { return me._absorbOldApprovedTimesheet(changed_week,preferences); } );
                     });
                     
+                    me.logger.log("Starting chain: ", promises.length);
+                    
                     Deft.Chain.sequence(promises).then({
                         success: function(results) {
                             deferred.resolve(Ext.Array.sum(results));
@@ -323,6 +325,7 @@ Ext.define("TSExtendedTimesheet", {
                                 grid.getStore().on('load', function() {
                                     this._absorbChanges(t,changes).then({
                                         success: function(results) {
+                                            console.log('a');
                                             deferred.resolve(1);
                                         },
                                         failure: function(msg) { 
@@ -333,6 +336,7 @@ Ext.define("TSExtendedTimesheet", {
                             } else {
                                 this._absorbChanges(t,changes).then({
                                     success: function(results) {
+                                        console.log('b');
                                         deferred.resolve(1);
                                     },
                                     failure: function(msg) { 
@@ -354,7 +358,10 @@ Ext.define("TSExtendedTimesheet", {
     },
     
     _absorbChanges: function(timetable,changes) {
+        var deferred = Ext.create('Deft.Deferred');
+        
         var promises = [];
+        this.logger.log('changes:', changes);
         
         Ext.Array.each(changes, function(change) {
             var value = Ext.JSON.decode(change.get('Value'));
@@ -363,10 +370,20 @@ Ext.define("TSExtendedTimesheet", {
             
             var row = Ext.create('TSTableRow', value);
             promises.push( function() { return timetable.absorbTime(row); });
-            timetable.absorbTime(row);
         });
         
-        return Deft.Chain.sequence(promises);
+        this.logger.log('Sequence of promises', promises.length);
+        
+        Deft.Chain.sequence(promises).then({
+            success: function(results) {
+                console.log('done _absorbChanges');
+                deferred.resolve(results);
+            },
+            failure: function(msg) {
+                deferred.reject(msg);
+            }
+        });
+        return deferred.promise;
     },
 
     _loadWeekStatusPreference: function() {
