@@ -1056,8 +1056,20 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
             getEditor: editor_config, summaryType: 'sum'});
         columns.push({dataIndex:'__Saturday', width: day_width, text:'Sat',   align: 'center',
             getEditor: editor_config, summaryType: 'sum', renderer: weekend_renderer});
-        columns.push({dataIndex:'__Total',    width: day_width, text:'Total', align: 'center',
-            editor: null,summaryType: 'sum', renderer: total_renderer});
+        columns.push({
+            dataIndex:'__Total',
+            width: day_width, 
+            text:'Total', 
+            align: 'center',
+            editor: null,summaryType: 'sum',
+            summaryRenderer: function(value,meta,record) {
+                console.log('v/m/r', value,meta, record);
+                if ( value < 40 ) {
+                    meta.style = 'background: #fec6cd;';
+                }
+                return value;
+            },
+            renderer: total_renderer});
 
         
         return columns;

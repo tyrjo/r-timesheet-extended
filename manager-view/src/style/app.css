@@ -27,3 +27,8 @@ td.ts-total-cell {
 .x-grid-row-summary {
     background-color: #eee;
 }
+
+td.manager-red {
+  color: black;
+  background: #fec6cd !important;
+}
