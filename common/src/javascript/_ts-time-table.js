@@ -425,7 +425,6 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
     },
     
     absorbTime: function(record) {
-        console.log('absorbTime', record);
         
         var clone = Ext.clone(record).getData();
         record.clearAndRemove();
@@ -499,10 +498,8 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                             }
                         });
                         
-                        console.log('++ saving row:', row);
                         row.save().then({
                             success: function(result) {
-                                console.log('++ row saved');
                                 deferred.resolve(result);
                             },
                             failure: function(msg) {
@@ -745,16 +742,13 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                                 __Pinned: me._isItemPinned(result) || false
                             };
 
-                            console.log('Creating row with data', data);
                             
                             var row = Ext.create('TSTableRow',Ext.Object.merge(data, time_entry_item.getData()));
 
-                            console.log('Got row', row);
                             
                             me.grid.getStore().loadRecords([row], { addRecords: true });
                             me.rows.push(row);
                             
-                            console.log('resolving with', row);
                             deferred.resolve(row);
                         } else {
                             if ( operation.error && operation.error.errors ) {

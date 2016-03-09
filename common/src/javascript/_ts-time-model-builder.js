@@ -114,9 +114,7 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
                 var pref = Ext.create(model, pref_config);
                 
                 pref.save({
-                    callback: function(deleted_pref, operation) {
-                        console.log('Saved deletion preference', deleted_pref);
-                        
+                    callback: function(deleted_pref, operation) {                        
                         if(operation.wasSuccessful()) {
                             Ext.Array.each(cells_to_clear, function(cell_to_clear){
                                 me.set(cell_to_clear,0);
@@ -125,7 +123,6 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
                             if ( me.get('__PrefID') > 0 ) {
                                 // destroy the preference
                                 var oid = me.get('__PrefID');
-                                console.log('Getting ', oid);
                                 
                                 Rally.data.ModelFactory.getModel({
                                     type: 'Preference',
@@ -134,7 +131,6 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
                                             fetch: ['Name', 'ObjectID', 'Value'],
                                             callback: function(result, operation) {
                                                 if(operation.wasSuccessful()) {
-                                                    console.log('Destroying ', result.get('ObjectID'));
                                                     result.destroy();
                                                 }
                                             }
@@ -232,7 +228,7 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
     
     _saveTEV: function(src) {
         var deferred = Ext.create('Deft.Deferred');
-        console.log('save', src);
+
         src.save({
             callback: function() {
                 deferred.resolve();
@@ -261,9 +257,7 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
                     TimeEntryItem: { _ref: time_entry_item.get('_ref') },
                     DateVal: date_val
                 });
-                
-                console.log('-- another saving spot');
-                
+                                
                 src.save({
                     callback: function(result, operation) {
                         
@@ -295,9 +289,7 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
             this._savePreference(changes);
             return;
         }
-        
-        console.log('-- about to save');
-        
+                
         var promises = [];
         
         Ext.Object.each(changes, function(field_name, value) {
@@ -328,17 +320,13 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
                 }
             }
         },this);
-        
-        console.log('-- some promises', promises.length);
-        
+                
         if ( promises.length === 0 ) { 
             deferred.resolve(); 
             return deferred;
         }
         Deft.Chain.sequence(promises).then({
-            success: function(result) {
-                console.log( '-- promises resolved');
-                
+            success: function(result) {                
                 deferred.resolve(result);
             },
             failures: function(msg) {

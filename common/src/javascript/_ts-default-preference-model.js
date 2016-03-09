@@ -56,11 +56,15 @@ Ext.define('TSDefaultPreference',{
         var workproduct = record.get('WorkProduct');
         
         var target_record_oid = workproduct.ObjectID;
+        var name = workproduct._refObjectName;
         
         if ( !Ext.isEmpty(task) ) {
             target_record_oid = task.ObjectID;
+            name = task._refObjectName;
         }
        
+        Rally.ui.notify.Notifier.show({message: 'Removed Default Item: ' + name});
+
         var pinned_items = Ext.Array.filter(this.getPinnedItems(), function(item) {
             var oid = item.ObjectID;
             return ( oid == target_record_oid );

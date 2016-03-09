@@ -3,11 +3,11 @@
 <head>
     <title>Extended Timesheet</title>
     <!--  (c) 2015 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Tue Mar 08 2016 16:52:36 GMT-0800 (PST) -->
+    <!--  Build Date: Tue Mar 08 2016 17:28:14 GMT-0800 (PST) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Tue Mar 08 2016 16:52:36 GMT-0800 (PST)";
-        var CHECKSUM = 463566841010;
+        var APP_BUILD_DATE = "Tue Mar 08 2016 17:28:14 GMT-0800 (PST)";
+        var CHECKSUM = 461870480171;
     </script>
     
     <script type="text/javascript" src="/apps/2.0/sdk.js"></script>
@@ -2156,11 +2156,15 @@ Ext.define('TSDefaultPreference',{
         var workproduct = record.get('WorkProduct');
         
         var target_record_oid = workproduct.ObjectID;
+        var name = workproduct._refObjectName;
         
         if ( !Ext.isEmpty(task) ) {
             target_record_oid = task.ObjectID;
+            name = task._refObjectName;
         }
        
+        Rally.ui.notify.Notifier.show({message: 'Removed Default Item: ' + name});
+
         var pinned_items = Ext.Array.filter(this.getPinnedItems(), function(item) {
             var oid = item.ObjectID;
             return ( oid == target_record_oid );
@@ -2370,9 +2374,7 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
                 var pref = Ext.create(model, pref_config);
                 
                 pref.save({
-                    callback: function(deleted_pref, operation) {
-                        console.log('Saved deletion preference', deleted_pref);
-                        
+                    callback: function(deleted_pref, operation) {                        
                         if(operation.wasSuccessful()) {
                             Ext.Array.each(cells_to_clear, function(cell_to_clear){
                                 me.set(cell_to_clear,0);
@@ -2381,7 +2383,6 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
                             if ( me.get('__PrefID') > 0 ) {
                                 // destroy the preference
                                 var oid = me.get('__PrefID');
-                                console.log('Getting ', oid);
                                 
                                 Rally.data.ModelFactory.getModel({
                                     type: 'Preference',
@@ -2390,7 +2391,6 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
                                             fetch: ['Name', 'ObjectID', 'Value'],
                                             callback: function(result, operation) {
                                                 if(operation.wasSuccessful()) {
-                                                    console.log('Destroying ', result.get('ObjectID'));
                                                     result.destroy();
                                                 }
                                             }
@@ -2488,7 +2488,7 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
     
     _saveTEV: function(src) {
         var deferred = Ext.create('Deft.Deferred');
-        console.log('save', src);
+
         src.save({
             callback: function() {
                 deferred.resolve();
@@ -2517,9 +2517,7 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
                     TimeEntryItem: { _ref: time_entry_item.get('_ref') },
                     DateVal: date_val
                 });
-                
-                console.log('-- another saving spot');
-                
+                                
                 src.save({
                     callback: function(result, operation) {
                         
@@ -2551,9 +2549,7 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
             this._savePreference(changes);
             return;
         }
-        
-        console.log('-- about to save');
-        
+                
         var promises = [];
         
         Ext.Object.each(changes, function(field_name, value) {
@@ -2584,17 +2580,13 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
                 }
             }
         },this);
-        
-        console.log('-- some promises', promises.length);
-        
+                
         if ( promises.length === 0 ) { 
             deferred.resolve(); 
             return deferred;
         }
         Deft.Chain.sequence(promises).then({
-            success: function(result) {
-                console.log( '-- promises resolved');
-                
+            success: function(result) {                
                 deferred.resolve(result);
             },
             failures: function(msg) {
@@ -3106,7 +3098,6 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
     },
     
     absorbTime: function(record) {
-        console.log('absorbTime', record);
         
         var clone = Ext.clone(record).getData();
         record.clearAndRemove();
@@ -3180,10 +3171,8 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                             }
                         });
                         
-                        console.log('++ saving row:', row);
                         row.save().then({
                             success: function(result) {
-                                console.log('++ row saved');
                                 deferred.resolve(result);
                             },
                             failure: function(msg) {
@@ -3426,16 +3415,13 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                                 __Pinned: me._isItemPinned(result) || false
                             };
 
-                            console.log('Creating row with data', data);
                             
                             var row = Ext.create('TSTableRow',Ext.Object.merge(data, time_entry_item.getData()));
 
-                            console.log('Got row', row);
                             
                             me.grid.getStore().loadRecords([row], { addRecords: true });
                             me.rows.push(row);
                             
-                            console.log('resolving with', row);
                             deferred.resolve(row);
                         } else {
                             if ( operation.error && operation.error.errors ) {
@@ -4716,6 +4702,12 @@ Ext.define("TSExtendedTimesheet", {
             scope: this,
             success: function(items) {
                 Ext.Array.each(items, function(item){
+                    console.log('add item?', item);
+                    if ( item.get('Release') && item.get('Release').c_IsDeployed == true ) {
+                        console.log('Cannot add item because it is locked');
+                        timetable.unpinTime(item);
+                        return;
+                    }
                     timetable.addRowForItem(item);
                 });
                 deferred.resolve(items);

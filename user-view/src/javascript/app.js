@@ -527,6 +527,12 @@ Ext.define("TSExtendedTimesheet", {
             scope: this,
             success: function(items) {
                 Ext.Array.each(items, function(item){
+                    console.log('add item?', item);
+                    if ( item.get('Release') && item.get('Release').c_IsDeployed == true ) {
+                        console.log('Cannot add item because it is locked');
+                        timetable.unpinTime(item);
+                        return;
+                    }
                     timetable.addRowForItem(item);
                 });
                 deferred.resolve(items);
