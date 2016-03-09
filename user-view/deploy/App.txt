@@ -3,11 +3,11 @@
 <head>
     <title>Extended Timesheet</title>
     <!--  (c) 2015 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Tue Mar 08 2016 17:28:14 GMT-0800 (PST) -->
+    <!--  Build Date: Wed Mar 09 2016 14:54:08 GMT-0800 (PST) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Tue Mar 08 2016 17:28:14 GMT-0800 (PST)";
-        var CHECKSUM = 461870480171;
+        var APP_BUILD_DATE = "Wed Mar 09 2016 14:54:08 GMT-0800 (PST)";
+        var CHECKSUM = 468217455208;
     </script>
     
     <script type="text/javascript" src="/apps/2.0/sdk.js"></script>
@@ -2143,34 +2143,44 @@ Ext.define('TSDefaultPreference',{
         };
         
         var pinned_items = Ext.Array.merge(this.getPinnedItems(), [target_record_item]);
-        
-        console.log(' pinned items: ', pinned_items, Ext.JSON.encode(pinned_items));
-        
+                
         this.set('Value', Ext.JSON.encode(pinned_items) );
         
         return this.save();
     },
     
     removePin: function(record) {
-        var task = record.get('Task');
-        var workproduct = record.get('WorkProduct');
         
-        var target_record_oid = workproduct.ObjectID;
-        var name = workproduct._refObjectName;
+        var record_type = record.get('_type');
+        var name = "";
+        var target_record_oid = -1;
         
-        if ( !Ext.isEmpty(task) ) {
-            target_record_oid = task.ObjectID;
-            name = task._refObjectName;
+        if ( record_type == 'hierarchicalrequirement' || record_type == 'defect' || record_type == 'task' ) {
+            name = record.get('Name');
+            target_record_oid = record.get('ObjectID');
+        } else {
+            var task = record.get('Task');
+            var workproduct = record.get('WorkProduct');
+                        
+            target_record_oid = workproduct.ObjectID;
+            name = workproduct._refObjectName;
+            
+            if ( !Ext.isEmpty(task) ) {
+                target_record_oid = task.ObjectID;
+                name = task._refObjectName;
+            }
         }
-       
-        Rally.ui.notify.Notifier.show({message: 'Removed Default Item: ' + name});
-
+        
         var pinned_items = Ext.Array.filter(this.getPinnedItems(), function(item) {
             var oid = item.ObjectID;
-            return ( oid == target_record_oid );
+            console.log('comparing ', oid, target_record_oid);
+            
+            return ( oid != target_record_oid );
         });
         
         this.set('Value', Ext.JSON.encode(pinned_items) );
+
+        Rally.ui.notify.Notifier.show({message: 'Removed Default Item: ' + name});
         
         return this.save();
     },
@@ -2215,7 +2225,7 @@ Ext.define('TSDefaultPreference',{
             pref.save({
                 callback: function(result, operation) {
                     if(operation.wasSuccessful()) {
-                        me.set('__Pref', result);
+                        me.set('__Preference', result);
                         deferred.resolve(me);
                     } else {
                         deferred.reject(operation.error.errors[0]);
@@ -2228,8 +2238,10 @@ Ext.define('TSDefaultPreference',{
     },
     
     createPreference: function() {
-        var deferred = Ext.create('Deft.Deferred');
-        var me = this;
+        var deferred = Ext.create('Deft.Deferred'),
+            me = this;
+            
+        console.log('createPreference', me.get('Name'));
         
         Rally.data.ModelFactory.getModel({
             type: 'Preference',
@@ -2245,7 +2257,8 @@ Ext.define('TSDefaultPreference',{
                 pref.save({
                     callback: function(result, operation) {
                         if(operation.wasSuccessful()) {
-                            me.set('__Pref', result);
+                            me.set('__Preference', result);
+                            console.log('preference created', me.get('Name'));
                             deferred.resolve(me);
                         } else {
                             deferred.reject(operation.error.errors[0]);
@@ -2952,6 +2965,9 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
             ]
         };
         
+        this.logger.log('finding by key',key);
+
+        
         return TSUtilities.loadWsapiRecords(config);
     },
     
@@ -2969,6 +2985,9 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
             this.startDateString.replace(/T.*$/,''),
             user_oid
         );
+        
+        this.logger.log('finding by key',key);
+
         
         var config = {
             model: 'Preference',
@@ -3002,6 +3021,8 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
             user_oid
         );
         
+        this.logger.log('finding by key',key);
+
         var config = {
             model: 'Preference',
             context: {
@@ -3193,7 +3214,14 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
     },
     
     pinTime: function(record) {
-        this.timePreference.addPin(record).then({
+        if ( this.updatePinProcess && this.updatePinProcess.getState() === 'pending' ) {
+            console.log('pinning in process...');
+        } else {
+            console.log('-- ', this.updatePinProcess && this.updatePinProcess.getState());
+        }
+        
+        this.updatePinProcess = this.timePreference.addPin(record);
+        this.updatePinProcess.then({
             success: function() {
                 record.set('__Pinned', true);
             },
@@ -3205,15 +3233,25 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
     },
     
     unpinTime: function(record) {
-        this.timePreference.removePin(record).then({
+        var deferred = Ext.create('Deft.Deferred');
+        
+        if ( this.updatePinProcess && this.updatePinProcess.getState() === 'pending' ) {
+            console.log('pinning in process...');
+        } else {
+            console.log('-- ', this.updatePinProcess && this.updatePinProcess.getState());
+        }
+        
+        this.updatePinProcess = this.timePreference.removePin(record);
+        this.updatePinProcess.then({
             success: function() {
                 record.set('__Pinned', false);
+                deferred.resolve(record);
             },
             failure: function(msg){
-                Ext.Msg.alert("Problem saving pin:", msg);
+                deferred.reject(msg);
             }
         });
-        
+        return deferred.promise;
     },
     
     _isItemPinned: function(item) {
@@ -4005,7 +4043,7 @@ Ext.define('Rally.technicalservices.UnpinTimeEntryMenuItem', {
     },
     
     shouldShowMenuItem: function(record) {
-        return record.isPinned();
+        return !record.isLocked() && record.isPinned();
     },
     _unpinRecord: function(record) {
         var timetable = this.view.ownerCt.ownerCt;
@@ -4368,7 +4406,6 @@ Ext.define("TSExtendedTimesheet", {
                     listeners: {
                         scope: this,
                         gridReady: function() {
-                            this.logger.log("Grid is ready");
                             this._addButtons(button_box);
                             if ( editable ) {
                                 Ext.Array.each( this.query('rallybutton'), function(button) {
@@ -4423,9 +4460,7 @@ Ext.define("TSExtendedTimesheet", {
         ]);
         
         var filters = change_filters.and(non_archived_filters);
-        
-        this.logger.log("Check old timesheets", this_week_start, filters.toString());
-        
+                
         var config = {
             model: 'Preference',
             filters: filters,
@@ -4452,9 +4487,7 @@ Ext.define("TSExtendedTimesheet", {
                     Ext.Object.each(week_hash, function(changed_week, preferences){
                         promises.push( function() { return me._absorbOldApprovedTimesheet(changed_week,preferences); } );
                     });
-                    
-                    me.logger.log("Starting chain: ", promises.length);
-                    
+                                        
                     Deft.Chain.sequence(promises).then({
                         success: function(results) {
                             deferred.resolve(Ext.Array.sum(results));
@@ -4475,7 +4508,6 @@ Ext.define("TSExtendedTimesheet", {
             
         // is this approved?
         this.setLoading('Reviewing ' + week_start);
-        this.logger.log('  ', week_start);
         
         TSDateUtils.isApproved(week_start).then({
             scope: this,
@@ -4536,7 +4568,6 @@ Ext.define("TSExtendedTimesheet", {
         var deferred = Ext.create('Deft.Deferred');
         
         var promises = [];
-        this.logger.log('changes:', changes);
         
         Ext.Array.each(changes, function(change) {
             var value = Ext.JSON.decode(change.get('Value'));
@@ -4546,9 +4577,7 @@ Ext.define("TSExtendedTimesheet", {
             var row = Ext.create('TSTableRow', value);
             promises.push( function() { return timetable.absorbTime(row); });
         });
-        
-        this.logger.log('Sequence of promises', promises.length);
-        
+                
         Deft.Chain.sequence(promises).then({
             success: function(results) {
                 console.log('done _absorbChanges');
@@ -4561,9 +4590,7 @@ Ext.define("TSExtendedTimesheet", {
         return deferred.promise;
     },
 
-    _loadWeekStatusPreference: function() {
-        this.logger.log('_loadWeekStatusPreference',this.startDateString);
-        
+    _loadWeekStatusPreference: function() {        
         var key = Ext.String.format("{0}.{1}.{2}", 
             TSUtilities.approvalKeyPrefix,
             this.startDateString,
@@ -4587,7 +4614,6 @@ Ext.define("TSExtendedTimesheet", {
     },
     
     _loadWeekLockPreference: function() {
-        this.logger.log('_loadWeekLockPreference', this.startDateString);
         
         var key = Ext.String.format("{0}.{1}", 
             TSUtilities.timeLockKeyPrefix,
@@ -4657,7 +4683,6 @@ Ext.define("TSExtendedTimesheet", {
             return;
         }
         
-        this.setLoading('Adding Pinned Items');
         Deft.Chain.sequence([ 
             function() { return me._addPinnedItemsByType('hierarchicalrequirement'); },
             function() { return me._addPinnedItemsByType('defect'); },
@@ -4701,16 +4726,32 @@ Ext.define("TSExtendedTimesheet", {
         TSUtilities.loadWsapiRecords(config).then({
             scope: this,
             success: function(items) {
+                var promises = [];
+                
                 Ext.Array.each(items, function(item){
-                    console.log('add item?', item);
+
                     if ( item.get('Release') && item.get('Release').c_IsDeployed == true ) {
                         console.log('Cannot add item because it is locked');
-                        timetable.unpinTime(item);
+                        
+                        promises.push(function() { return timetable.unpinTime(item); });
+                        
                         return;
                     }
                     timetable.addRowForItem(item);
                 });
-                deferred.resolve(items);
+                
+                if ( promises.length === 0 ) {
+                    deferred.resolve(items);
+                } else {
+                    Deft.Chain.sequence(promises).then({
+                        success: function(results) {
+                            deferred.resolve(results);
+                        },
+                        failure: function(msg) {
+                            deferred.reject(msg);
+                        }
+                    });
+                }
             },
             failure: function(msg) {
                 deferred.reject(msg);
@@ -4727,9 +4768,7 @@ Ext.define("TSExtendedTimesheet", {
             Rally.technicalservices.TimeModelBuilder.getFetchFields(),
             ['WorkProduct','Feature','Project']
         );
-        
-        this.logger.log('fetch fields:', fetch_fields);
-        
+                
         if (timetable) {
             Ext.create('Rally.technicalservices.ChooserDialog', {
                 artifactTypes: ['task'],

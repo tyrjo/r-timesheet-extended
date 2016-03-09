@@ -193,7 +193,6 @@ Ext.define("TSExtendedTimesheet", {
                     listeners: {
                         scope: this,
                         gridReady: function() {
-                            this.logger.log("Grid is ready");
                             this._addButtons(button_box);
                             if ( editable ) {
                                 Ext.Array.each( this.query('rallybutton'), function(button) {
@@ -248,9 +247,7 @@ Ext.define("TSExtendedTimesheet", {
         ]);
         
         var filters = change_filters.and(non_archived_filters);
-        
-        this.logger.log("Check old timesheets", this_week_start, filters.toString());
-        
+                
         var config = {
             model: 'Preference',
             filters: filters,
@@ -277,9 +274,7 @@ Ext.define("TSExtendedTimesheet", {
                     Ext.Object.each(week_hash, function(changed_week, preferences){
                         promises.push( function() { return me._absorbOldApprovedTimesheet(changed_week,preferences); } );
                     });
-                    
-                    me.logger.log("Starting chain: ", promises.length);
-                    
+                                        
                     Deft.Chain.sequence(promises).then({
                         success: function(results) {
                             deferred.resolve(Ext.Array.sum(results));
@@ -300,7 +295,6 @@ Ext.define("TSExtendedTimesheet", {
             
         // is this approved?
         this.setLoading('Reviewing ' + week_start);
-        this.logger.log('  ', week_start);
         
         TSDateUtils.isApproved(week_start).then({
             scope: this,
@@ -361,7 +355,6 @@ Ext.define("TSExtendedTimesheet", {
         var deferred = Ext.create('Deft.Deferred');
         
         var promises = [];
-        this.logger.log('changes:', changes);
         
         Ext.Array.each(changes, function(change) {
             var value = Ext.JSON.decode(change.get('Value'));
@@ -371,9 +364,7 @@ Ext.define("TSExtendedTimesheet", {
             var row = Ext.create('TSTableRow', value);
             promises.push( function() { return timetable.absorbTime(row); });
         });
-        
-        this.logger.log('Sequence of promises', promises.length);
-        
+                
         Deft.Chain.sequence(promises).then({
             success: function(results) {
                 console.log('done _absorbChanges');
@@ -386,9 +377,7 @@ Ext.define("TSExtendedTimesheet", {
         return deferred.promise;
     },
 
-    _loadWeekStatusPreference: function() {
-        this.logger.log('_loadWeekStatusPreference',this.startDateString);
-        
+    _loadWeekStatusPreference: function() {        
         var key = Ext.String.format("{0}.{1}.{2}", 
             TSUtilities.approvalKeyPrefix,
             this.startDateString,
@@ -412,7 +401,6 @@ Ext.define("TSExtendedTimesheet", {
     },
     
     _loadWeekLockPreference: function() {
-        this.logger.log('_loadWeekLockPreference', this.startDateString);
         
         var key = Ext.String.format("{0}.{1}", 
             TSUtilities.timeLockKeyPrefix,
@@ -482,7 +470,6 @@ Ext.define("TSExtendedTimesheet", {
             return;
         }
         
-        this.setLoading('Adding Pinned Items');
         Deft.Chain.sequence([ 
             function() { return me._addPinnedItemsByType('hierarchicalrequirement'); },
             function() { return me._addPinnedItemsByType('defect'); },
@@ -526,16 +513,32 @@ Ext.define("TSExtendedTimesheet", {
         TSUtilities.loadWsapiRecords(config).then({
             scope: this,
             success: function(items) {
+                var promises = [];
+                
                 Ext.Array.each(items, function(item){
-                    console.log('add item?', item);
+
                     if ( item.get('Release') && item.get('Release').c_IsDeployed == true ) {
                         console.log('Cannot add item because it is locked');
-                        timetable.unpinTime(item);
+                        
+                        promises.push(function() { return timetable.unpinTime(item); });
+                        
                         return;
                     }
                     timetable.addRowForItem(item);
                 });
-                deferred.resolve(items);
+                
+                if ( promises.length === 0 ) {
+                    deferred.resolve(items);
+                } else {
+                    Deft.Chain.sequence(promises).then({
+                        success: function(results) {
+                            deferred.resolve(results);
+                        },
+                        failure: function(msg) {
+                            deferred.reject(msg);
+                        }
+                    });
+                }
             },
             failure: function(msg) {
                 deferred.reject(msg);
@@ -552,9 +555,7 @@ Ext.define("TSExtendedTimesheet", {
             Rally.technicalservices.TimeModelBuilder.getFetchFields(),
             ['WorkProduct','Feature','Project']
         );
-        
-        this.logger.log('fetch fields:', fetch_fields);
-        
+                
         if (timetable) {
             Ext.create('Rally.technicalservices.ChooserDialog', {
                 artifactTypes: ['task'],
