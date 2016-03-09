@@ -84,7 +84,7 @@ Ext.define("TSExtendedTimesheet", {
         container.add({
             xtype:'rallybutton',
             text: 'Add My Tasks',
-            toolTipText: "(in current iteration)", 
+            toolTipText: "(in current iteration or set as default)", 
             padding: 2,
             disabled: true,
             listeners: {
@@ -278,6 +278,8 @@ Ext.define("TSExtendedTimesheet", {
                         promises.push( function() { return me._absorbOldApprovedTimesheet(changed_week,preferences); } );
                     });
                     
+                    me.logger.log("Starting chain: ", promises.length);
+                    
                     Deft.Chain.sequence(promises).then({
                         success: function(results) {
                             deferred.resolve(Ext.Array.sum(results));
@@ -323,6 +325,7 @@ Ext.define("TSExtendedTimesheet", {
                                 grid.getStore().on('load', function() {
                                     this._absorbChanges(t,changes).then({
                                         success: function(results) {
+                                            console.log('a');
                                             deferred.resolve(1);
                                         },
                                         failure: function(msg) { 
@@ -333,6 +336,7 @@ Ext.define("TSExtendedTimesheet", {
                             } else {
                                 this._absorbChanges(t,changes).then({
                                     success: function(results) {
+                                        console.log('b');
                                         deferred.resolve(1);
                                     },
                                     failure: function(msg) { 
@@ -354,7 +358,10 @@ Ext.define("TSExtendedTimesheet", {
     },
     
     _absorbChanges: function(timetable,changes) {
+        var deferred = Ext.create('Deft.Deferred');
+        
         var promises = [];
+        this.logger.log('changes:', changes);
         
         Ext.Array.each(changes, function(change) {
             var value = Ext.JSON.decode(change.get('Value'));
@@ -363,10 +370,20 @@ Ext.define("TSExtendedTimesheet", {
             
             var row = Ext.create('TSTableRow', value);
             promises.push( function() { return timetable.absorbTime(row); });
-            timetable.absorbTime(row);
         });
         
-        return Deft.Chain.sequence(promises);
+        this.logger.log('Sequence of promises', promises.length);
+        
+        Deft.Chain.sequence(promises).then({
+            success: function(results) {
+                console.log('done _absorbChanges');
+                deferred.resolve(results);
+            },
+            failure: function(msg) {
+                deferred.reject(msg);
+            }
+        });
+        return deferred.promise;
     },
 
     _loadWeekStatusPreference: function() {
@@ -423,7 +440,7 @@ Ext.define("TSExtendedTimesheet", {
     _addCurrentTasks: function() {
         var timetable = this.down('tstimetable');
         if (timetable) {
-            this.setLoading("Finding current tasks...");
+            this.setLoading("Finding my current tasks...");
             var config = {
                 model: 'Task',
                 context: {
@@ -447,13 +464,85 @@ Ext.define("TSExtendedTimesheet", {
                         timetable.addRowForItem(task);
                     });
                     
-                    this.setLoading(false);
+                    this._addPinnedItems();
                 },
                 failure: function(msg) {
                     Ext.Msg.alert("Problem loading current tasks", msg);
                 }
             });
         }
+    },
+    
+    _addPinnedItems: function() {
+        var me = this,
+            timetable = this.down('tstimetable');
+
+        if ( timetable.getDefaultPreference().getPinnedOIDs().length === 0 ) {
+            this.setLoading(false);
+            return;
+        }
+        
+        this.setLoading('Adding Pinned Items');
+        Deft.Chain.sequence([ 
+            function() { return me._addPinnedItemsByType('hierarchicalrequirement'); },
+            function() { return me._addPinnedItemsByType('defect'); },
+            function() { return me._addPinnedItemsByType('task'); }
+            
+        ]).then({
+            scope: this,
+            success: function() {
+                this.setLoading(false);
+            },
+            failure: function(msg) {
+                Ext.Msg.alert("Problem loading pinned items",msg);
+            }
+        });
+    },
+    
+    _addPinnedItemsByType: function(type) {
+        var deferred = Ext.create('Deft.Deferred');
+        var timetable = this.down('tstimetable');
+        
+        if (!timetable) {
+            return; 
+        }
+        
+        this.setLoading("Finding items of type " + type + "...");
+        
+        var oids = timetable.getDefaultPreference().getPinnedOIDs();
+        
+        var config = {
+            model: type,
+            context: {
+                project: null
+            },
+            fetch: Ext.Array.merge(
+                Rally.technicalservices.TimeModelBuilder.getFetchFields(),
+                ['ObjectID','Name','FormattedID','WorkProduct','Project','Release']
+            ),
+            filters: Rally.data.wsapi.Filter.or(Ext.Array.map(oids, function(oid) { return {property:'ObjectID',value:oid}; }))
+        };
+        
+        TSUtilities.loadWsapiRecords(config).then({
+            scope: this,
+            success: function(items) {
+                Ext.Array.each(items, function(item){
+                    console.log('add item?', item);
+                    if ( item.get('Release') && item.get('Release').c_IsDeployed == true ) {
+                        console.log('Cannot add item because it is locked');
+                        timetable.unpinTime(item);
+                        return;
+                    }
+                    timetable.addRowForItem(item);
+                });
+                deferred.resolve(items);
+            },
+            failure: function(msg) {
+                deferred.reject(msg);
+            }
+        });
+        
+        return deferred.promise;
     },
     
     _findAndAddTask: function() {

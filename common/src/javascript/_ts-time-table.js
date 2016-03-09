@@ -34,7 +34,6 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
     
     constructor: function (config) {
         this.mergeConfig(config);
-        console.log('construct timetable', config);
         
         if (Ext.isEmpty(config.startDate) || !Ext.isDate(config.startDate)) {
             throw "Rally.technicalservices.TimeTable requires startDate parameter (JavaScript Date)";
@@ -63,7 +62,6 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
         if ( Ext.isEmpty(this.timesheet_user) ) {
             this.timesheet_user = Rally.getApp().getContext().getUser();
         }
-        
         
         Deft.Chain.sequence([
             me._getTEIModel,
@@ -94,12 +92,14 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
     
     _updateData: function() {
         this.setLoading('Loading time...');
+        var me = this;
 
         Deft.Chain.sequence([
             this._loadTimeEntryItems,
             this._loadTimeEntryValues,
             this._loadTimeEntryAppends,
-            this._loadTimeEntryAmends
+            this._loadTimeEntryAmends,
+            this._loadDefaultPreference
         ],this).then({
             scope: this,
             success: function(results) {
@@ -107,6 +107,14 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                 var time_entry_values = results[1];
                 var time_entry_appends = results[2];
                 var time_entry_amends = results[3];
+                var time_default_preference = results[4];
+                
+                this.timePreference = Ext.create('TSDefaultPreference');
+                
+                if ( time_default_preference.length > 0 ) {
+                    this.timePreference = Ext.create('TSDefaultPreference', { '__Preference': time_default_preference[0] });
+                }
+                this.logger.log('Time preference: ', this.timePreference);
                 
                 var rows = Ext.Array.map(time_entry_items, function(item){
                     var product = item.get('Project');
@@ -131,7 +139,8 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                         __TimeEntryItem:item,
                         __Feature: feature,
                         __Product: product,
-                        __Release: release
+                        __Release: release,
+                        __Pinned: me._isItemPinned(item)
                     };
                     
                     return Ext.create('TSTableRow',Ext.Object.merge(data, item.getData()));
@@ -302,6 +311,38 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
         return TSUtilities.loadWsapiRecords(config);
     },
     
+    getDefaultPreference: function() {
+        return this.timePreference;
+    },
+    
+    _loadDefaultPreference: function() {
+        this.setLoading('Loading preference information...');
+        
+        var user_oid = Rally.getApp().getContext().getUser().ObjectID;
+        
+        if ( !Ext.isEmpty(this.timesheet_user) ) {
+            user_oid = this.timesheet_user.ObjectID;
+        }
+        
+        var key = Ext.String.format("{0}.{1}", 
+            TSUtilities.pinKeyPrefix,
+            user_oid
+        );
+        
+        var config = {
+            model: 'Preference',
+            context: {
+                project: null
+            },
+            fetch: ['Name','Value','ObjectID'],
+            filters: [
+                {property:'Name',operator:'contains',value:key}
+            ]
+        };
+        
+        return TSUtilities.loadWsapiRecords(config);
+    },
+    
     _makeGrid: function(rows) {
         this.removeAll();
 
@@ -419,22 +460,23 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
             
             original_row.set(day,new_value);
         });
-        original_row.save({
-            callback: function(result, operation) {
-                if ( operation.wasSuccessful() ) {
-                    deferred.resolve(result);
-                } else {
-                    deferred.reject(operation & operation.error & operation.error.errors.join('. '));
-                }
+        
+        original_row.save().then({
+            success: function(result) {
+                deferred.resolve(result);
+            },
+            failure: function(msg) {
+                deferred.reject(msg);
             }
+        
         });
         
         return deferred.promise;
     },
     
     _absorbAppended: function(clone) {
-        var deferred = Ext.create('Deft.Deferred');
-        var me = this;
+        var deferred = Ext.create('Deft.Deferred'),
+            me = this;
         
         var work_item = clone.Task;
             
@@ -455,23 +497,56 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                                 row.set(day,clone[day]);
                             }
                         });
-                        row.save({
-                            callback: function(result, operation) {
-                                if ( operation.wasSuccessful() ) {
-                                    deferred.resolve(result);
-                                } else {
-                                    deferred.reject(operation & operation.error & operation.error.errors.join('. '));
-                                }
+                        
+                        row.save().then({
+                            success: function(result) {
+                                deferred.resolve(result);
+                            },
+                            failure: function(msg) {
+                                deferred.reject(msg);
                             }
                         });
                     },
-                    failure: function() {
-                        deferred.reject('Problem adding row');
+                    failure: function(msg) {
+                        deferred.reject(msg);
                     }
                 });
+            },
+            failure: function(msg) {
+                deferred.reject(msg);
             }
         });
         return deferred.promise;
+    },
+    
+    pinTime: function(record) {
+        this.timePreference.addPin(record).then({
+            success: function() {
+                record.set('__Pinned', true);
+            },
+            failure: function(msg){
+                Ext.Msg.alert("Problem saving pin:", msg);
+            }
+        });
+        
+    },
+    
+    unpinTime: function(record) {
+        this.timePreference.removePin(record).then({
+            success: function() {
+                record.set('__Pinned', false);
+            },
+            failure: function(msg){
+                Ext.Msg.alert("Problem saving pin:", msg);
+            }
+        });
+        
+    },
+    
+    _isItemPinned: function(item) {
+        this.logger.log('is Item pinned?', item);
+        if ( Ext.isEmpty(this.timePreference) ) { return false; }
+        return this.timePreference.isPinned(item);
     },
     
     _getItemFromRef: function(item_ref) {
@@ -527,7 +602,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
     },
     
     getRowForAmendedRow: function(amended_row) {
-        console.log('getting item row for', amended_row);
+        this.logger.log('getting item row for', amended_row);
         var work_item = amended_row.Task;
         if ( Ext.isEmpty(work_item) ) {
             work_item = amended_row.WorkProduct;
@@ -563,10 +638,10 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
         var me = this,
             deferred = Ext.create('Deft.Deferred');
 
-        console.log('addRowForItem', item, force);
+        this.logger.log('addRowForItem', item, force);
         
         if ( !force && this._hasRowForItem(item) ) {
-            console.log('has row already:', item);
+            this.logger.log('has row already:', item);
         } else {
             var item_type = item.get('_type');
 
@@ -606,7 +681,6 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
             }
             
             if ( !this._isForCurrentUser() ) {
-                console.log("Creating a shadow item", config);
                 // create a shadow item
                 config.ObjectID = -1;
                 config._type = "timeentryitem";
@@ -636,7 +710,6 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                 me.rows.push(row);
                 return row;
             } else {
-                console.log('Add item');
                 var fields = this.tei_model.getFields();
 
                 var time_entry_item = Ext.create(this.tei_model,config);
@@ -665,19 +738,25 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                                 __TimeEntryItem:result,
                                 __Feature: feature,
                                 __Product: product,
-                                __Release: release
+                                __Release: release,
+                                __Pinned: me._isItemPinned(result) || false
                             };
 
+                            
                             var row = Ext.create('TSTableRow',Ext.Object.merge(data, time_entry_item.getData()));
 
+                            
                             me.grid.getStore().loadRecords([row], { addRecords: true });
                             me.rows.push(row);
+                            
                             deferred.resolve(row);
                         } else {
                             if ( operation.error && operation.error.errors ) {
+                                console.log("ERROR:", operation);
                                 Ext.Msg.alert("Problem saving time:", operation.error.errors.join(' '));
                                 deferred.reject();
                             }
+                            deferred.resolve();
                         }
                     }
                 });
@@ -904,8 +983,6 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
             if ( record && record.get('__Amended') ) {
                 minValue = -24;
             }
-
-            console.log(record, minValue);
 
             var disabled = !me.editable;
             if ( record && ( record.get('__Appended') || record.get('__Amended') ) ) {

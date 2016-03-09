@@ -27,8 +27,8 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
                     { name: '__Appended', type: 'boolean', defaultValue: false },
                     { name: '__Amended', type: 'boolean', defaultValue: false },
                     { name: '__PrefID', type:'auto', defaultValue: -1 },
-                    { name: '_ReleaseLockFieldName',  type:'string', defaultValue: Rally.technicalservices.TimeModelBuilder.deploy_field }
-
+                    { name: '_ReleaseLockFieldName',  type:'string', defaultValue: Rally.technicalservices.TimeModelBuilder.deploy_field },
+                    { name: '__Pinned', type: 'boolean' }
                 ];
                 
                 var day_fields = this._getDayFields();
@@ -46,7 +46,10 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
                     _savePreference: this._savePreference,
                     getField: this.getField,
                     clearAndRemove: this.clearAndRemove,
-                    isLocked: this._isLocked
+                    isLocked: this._isLocked,
+                    isPinned: this._isPinned,
+                    _saveTEV: this._saveTEV,
+                    _createTEV: this._createTEV
                 });
                 
                 this.model = new_model;
@@ -61,6 +64,10 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
         return [ 'ObjectID', 'Name', 'Release', 'User', 'UserName', this.deploy_field ];
     },
     
+    _isPinned: function() {
+        return this.get('__Pinned');
+    },
+    
     _isLocked: function (fieldName, newValue) {
         var release = this.get('__Release');
         var lock_field_name = this.get('_ReleaseLockFieldName');
@@ -72,9 +79,7 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
         return release[lock_field_name];
     },
     
-    clearAndRemove: function() {
-        console.log('clearAndRemove');
-        
+    clearAndRemove: function() {        
         var timeentryitem = this.get('__TimeEntryItem');
         var cells_to_clear = ['__Monday','__Tuesday','__Wednesday','__Thursday','__Friday','__Saturday','__Sunday','__Total'];
         var me = this;
@@ -85,9 +90,7 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
             this.get('User').ObjectID,
             new Date().getTime()
         );
-        
-        console.log('  deletion key:', key, this);
-        
+                
         var data = this.getData();
         
         delete data.__TimeEntryItem;
@@ -111,9 +114,7 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
                 var pref = Ext.create(model, pref_config);
                 
                 pref.save({
-                    callback: function(result, operation) {
-                        console.log('Saved deletion preference', result);
-                        
+                    callback: function(deleted_pref, operation) {                        
                         if(operation.wasSuccessful()) {
                             Ext.Array.each(cells_to_clear, function(cell_to_clear){
                                 me.set(cell_to_clear,0);
@@ -122,7 +123,6 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
                             if ( me.get('__PrefID') > 0 ) {
                                 // destroy the preference
                                 var oid = me.get('__PrefID');
-                                console.log('Getting ', oid);
                                 
                                 Rally.data.ModelFactory.getModel({
                                     type: 'Preference',
@@ -131,7 +131,6 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
                                             fetch: ['Name', 'ObjectID', 'Value'],
                                             callback: function(result, operation) {
                                                 if(operation.wasSuccessful()) {
-                                                    console.log('Destroying ', result.get('ObjectID'));
                                                     result.destroy();
                                                 }
                                             }
@@ -225,13 +224,61 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
             }
         });
         
-        Ext.Object.each(changes, function(field_name, value){
-            console.log(field_name, value);
+    },
+    
+    _saveTEV: function(src) {
+        var deferred = Ext.create('Deft.Deferred');
+
+        src.save({
+            callback: function() {
+                deferred.resolve();
+            }
         });
+        return deferred.promise;
+    },
+    
+    _createTEV: function(src_field_name, row, time_entry_item, index, value, week_start, date_val) {
+        var deferred = Ext.create('Deft.Deferred'),
+            me = this;
+        
+        Rally.data.ModelFactory.getModel({
+            type: 'TimeEntryValue',
+            scope: this,
+            success: function(tev_model) {
+                var fields = tev_model.getFields();
+                Ext.Array.each(fields, function(field) {
+                    if ( field.name == "TimeEntryItem" || field.name == "DateVal" ) {
+                        field.readOnly = false;
+                        field.persist = true;
+                    }
+                });
+                src = Ext.create(tev_model,{
+                    Hours: value,
+                    TimeEntryItem: { _ref: time_entry_item.get('_ref') },
+                    DateVal: date_val
+                });
+                                
+                src.save({
+                    callback: function(result, operation) {
+                        
+                        if(operation.wasSuccessful()) {
+                            row.set(src_field_name, result);
+                            me._updateTotal();
+                        }
+                    }
+                });
+
+                deferred.resolve();    
+            }
+        });
+        
+        return deferred.promise;
     },
     
     _save: function(v) { 
-        var me = this;
+        var deferred = Ext.create('Deft.Deferred'),
+            me = this;
+            
         var changes = this.getChanges();
 
         if ( ( this.get('__Amended') || this.get('__Appended') ) && this.get('ObjectID') == -1 ) {
@@ -242,6 +289,8 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
             this._savePreference(changes);
             return;
         }
+                
+        var promises = [];
         
         Ext.Object.each(changes, function(field_name, value) {
             var row = this;
@@ -255,8 +304,10 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
                     // the other record exists
                     src.set('Hours', value);
                     // TODO: check for errors on return 
-                    src.save();
                     me._updateTotal();
+                    
+                    promises.push(function() { return me._saveTEV(src) });
+                    
                 } else {
                     // need to create a new record
                     var time_entry_item = this.get('__TimeEntryItem');
@@ -264,37 +315,29 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
                     var week_start = time_entry_item.get('WeekStartDate');
                     var date_val = Rally.util.DateTime.add(week_start, 'day', index);
                     
-                    Rally.data.ModelFactory.getModel({
-                        type: 'TimeEntryValue',
-                        scope: this,
-                        success: function(tev_model) {
-                            var fields = tev_model.getFields();
-                            Ext.Array.each(fields, function(field) {
-                                if ( field.name == "TimeEntryItem" || field.name == "DateVal" ) {
-                                    field.readOnly = false;
-                                    field.persist = true;
-                                }
-                            });
-                            src = Ext.create(tev_model,{
-                                Hours: value,
-                                TimeEntryItem: { _ref: time_entry_item.get('_ref') },
-                                DateVal: date_val
-                            });
-                            
-                            src.save({
-                                callback: function(result, operation) {
-                                    if(operation.wasSuccessful()) {
-                                        row.set(src_field_name, result);
-                                        me._updateTotal();
-                                    }
-                                }
-                            });
-                        }
-                    });
+                    promises.push(function() { return me._createTEV(src_field_name, row, time_entry_item, index, value, week_start, date_val); });
+                    
                 }
             }
         },this);
+                
+        if ( promises.length === 0 ) { 
+            deferred.resolve(); 
+            return deferred;
+        }
+        Deft.Chain.sequence(promises).then({
+            success: function(result) {                
+                deferred.resolve(result);
+            },
+            failures: function(msg) {
+                deferred.reject(msg);
+            }
+        });
+        
+        return deferred.promise;
+        
     },
+    
     getField: function(field_name) {
         var fields = this.fields.items;
         var field = null;
