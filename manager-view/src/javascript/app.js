@@ -184,6 +184,7 @@ Ext.define("TSTimeSheetApproval", {
     },
     
     _updateData: function() {
+        var me = this;
         this.down('#display_box').removeAll();
         this.down('#go_button').setDisabled(true);
         
@@ -196,7 +197,8 @@ Ext.define("TSTimeSheetApproval", {
         
         this.pipeline = Deft.Chain.pipeline([
             this._loadTimesheets,
-            this._loadPreferences
+            this._loadPreferences,
+            this._loadComments
         ],this);
         
         this.pipeline.then({
@@ -207,7 +209,7 @@ Ext.define("TSTimeSheetApproval", {
             failure: function(msg) {
                 Ext.Msg.alert('Problem loading users with timesheets', msg);
             }
-        });
+        }).always(function() { me.setLoading(false); });
     },
     
     _loadTimesheets: function() {
@@ -358,6 +360,75 @@ Ext.define("TSTimeSheetApproval", {
         return deferred.promise;
     },
     
+    _loadComments: function(timesheets) {
+        var deferred = Ext.create('Deft.Deferred'),
+            me = this;
+        this.setLoading("Loading comments...");
+
+        var timesheets_by_key = {};
+        
+        var filters = Ext.Array.map(timesheets, function(timesheet){
+            var comment_key = Ext.String.format("{0}.{1}.{2}", 
+                me._commentKeyPrefix,
+                TSDateUtils.formatShiftedDate(timesheet.get('WeekStartDate'),'Y-m-d'),
+                timesheet.get('User').ObjectID
+            );
+            
+            timesheets_by_key[comment_key] = timesheet;
+            
+            return { property:'Name',operator: 'contains', value:comment_key };
+        });
+        
+        var promises = [];
+        
+        Ext.Array.each(filters, function(filter){
+            var config = {
+                model:'Preference',
+                limit: 'Infinity',
+                filters: [filter],
+                fetch: ['Name','Value'],
+                context: {
+                    project: null
+                }
+            };
+            
+            promises.push( function() { return TSUtilities.loadWsapiRecords(config); } );
+        });
+        
+        CA.techservices.promise.ParallelThrottle.throttle(promises, 6, me).then({
+                success: function(results){
+                    var comments = Ext.Array.flatten(results);
+                    
+                    Ext.Array.each(comments, function(comment){
+                        var name_array = comment.get('Name').split(/\./);
+                        name_array.pop();
+                        var key = name_array.join('.');
+                                                
+                        var timesheet = timesheets_by_key[key];
+                        if ( Ext.isEmpty(timesheet) ) { 
+                            me.logger.log('skip ', key);
+                            return;
+                        }
+                                                
+                        var timesheet_comments = timesheet.get('__Comments');
+                        if ( Ext.isEmpty(timesheet_comments) ) {
+                            timesheet_comments = [];
+                        }
+                        timesheet_comments.push(comment);
+                        timesheet.set('__Comments', timesheet_comments);
+                    });
+                    
+                    deferred.resolve( Ext.Object.getValues(timesheets_by_key) );
+                },
+                failure: function(msg) {
+                    deferred.reject(msg);
+                }
+        });        
+        
+        
+        return deferred.promise;
+    },
+    
     _addHoursFromTimeEntryItem: function(hours,item){
         var summary = item.get('Summary');
         if ( summary && summary.Values && summary.Values.Hours ) {
@@ -449,6 +520,14 @@ Ext.define("TSTimeSheetApproval", {
             renderer: function(v) { 
                 return v[me.getSetting('managerField')] || "none"; 
             } 
+        });
+        
+        columns.push({dataIndex: '__Comments', text: "Comments", align: 'center',
+            renderer: function(v) {
+                if ( Ext.isEmpty(v) ) { return 0; }
+                if ( !Ext.isArray(v) ) { return 0; }
+                return v.length;
+            }
         });
         return columns;
     },
