@@ -89,6 +89,9 @@ Ext.define('TSDefaultPreference',{
         var task = record.get('Task');
         var workproduct = record.get('WorkProduct');
         
+        // deleted items don't have a workproduct
+        if ( Ext.isEmpty(workproduct) ) { return false; }
+        
         var target_record_oid = workproduct.ObjectID;
         if ( !Ext.isEmpty(task) ) {
             target_record_oid = task.ObjectID;

@@ -21,7 +21,7 @@ Ext.define('Rally.technicalservices.PinTimeEntryMenuItem', {
     },
     
     shouldShowMenuItem: function(record) {
-        return !record.isLocked() && !record.isPinned();
+        return !record.isLocked() && !record.isPinned() && !record.isDeleted();
     },
     _pinRecord: function(record) {
         var timetable = this.view.ownerCt.ownerCt;

@@ -48,6 +48,7 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
                     clearAndRemove: this.clearAndRemove,
                     isLocked: this._isLocked,
                     isPinned: this._isPinned,
+                    isDeleted: this._isDeleted,
                     _saveTEV: this._saveTEV,
                     _createTEV: this._createTEV
                 });
@@ -66,6 +67,15 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
     
     _isPinned: function() {
         return this.get('__Pinned');
+    },
+    
+    _isDeleted: function() {
+        if ( Ext.isEmpty(this.get('WorkProduct') )) {
+            return true;
+        }
+        
+        return ( Ext.isEmpty(this.get('Task')) && !Ext.isEmpty(this.get('TaskDisplayString')));
+        
     },
     
     _isLocked: function (fieldName, newValue) {
