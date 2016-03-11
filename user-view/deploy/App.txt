@@ -3,11 +3,11 @@
 <head>
     <title>Extended Timesheet</title>
     <!--  (c) 2015 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Wed Mar 09 2016 15:27:27 GMT-0800 (PST) -->
+    <!--  Build Date: Fri Mar 11 2016 13:33:09 GMT-0800 (PST) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Wed Mar 09 2016 15:27:27 GMT-0800 (PST)";
-        var CHECKSUM = 469568392068;
+        var APP_BUILD_DATE = "Fri Mar 11 2016 13:33:09 GMT-0800 (PST)";
+        var CHECKSUM = 472606154704;
     </script>
     
     <script type="text/javascript" src="/apps/2.0/sdk.js"></script>
@@ -2189,6 +2189,9 @@ Ext.define('TSDefaultPreference',{
         var task = record.get('Task');
         var workproduct = record.get('WorkProduct');
         
+        // deleted items don't have a workproduct
+        if ( Ext.isEmpty(workproduct) ) { return false; }
+        
         var target_record_oid = workproduct.ObjectID;
         if ( !Ext.isEmpty(task) ) {
             target_record_oid = task.ObjectID;
@@ -2321,6 +2324,7 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
                     clearAndRemove: this.clearAndRemove,
                     isLocked: this._isLocked,
                     isPinned: this._isPinned,
+                    isDeleted: this._isDeleted,
                     _saveTEV: this._saveTEV,
                     _createTEV: this._createTEV
                 });
@@ -2339,6 +2343,15 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
     
     _isPinned: function() {
         return this.get('__Pinned');
+    },
+    
+    _isDeleted: function() {
+        if ( Ext.isEmpty(this.get('WorkProduct') )) {
+            return true;
+        }
+        
+        return ( Ext.isEmpty(this.get('Task')) && !Ext.isEmpty(this.get('TaskDisplayString')));
+        
     },
     
     _isLocked: function (fieldName, newValue) {
@@ -3100,7 +3113,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                     var columnText = null;
                     var value = record.get(columnDataIndex);
                     
-                    if ( columnTitle == "Work Product" ) {
+                    if ( columnTitle == "Work Product" && ! Ext.isEmpty(value) ) {
                         columnText = value.Project && value.Project._refObjectName;
                     }
                     
@@ -3880,7 +3893,7 @@ Ext.define('Rally.technicalservices.PinTimeEntryMenuItem', {
     },
     
     shouldShowMenuItem: function(record) {
-        return !record.isLocked() && !record.isPinned();
+        return !record.isLocked() && !record.isPinned() && !record.isDeleted();
     },
     _pinRecord: function(record) {
         var timetable = this.view.ownerCt.ownerCt;
@@ -4055,7 +4068,7 @@ Ext.define('Rally.technicalservices.UnpinTimeEntryMenuItem', {
     },
     
     shouldShowMenuItem: function(record) {
-        return !record.isLocked() && record.isPinned();
+        return !record.isLocked() && record.isPinned() && !record.isDeleted();
     },
     _unpinRecord: function(record) {
         var timetable = this.view.ownerCt.ownerCt;

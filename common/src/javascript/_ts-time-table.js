@@ -414,7 +414,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                     var columnText = null;
                     var value = record.get(columnDataIndex);
                     
-                    if ( columnTitle == "Work Product" ) {
+                    if ( columnTitle == "Work Product" && ! Ext.isEmpty(value) ) {
                         columnText = value.Project && value.Project._refObjectName;
                     }
                     

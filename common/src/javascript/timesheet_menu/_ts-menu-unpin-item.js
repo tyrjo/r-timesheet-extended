@@ -21,7 +21,7 @@ Ext.define('Rally.technicalservices.UnpinTimeEntryMenuItem', {
     },
     
     shouldShowMenuItem: function(record) {
-        return !record.isLocked() && record.isPinned();
+        return !record.isLocked() && record.isPinned() && !record.isDeleted();
     },
     _unpinRecord: function(record) {
         var timetable = this.view.ownerCt.ownerCt;
