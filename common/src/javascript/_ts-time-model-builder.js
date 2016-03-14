@@ -256,16 +256,36 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
             scope: this,
             success: function(tev_model) {
                 var fields = tev_model.getFields();
-                Ext.Array.each(fields, function(field) {
-                    if ( field.name == "TimeEntryItem" || field.name == "DateVal" ) {
+                var index = -1;
+                Ext.Array.each(fields, function(field,idx) {
+                    if ( field.name == "TimeEntryItem" ) {
                         field.readOnly = false;
                         field.persist = true;
+                        field.type = 'string';                        
                     }
+                    if ( field.name == "DateVal" ) {
+                        // override field definition so that we can write to the 
+                        // field AND pass it a string for midnight at Z instead of
+                        // the local timestamp
+                        fields[idx] = Ext.create('Rally.data.wsapi.Field',{
+                            type:'string',
+                            readOnly: false,
+                            persist: true,
+                            name: 'DateVal',
+                            custom: false,
+                            hidden: false,
+                            useNull: false
+                            
+                        });
+                    }
+                    
                 });
+                //Ext.Array.erase(fields, index, 1);
+                
                 src = Ext.create(tev_model,{
                     Hours: value,
                     TimeEntryItem: { _ref: time_entry_item.get('_ref') },
-                    DateVal: date_val
+                    DateVal: TSDateUtils.pretendIMeantUTC(date_val,true)
                 });
                                 
                 src.save({
@@ -274,11 +294,16 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
                         if(operation.wasSuccessful()) {
                             row.set(src_field_name, result);
                             me._updateTotal();
+                            deferred.resolve();    
+                        } else {
+                            row.set(src_field_name, null);
+                            console.log('Operation:',operation);
+                            throw 'Problem saving time entry value';
+                            deferred.reject(operation.error && operation.error.errors.join('.'));
                         }
                     }
                 });
 
-                deferred.resolve();    
             }
         });
         
@@ -310,6 +335,7 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
             if ( ! Ext.isEmpty(src_field_name) ) {
                 // this is a field that belongs to another record
                 var src = this.get(src_field_name);
+                
                 if ( !Ext.isEmpty(src) ) {
                     // the other record exists
                     src.set('Hours', value);

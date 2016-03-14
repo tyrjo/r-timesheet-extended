@@ -8,11 +8,14 @@ Ext.define('TSDateUtils', {
     
     getBeginningOfWeekISOForLocalDate: function(week_date,showShiftedTimeStamp) {
         var offset = week_date.getTimezoneOffset();  // 480 is pacific, -330 is india
-
+        console.log('offset:', offset, week_date);
+        
         var local_beginning = TSDateUtils.getBeginningOfWeekForLocalDate(week_date);
         var shifted_time = Rally.util.DateTime.add(week_date,'minute',offset);
-                
-        if ( shifted_time.getDay() === 0 || shifted_time.getHours() === 0  ) {
+        
+        console.log('shifted:', shifted_time);
+        
+        if ( shifted_time.getUTCDay() === 0 && shifted_time.getHours() === 0  ) {
             // this is already the beginning of the week
             var shifted_string = this.formatShiftedDate(week_date, 'Y-m-d');
             if ( showShiftedTimeStamp ) {
@@ -36,6 +39,17 @@ Ext.define('TSDateUtils', {
         }
 
         return Ext.util.Format.date(jsdate,format);
+    },
+    
+    pretendIMeantUTC: function(jsdate,asUTC) {
+        var offset = jsdate.getTimezoneOffset();
+        
+        if ( asUTC ) {
+            return Rally.util.DateTime.toIsoString(jsdate).replace(/T.*$/,'T00:00:00.000Z');
+        }
+        var shiftedDate = Rally.util.DateTime.add(jsdate,'minute',-1 * offset);
+        
+        return shiftedDate;
     },
     
     // returns a promise, fulfills with a boolean
