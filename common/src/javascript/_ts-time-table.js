@@ -357,7 +357,8 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
         var table_store = Ext.create('Rally.data.custom.Store',{
             model: 'TSTableRow',
             groupField: '__SecretKey',
-            data: rows
+            data: rows,
+            pageSize: 100
         });
                 
         
