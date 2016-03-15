@@ -44,6 +44,7 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
                     save: this._save,
                     _saveAsPref: this._saveAsPref,
                     _savePreference: this._savePreference,
+                    _saveChangesWithPromise: this._saveChangesWithPromise,
                     getField: this.getField,
                     clearAndRemove: this.clearAndRemove,
                     isLocked: this._isLocked,
@@ -285,7 +286,7 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
                     TimeEntryItem: { _ref: time_entry_item.get('_ref') },
                     DateVal: TSDateUtils.pretendIMeantUTC(date_val,true)
                 });
-                                
+
                 src.save({
                     callback: function(result, operation) {
                         
@@ -308,28 +309,20 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
         return deferred.promise;
     },
     
-    _save: function(v) { 
+    _saveChangesWithPromise: function() {
         var deferred = Ext.create('Deft.Deferred'),
             me = this;
-            
+        
         var changes = this.getChanges();
 
-        if ( ( this.get('__Amended') || this.get('__Appended') ) && this.get('ObjectID') == -1 ) {
-            this._saveAsPref();
-        }
+        me.modified = {}; // stop repeating the same change
         
-        if ( this.get('__Appended') || this.get('__Amended') ) {
-            this._savePreference(changes);
-            return;
-        }
-                
         var promises = [];
-        
         Ext.Object.each(changes, function(field_name, value) {
             var row = this;
             var field = row.getField(field_name);
             var src_field_name = field.__src;
-            
+                        
             if ( ! Ext.isEmpty(src_field_name) ) {
                 // this is a field that belongs to another record
                 var src = this.get(src_field_name);
@@ -364,14 +357,58 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
             deferred.resolve(); 
             return deferred;
         }
-        Deft.Chain.sequence(promises).then({
-            success: function(result) {                
+        
+        this.process = Deft.Chain.sequence(promises).then({
+            success: function(result) { 
                 deferred.resolve(result);
             },
             failures: function(msg) {
                 deferred.reject(msg);
             }
         });
+        
+        return deferred;
+    },
+    
+    _save: function(v) { 
+        var deferred = Ext.create('Deft.Deferred'),
+            me = this;
+            
+
+        if ( ( this.get('__Amended') || this.get('__Appended') ) && this.get('ObjectID') == -1 ) {
+            this._saveAsPref();
+        }
+        
+        if ( this.get('__Appended') || this.get('__Amended') ) {
+            this._savePreference(changes);
+            return;
+        }
+        
+        // tabbing too quickly gets us in a hole
+        if ( this.process && this.process.getState() == 'pending' ) {
+            
+            this.process.then({
+                scope: this,
+                success: function(results) {
+                    deferred = this._saveChangesWithPromise();
+                },
+                failure: function(msg) {
+                    deferred.reject(msg);
+                }
+            });
+            
+        } else {
+            
+            this._saveChangesWithPromise().then({
+                scope: this,
+                success: function(result) {
+                    deferred.resolve(result);
+                },
+                failure: function(msg) {
+                    deferred.reject(msg);
+                }
+            });
+        }
         
         return deferred.promise;
         
