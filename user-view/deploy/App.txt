@@ -3,11 +3,11 @@
 <head>
     <title>Extended Timesheet</title>
     <!--  (c) 2015 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Tue Mar 15 2016 05:15:52 GMT+0530 (IST) -->
+    <!--  Build Date: Tue Mar 15 2016 05:49:10 GMT+0530 (IST) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Tue Mar 15 2016 05:15:52 GMT+0530 (IST)";
-        var CHECKSUM = 480912536998;
+        var APP_BUILD_DATE = "Tue Mar 15 2016 05:49:10 GMT+0530 (IST)";
+        var CHECKSUM = 481678284816;
     </script>
     
     <script type="text/javascript" src="/apps/2.0/sdk.js"></script>
@@ -840,13 +840,10 @@ Ext.define('TSDateUtils', {
     
     getBeginningOfWeekISOForLocalDate: function(week_date,showShiftedTimeStamp) {
         var offset = week_date.getTimezoneOffset();  // 480 is pacific, -330 is india
-        console.log('offset:', offset, week_date);
         
         var local_beginning = TSDateUtils.getBeginningOfWeekForLocalDate(week_date);
         var shifted_time = Rally.util.DateTime.add(week_date,'minute',offset);
-        
-        console.log('shifted:', shifted_time);
-        
+                
         if ( shifted_time.getUTCDay() === 0 && shifted_time.getHours() === 0  ) {
             // this is already the beginning of the week
             var shifted_string = this.formatShiftedDate(week_date, 'Y-m-d');
@@ -2546,7 +2543,6 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
             scope: this,
             success: function(tev_model) {
                 var fields = tev_model.getFields();
-                var index = -1;
                 Ext.Array.each(fields, function(field,idx) {
                     if ( field.name == "TimeEntryItem" ) {
                         field.readOnly = false;
@@ -2570,7 +2566,6 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
                     }
                     
                 });
-                //Ext.Array.erase(fields, index, 1);
                 
                 src = Ext.create(tev_model,{
                     Hours: value,
@@ -2641,8 +2636,13 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
                     var week_start = time_entry_item.get('WeekStartDate');
                     var date_val = Rally.util.DateTime.add(week_start, 'day', index);
                     
+                    // shift date if missed the right day of the week
+                    var date_val_index = date_val.getDay();
+                    var delta = index - date_val.getDay(); 
+                    if ( delta == -6 ) { delta = 1; } // shift to Sunday
+                    date_val = Rally.util.DateTime.add(date_val, 'day', delta);
+
                     promises.push(function() { return me._createTEV(src_field_name, row, time_entry_item, index, value, week_start, date_val); });
-                    
                 }
             }
         },this);

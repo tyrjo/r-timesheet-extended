@@ -256,7 +256,6 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
             scope: this,
             success: function(tev_model) {
                 var fields = tev_model.getFields();
-                var index = -1;
                 Ext.Array.each(fields, function(field,idx) {
                     if ( field.name == "TimeEntryItem" ) {
                         field.readOnly = false;
@@ -280,7 +279,6 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
                     }
                     
                 });
-                //Ext.Array.erase(fields, index, 1);
                 
                 src = Ext.create(tev_model,{
                     Hours: value,
@@ -351,8 +349,13 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
                     var week_start = time_entry_item.get('WeekStartDate');
                     var date_val = Rally.util.DateTime.add(week_start, 'day', index);
                     
+                    // shift date if missed the right day of the week
+                    var date_val_index = date_val.getDay();
+                    var delta = index - date_val.getDay(); 
+                    if ( delta == -6 ) { delta = 1; } // shift to Sunday
+                    date_val = Rally.util.DateTime.add(date_val, 'day', delta);
+
                     promises.push(function() { return me._createTEV(src_field_name, row, time_entry_item, index, value, week_start, date_val); });
-                    
                 }
             }
         },this);
