@@ -645,7 +645,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
         
         Ext.Array.each(rows, function(row) {
             if ( row ) { 
-                if ( !row.get('__Amended') ) {
+                if ( !row.get('__Amended')  && row.get('WorkProduct') ) {
                     var task_oid = row.get('Task') && row.get('Task').ObjectID;
                     var wp_oid = row.get('WorkProduct').ObjectID;
                     
@@ -1064,7 +1064,6 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
             align: 'center',
             editor: null,summaryType: 'sum',
             summaryRenderer: function(value,meta,record) {
-                console.log('v/m/r', value,meta, record);
                 if ( value < 40 ) {
                     meta.style = 'background: #fec6cd;';
                 }

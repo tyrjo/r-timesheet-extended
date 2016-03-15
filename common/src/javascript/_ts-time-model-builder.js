@@ -44,6 +44,7 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
                     save: this._save,
                     _saveAsPref: this._saveAsPref,
                     _savePreference: this._savePreference,
+                    _saveChangesWithPromise: this._saveChangesWithPromise,
                     getField: this.getField,
                     clearAndRemove: this.clearAndRemove,
                     isLocked: this._isLocked,
@@ -256,60 +257,76 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
             scope: this,
             success: function(tev_model) {
                 var fields = tev_model.getFields();
-                Ext.Array.each(fields, function(field) {
-                    if ( field.name == "TimeEntryItem" || field.name == "DateVal" ) {
+                Ext.Array.each(fields, function(field,idx) {
+                    if ( field.name == "TimeEntryItem" ) {
                         field.readOnly = false;
                         field.persist = true;
+                        field.type = 'string';                        
                     }
+                    if ( field.name == "DateVal" ) {
+                        // override field definition so that we can write to the 
+                        // field AND pass it a string for midnight at Z instead of
+                        // the local timestamp
+                        fields[idx] = Ext.create('Rally.data.wsapi.Field',{
+                            type:'string',
+                            readOnly: false,
+                            persist: true,
+                            name: 'DateVal',
+                            custom: false,
+                            hidden: false,
+                            useNull: false
+                            
+                        });
+                    }
+                    
                 });
+                
                 src = Ext.create(tev_model,{
                     Hours: value,
                     TimeEntryItem: { _ref: time_entry_item.get('_ref') },
-                    DateVal: date_val
+                    DateVal: TSDateUtils.pretendIMeantUTC(date_val,true)
                 });
-                                
+
                 src.save({
                     callback: function(result, operation) {
                         
                         if(operation.wasSuccessful()) {
                             row.set(src_field_name, result);
                             me._updateTotal();
+                            deferred.resolve();    
+                        } else {
+                            row.set(src_field_name, null);
+                            console.log('Operation:',operation);
+                            throw 'Problem saving time entry value';
+                            deferred.reject(operation.error && operation.error.errors.join('.'));
                         }
                     }
                 });
 
-                deferred.resolve();    
             }
         });
         
         return deferred.promise;
     },
     
-    _save: function(v) { 
+    _saveChangesWithPromise: function() {
         var deferred = Ext.create('Deft.Deferred'),
             me = this;
-            
+        
         var changes = this.getChanges();
 
-        if ( ( this.get('__Amended') || this.get('__Appended') ) && this.get('ObjectID') == -1 ) {
-            this._saveAsPref();
-        }
+        me.modified = {}; // stop repeating the same change
         
-        if ( this.get('__Appended') || this.get('__Amended') ) {
-            this._savePreference(changes);
-            return;
-        }
-                
         var promises = [];
-        
         Ext.Object.each(changes, function(field_name, value) {
             var row = this;
             var field = row.getField(field_name);
             var src_field_name = field.__src;
-            
+                        
             if ( ! Ext.isEmpty(src_field_name) ) {
                 // this is a field that belongs to another record
                 var src = this.get(src_field_name);
+                
                 if ( !Ext.isEmpty(src) ) {
                     // the other record exists
                     src.set('Hours', value);
@@ -325,8 +342,13 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
                     var week_start = time_entry_item.get('WeekStartDate');
                     var date_val = Rally.util.DateTime.add(week_start, 'day', index);
                     
+                    // shift date if missed the right day of the week
+                    var date_val_index = date_val.getDay();
+                    var delta = index - date_val.getDay(); 
+                    if ( delta == -6 ) { delta = 1; } // shift to Sunday
+                    date_val = Rally.util.DateTime.add(date_val, 'day', delta);
+
                     promises.push(function() { return me._createTEV(src_field_name, row, time_entry_item, index, value, week_start, date_val); });
-                    
                 }
             }
         },this);
@@ -335,14 +357,58 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
             deferred.resolve(); 
             return deferred;
         }
-        Deft.Chain.sequence(promises).then({
-            success: function(result) {                
+        
+        this.process = Deft.Chain.sequence(promises).then({
+            success: function(result) { 
                 deferred.resolve(result);
             },
             failures: function(msg) {
                 deferred.reject(msg);
             }
         });
+        
+        return deferred;
+    },
+    
+    _save: function(v) { 
+        var deferred = Ext.create('Deft.Deferred'),
+            me = this;
+            
+
+        if ( ( this.get('__Amended') || this.get('__Appended') ) && this.get('ObjectID') == -1 ) {
+            this._saveAsPref();
+        }
+        
+        if ( this.get('__Appended') || this.get('__Amended') ) {
+            this._savePreference(changes);
+            return;
+        }
+        
+        // tabbing too quickly gets us in a hole
+        if ( this.process && this.process.getState() == 'pending' ) {
+            
+            this.process.then({
+                scope: this,
+                success: function(results) {
+                    deferred = this._saveChangesWithPromise();
+                },
+                failure: function(msg) {
+                    deferred.reject(msg);
+                }
+            });
+            
+        } else {
+            
+            this._saveChangesWithPromise().then({
+                scope: this,
+                success: function(result) {
+                    deferred.resolve(result);
+                },
+                failure: function(msg) {
+                    deferred.reject(msg);
+                }
+            });
+        }
         
         return deferred.promise;
         
