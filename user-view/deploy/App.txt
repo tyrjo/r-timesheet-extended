@@ -3,11 +3,11 @@
 <head>
     <title>Extended Timesheet</title>
     <!--  (c) 2015 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Thu Mar 17 2016 20:28:43 GMT-0700 (PDT) -->
+    <!--  Build Date: Thu Mar 17 2016 20:31:27 GMT-0700 (PDT) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Thu Mar 17 2016 20:28:43 GMT-0700 (PDT)";
-        var CHECKSUM = 507644956109;
+        var APP_BUILD_DATE = "Thu Mar 17 2016 20:31:27 GMT-0700 (PDT)";
+        var CHECKSUM = 507206314828;
     </script>
     
     <script type="text/javascript" src="/apps/2.0/sdk.js"></script>
@@ -2320,8 +2320,6 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
             if ( Ext.isEmpty(v) ) {
                 return "";
             }
-            console.log(v);
-            console.log(v._refObjectName);
             return v._refObjectName;
         };
         

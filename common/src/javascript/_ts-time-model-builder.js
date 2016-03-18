@@ -22,8 +22,6 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
             if ( Ext.isEmpty(v) ) {
                 return "";
             }
-            console.log(v);
-            console.log(v._refObjectName);
             return v._refObjectName;
         };
         
