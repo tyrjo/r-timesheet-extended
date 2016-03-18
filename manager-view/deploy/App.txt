@@ -3,11 +3,11 @@
 <head>
     <title>Time Sheet Approval</title>
     <!--  (c) 2015 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Thu Mar 17 2016 17:58:46 GMT-0700 (PDT) -->
+    <!--  Build Date: Thu Mar 17 2016 19:21:31 GMT-0700 (PDT) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Thu Mar 17 2016 17:58:46 GMT-0700 (PDT)";
-        var CHECKSUM = 685403698025;
+        var APP_BUILD_DATE = "Thu Mar 17 2016 19:21:31 GMT-0700 (PDT)";
+        var CHECKSUM = 688623007875;
     </script>
     
     <script type="text/javascript" src="/apps/2.0/sdk.js"></script>
@@ -1057,8 +1057,6 @@ Ext.define('Rally.technicalservices.FileUtilities', {
             csv.push('"' + this._getHeadersFromGrid(grid).join('","') + '"');
         }
         var number_of_records = store.getTotalCount();
-        this.logger.log("Store:", store);
-        this.logger.log("Number of records to export:", number_of_records);
         
         for (var i = 0; i < number_of_records; i++) {
             var record = store.getAt(i);
@@ -2753,17 +2751,38 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
     build: function(modelType, newModelName) {
         var deferred = Ext.create('Deft.Deferred');
 
+        var oid_sort = function(v) {
+            if ( Ext.isEmpty(v) ) {
+                return -1;
+            }
+            return v.ObjectID;
+        };
+        
+        var name_sort = function(v) {            
+            if ( Ext.isEmpty(v) ) {
+                return "";
+            }
+            console.log(v);
+            console.log(v._refObjectName);
+            return v._refObjectName;
+        };
+        
         Rally.data.ModelFactory.getModel({
             type: modelType,
             scope: this,
             success: function(model) {
                 var base_fields = model.getFields();
                 
+                var wp = model.getField('WorkProduct');
+                wp.sortType = oid_sort;
+                var task = model.getField('Task');
+                task.sortType = oid_sort;
+                
                 var related_fields = [
                     { name: '__TimeEntryItem', type:'object' },
-                    { name: '__Feature',   type: 'object' },
-                    { name: '__Release',   type: 'object' },
-                    { name: '__Product',   type: 'object' },
+                    { name: '__Feature',   type: 'object', sortType: oid_sort},
+                    { name: '__Release',   type: 'object', sortType: name_sort },
+                    { name: '__Product',   type: 'object', sortType: name_sort },
                     { name: '__Total',     type: 'float', defaultValue: 0 },
                     { name: '__SecretKey', type:'auto', defaultValue: 1 },
                     { name: '__Appended', type: 'boolean', defaultValue: false },
@@ -3601,7 +3620,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
             columnCfgs: this._getColumns(),
             showPagingToolbar : false,
             showRowActionsColumn : false,
-            sortableColumns: false,
+            sortableColumns: true,
             disableSelection: true,
             enableColumnMove: false,
             viewConfig: {
@@ -4058,7 +4077,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
     
     _getColumns: function(task_states) {
         var me = this;
-                
+
         var columns = [];
         var isForModification = ! this._isForCurrentUser();
         
@@ -4094,12 +4113,11 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                 }
             },
             {
-                dataIndex: '__Product',
+                dataIndex: '__TimeEntryItem',
                 text: 'Locked',
                 editor: null,
                 hidden: true,
                 renderer: function(value, meta, record) {
-
                     return record.isLocked() || false;
                 }
             }]);
@@ -4124,13 +4142,10 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
         }
         
         Ext.Array.push(columns, [
-            {
-                dataIndex: '__Product',
-                text: 'Product',
-                flex: 1,
-                editor: null,
+            { 
+                text: '',
+                width: 25,
                 renderer: function(value,meta,record) {
-                    
                     var display_string = "";
                     
                     if ( record.isLocked() ) {
@@ -4145,15 +4160,20 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                         display_string += "<span class='red icon-history'> </span>";
                     }
                     
-                    
-                    if ( !Ext.isEmpty(value) ) {
-                        display_string += value._refObjectName;
-                    }
-
                     return display_string;
                 },
-                exportRenderer: function(value,meta,record) {
-                    return value._refObjectName
+                _csvIgnoreRender: true
+            },
+            {
+                dataIndex: '__Product',
+                text: 'Product',
+                flex: 1,
+                editor: null,
+                renderer: function(value,meta,record) {
+                    if ( Ext.isEmpty(value) ) { 
+                        return "";
+                    }
+                    return value._refObjectName;
                 },
                 summaryRenderer: function() {
                     return "Totals";

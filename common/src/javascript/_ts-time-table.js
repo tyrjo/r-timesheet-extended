@@ -370,7 +370,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
             columnCfgs: this._getColumns(),
             showPagingToolbar : false,
             showRowActionsColumn : false,
-            sortableColumns: false,
+            sortableColumns: true,
             disableSelection: true,
             enableColumnMove: false,
             viewConfig: {
@@ -827,7 +827,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
     
     _getColumns: function(task_states) {
         var me = this;
-                
+
         var columns = [];
         var isForModification = ! this._isForCurrentUser();
         
@@ -863,12 +863,11 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                 }
             },
             {
-                dataIndex: '__Product',
+                dataIndex: '__TimeEntryItem',
                 text: 'Locked',
                 editor: null,
                 hidden: true,
                 renderer: function(value, meta, record) {
-
                     return record.isLocked() || false;
                 }
             }]);
@@ -893,13 +892,10 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
         }
         
         Ext.Array.push(columns, [
-            {
-                dataIndex: '__Product',
-                text: 'Product',
-                flex: 1,
-                editor: null,
+            { 
+                text: '',
+                width: 25,
                 renderer: function(value,meta,record) {
-                    
                     var display_string = "";
                     
                     if ( record.isLocked() ) {
@@ -914,15 +910,20 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                         display_string += "<span class='red icon-history'> </span>";
                     }
                     
-                    
-                    if ( !Ext.isEmpty(value) ) {
-                        display_string += value._refObjectName;
-                    }
-
                     return display_string;
                 },
-                exportRenderer: function(value,meta,record) {
-                    return value._refObjectName
+                _csvIgnoreRender: true
+            },
+            {
+                dataIndex: '__Product',
+                text: 'Product',
+                flex: 1,
+                editor: null,
+                renderer: function(value,meta,record) {
+                    if ( Ext.isEmpty(value) ) { 
+                        return "";
+                    }
+                    return value._refObjectName;
                 },
                 summaryRenderer: function() {
                     return "Totals";
