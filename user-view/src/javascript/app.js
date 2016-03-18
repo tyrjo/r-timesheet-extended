@@ -643,6 +643,10 @@ Ext.define("TSExtendedTimesheet", {
                         attributeName: 'Feature.Name'
                     },
                     {
+                        displayName: 'Feature Project',
+                        attributeName: 'Feature.Project.Name'
+                    },
+                    {
                         displayName:'Release',
                         attributeName: 'Release.Name'
                     },

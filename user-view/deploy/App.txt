@@ -3,11 +3,11 @@
 <head>
     <title>Extended Timesheet</title>
     <!--  (c) 2015 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Thu Mar 17 2016 19:22:57 GMT-0700 (PDT) -->
+    <!--  Build Date: Thu Mar 17 2016 19:50:00 GMT-0700 (PDT) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Thu Mar 17 2016 19:22:57 GMT-0700 (PDT)";
-        var CHECKSUM = 490183966160;
+        var APP_BUILD_DATE = "Thu Mar 17 2016 19:50:00 GMT-0700 (PDT)";
+        var CHECKSUM = 493786807657;
     </script>
     
     <script type="text/javascript" src="/apps/2.0/sdk.js"></script>
@@ -573,7 +573,8 @@ Ext.define('TSUtilities', {
     currentUserIsAdmin: function(scope){
         var app = scope || Rally.getApp();
         
-        if ( app.getContext().getUser().SubscriptionAdmin ) {
+        console.log('current user:', app.getContext().getUser());
+        if ( this.currentUserIsSubAdmin() ) {
             return true;
         }
         
@@ -596,6 +597,18 @@ Ext.define('TSUtilities', {
         }
         
         return is_workspace_admin;
+    },
+    
+    currentUserIsSubAdmin: function(scope) {
+        var app = scope || Rally.getApp();
+                
+        var permissions = app.getContext().getPermissions().userPermissions;
+
+        var sub_admin_list = Ext.Array.filter(permissions, function(p) {
+            return ( p.Role == 'Subscription Admin' );
+        });
+        
+        return ( sub_admin_list.length > 0 );
     },
     
     _currentUserCanWrite: function() {
@@ -4976,6 +4989,10 @@ Ext.define("TSExtendedTimesheet", {
                     {
                         displayName:'Feature',
                         attributeName: 'Feature.Name'
+                    },
+                    {
+                        displayName: 'Feature Project',
+                        attributeName: 'Feature.Project.Name'
                     },
                     {
                         displayName:'Release',
