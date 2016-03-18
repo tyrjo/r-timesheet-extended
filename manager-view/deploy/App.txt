@@ -3,11 +3,11 @@
 <head>
     <title>Time Sheet Approval</title>
     <!--  (c) 2015 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Mon Mar 14 2016 18:51:18 GMT-0700 (PDT) -->
+    <!--  Build Date: Thu Mar 17 2016 17:58:46 GMT-0700 (PDT) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Mon Mar 14 2016 18:51:18 GMT-0700 (PDT)";
-        var CHECKSUM = 681699464529;
+        var APP_BUILD_DATE = "Thu Mar 17 2016 17:58:46 GMT-0700 (PDT)";
+        var CHECKSUM = 685403698025;
     </script>
     
     <script type="text/javascript" src="/apps/2.0/sdk.js"></script>
@@ -5866,7 +5866,7 @@ Ext.define("TSTimeSheetApproval", {
     
     _renderColor: function(value,metaData,record) {
         var white = "#ffffff";
-        var red = '#ff9999';
+        var red = '#fec6cd';
         var yellow = '#ffffcc';
         var orange ='#FF9933';
         var grey = '#D0D0D0';
@@ -5878,7 +5878,17 @@ Ext.define("TSTimeSheetApproval", {
         if ( value < 40) {
             color = yellow;
         }
-       
+        
+        console.log(record);
+        var record_week_start = TSDateUtils.getBeginningOfWeekISOForLocalDate(record.get('WeekStartDate'));
+        var current_week_start = TSDateUtils.getBeginningOfWeekISOForLocalDate(new Date());
+        
+        console.log('comparing', record_week_start, current_week_start);
+        
+        if ( record_week_start < current_week_start && value < 40 ) {
+            color = red;
+        }
+
         metaData.style = "background-color: " + color;
         return value;
     },
