@@ -3,11 +3,11 @@
 <head>
     <title>Time Sheet Approval</title>
     <!--  (c) 2015 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Thu Mar 17 2016 19:21:31 GMT-0700 (PDT) -->
+    <!--  Build Date: Thu Mar 17 2016 19:41:55 GMT-0700 (PDT) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Thu Mar 17 2016 19:21:31 GMT-0700 (PDT)";
-        var CHECKSUM = 688623007875;
+        var APP_BUILD_DATE = "Thu Mar 17 2016 19:41:55 GMT-0700 (PDT)";
+        var CHECKSUM = 692747851470;
     </script>
     
     <script type="text/javascript" src="/apps/2.0/sdk.js"></script>
@@ -573,7 +573,8 @@ Ext.define('TSUtilities', {
     currentUserIsAdmin: function(scope){
         var app = scope || Rally.getApp();
         
-        if ( app.getContext().getUser().SubscriptionAdmin ) {
+        console.log('current user:', app.getContext().getUser());
+        if ( this.currentUserIsSubAdmin() ) {
             return true;
         }
         
@@ -596,6 +597,18 @@ Ext.define('TSUtilities', {
         }
         
         return is_workspace_admin;
+    },
+    
+    currentUserIsSubAdmin: function(scope) {
+        var app = scope || Rally.getApp();
+                
+        var permissions = app.getContext().getPermissions().userPermissions;
+
+        var sub_admin_list = Ext.Array.filter(permissions, function(p) {
+            return ( p.Role == 'Subscription Admin' );
+        });
+        
+        return ( sub_admin_list.length > 0 );
     },
     
     _currentUserCanWrite: function() {
@@ -5473,6 +5486,8 @@ Ext.define("TSTimeSheetApproval", {
             var start_date = TSDateUtils.getBeginningOfWeekISOForLocalDate(this.endDate,true);
             filters.push({property:'WeekStartDate', operator: '<=', value:start_date});
         }
+        
+        console.log('IsAdmin:', TSUtilities.currentUserIsAdmin());
         
         if ( ! this.getSetting('showAllForAdmins') || !TSUtilities.currentUserIsAdmin() ){
             var current_user_name = this.getContext().getUser().UserName;
