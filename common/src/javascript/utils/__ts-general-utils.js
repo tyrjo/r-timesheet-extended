@@ -136,7 +136,8 @@ Ext.define('TSUtilities', {
     currentUserIsAdmin: function(scope){
         var app = scope || Rally.getApp();
         
-        if ( app.getContext().getUser().SubscriptionAdmin ) {
+        console.log('current user:', app.getContext().getUser());
+        if ( this.currentUserIsSubAdmin() ) {
             return true;
         }
         
@@ -159,6 +160,18 @@ Ext.define('TSUtilities', {
         }
         
         return is_workspace_admin;
+    },
+    
+    currentUserIsSubAdmin: function(scope) {
+        var app = scope || Rally.getApp();
+                
+        var permissions = app.getContext().getPermissions().userPermissions;
+
+        var sub_admin_list = Ext.Array.filter(permissions, function(p) {
+            return ( p.Role == 'Subscription Admin' );
+        });
+        
+        return ( sub_admin_list.length > 0 );
     },
     
     _currentUserCanWrite: function() {

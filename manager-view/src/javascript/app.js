@@ -231,6 +231,8 @@ Ext.define("TSTimeSheetApproval", {
             filters.push({property:'WeekStartDate', operator: '<=', value:start_date});
         }
         
+        console.log('IsAdmin:', TSUtilities.currentUserIsAdmin());
+        
         if ( ! this.getSetting('showAllForAdmins') || !TSUtilities.currentUserIsAdmin() ){
             var current_user_name = this.getContext().getUser().UserName;
             filters.push({property:'User.' + this.getSetting('managerField'), value: current_user_name});
@@ -643,7 +645,7 @@ Ext.define("TSTimeSheetApproval", {
     
     _renderColor: function(value,metaData,record) {
         var white = "#ffffff";
-        var red = '#ff9999';
+        var red = '#fec6cd';
         var yellow = '#ffffcc';
         var orange ='#FF9933';
         var grey = '#D0D0D0';
@@ -655,7 +657,17 @@ Ext.define("TSTimeSheetApproval", {
         if ( value < 40) {
             color = yellow;
         }
-       
+        
+        console.log(record);
+        var record_week_start = TSDateUtils.getBeginningOfWeekISOForLocalDate(record.get('WeekStartDate'));
+        var current_week_start = TSDateUtils.getBeginningOfWeekISOForLocalDate(new Date());
+        
+        console.log('comparing', record_week_start, current_week_start);
+        
+        if ( record_week_start < current_week_start && value < 40 ) {
+            color = red;
+        }
+
         metaData.style = "background-color: " + color;
         return value;
     },

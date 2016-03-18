@@ -11,17 +11,36 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
     build: function(modelType, newModelName) {
         var deferred = Ext.create('Deft.Deferred');
 
+        var oid_sort = function(v) {
+            if ( Ext.isEmpty(v) ) {
+                return -1;
+            }
+            return v.ObjectID;
+        };
+        
+        var name_sort = function(v) {            
+            if ( Ext.isEmpty(v) ) {
+                return "";
+            }
+            return v._refObjectName;
+        };
+        
         Rally.data.ModelFactory.getModel({
             type: modelType,
             scope: this,
             success: function(model) {
                 var base_fields = model.getFields();
                 
+                var wp = model.getField('WorkProduct');
+                wp.sortType = oid_sort;
+                var task = model.getField('Task');
+                task.sortType = oid_sort;
+                
                 var related_fields = [
                     { name: '__TimeEntryItem', type:'object' },
-                    { name: '__Feature',   type: 'object' },
-                    { name: '__Release',   type: 'object' },
-                    { name: '__Product',   type: 'object' },
+                    { name: '__Feature',   type: 'object', sortType: oid_sort},
+                    { name: '__Release',   type: 'object', sortType: name_sort },
+                    { name: '__Product',   type: 'object', sortType: name_sort },
                     { name: '__Total',     type: 'float', defaultValue: 0 },
                     { name: '__SecretKey', type:'auto', defaultValue: 1 },
                     { name: '__Appended', type: 'boolean', defaultValue: false },

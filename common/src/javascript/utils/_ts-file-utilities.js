@@ -118,8 +118,6 @@ Ext.define('Rally.technicalservices.FileUtilities', {
             csv.push('"' + this._getHeadersFromGrid(grid).join('","') + '"');
         }
         var number_of_records = store.getTotalCount();
-        this.logger.log("Store:", store);
-        this.logger.log("Number of records to export:", number_of_records);
         
         for (var i = 0; i < number_of_records; i++) {
             var record = store.getAt(i);

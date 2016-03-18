@@ -11,9 +11,12 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
     extend: 'Ext.Container',
     alias: 'widget.tstimetable',
     
+    mixins: ['Ext.state.Stateful'],
+    
     logger: new Rally.technicalservices.Logger(),
 
     rows: [],
+    columns: null,
     
     /**
      * @property {String} cls The base class applied to this object's element
@@ -30,6 +33,27 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
         timesheet_status: null,
         manager_field: null,
         week_locked: false
+    },
+    
+    stateId: 'ca.technicalservices.extended.timesheet.columns',
+    stateful: true,
+    stateEvents: ['columnresize'],
+    
+    getState: function() {
+        var me = this,
+            state = null;
+
+        state = {
+            columns: this.columns
+        };
+
+        return state;
+    },
+    
+    applyState: function(state) {
+        if (state) {
+            Ext.apply(this, state);
+        }
     },
     
     constructor: function (config) {
@@ -363,16 +387,18 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                 
         
         var me = this;
-                
+
         this.grid = this.add({ 
             xtype:'rallygrid', 
             store: table_store,
             columnCfgs: this._getColumns(),
             showPagingToolbar : false,
             showRowActionsColumn : false,
-            sortableColumns: false,
+            sortableColumns: true,
             disableSelection: true,
             enableColumnMove: false,
+            enableColumnResize : true,
+
             viewConfig: {
                 listeners: {
                     itemupdate: function(row, row_index) {
@@ -387,7 +413,19 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                 hideGroupedHeader: true,
                 groupHeaderTpl: ' ',
                 enableGroupingMenu: false
-            }]
+            }],
+            listeners: {
+                scope: this,
+                columnresize: function(header_container,column,width){
+                    Ext.Array.each(this.columns, function(col){
+                        if ( col.dataIndex == column.dataIndex ) {
+                            col.width = column.width;
+                        }
+                    });
+                    
+                    this.fireEvent('columnresize',this.columns);
+                }
+            }
         });
         
         this.fireEvent('gridReady', this, this.grid);
@@ -827,7 +865,9 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
     
     _getColumns: function(task_states) {
         var me = this;
-                
+
+        this.logger.log('saved columns:', this.columns);
+        
         var columns = [];
         var isForModification = ! this._isForCurrentUser();
         
@@ -863,12 +903,11 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                 }
             },
             {
-                dataIndex: '__Product',
+                dataIndex: '__TimeEntryItem',
                 text: 'Locked',
                 editor: null,
                 hidden: true,
                 renderer: function(value, meta, record) {
-
                     return record.isLocked() || false;
                 }
             }]);
@@ -893,13 +932,10 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
         }
         
         Ext.Array.push(columns, [
-            {
-                dataIndex: '__Product',
-                text: 'Product',
-                flex: 1,
-                editor: null,
+            { 
+                text: '',
+                width: 25,
                 renderer: function(value,meta,record) {
-                    
                     var display_string = "";
                     
                     if ( record.isLocked() ) {
@@ -914,15 +950,20 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                         display_string += "<span class='red icon-history'> </span>";
                     }
                     
-                    
-                    if ( !Ext.isEmpty(value) ) {
-                        display_string += value._refObjectName;
-                    }
-
                     return display_string;
                 },
-                exportRenderer: function(value,meta,record) {
-                    return value._refObjectName
+                _csvIgnoreRender: true
+            },
+            {
+                dataIndex: '__Product',
+                text: 'Product',
+                flex: 1,
+                editor: null,
+                renderer: function(value,meta,record) {
+                    if ( Ext.isEmpty(value) ) { 
+                        return "";
+                    }
+                    return value._refObjectName;
                 },
                 summaryRenderer: function() {
                     return "Totals";
@@ -1043,23 +1084,23 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
             return value;
         }; 
         
-        columns.push({dataIndex:'__Sunday',   width: day_width, text:'Sun',   align: 'center',
+        columns.push({dataIndex:'__Sunday',   width: day_width, resizable: false, text:'Sun',   align: 'center',
             getEditor: editor_config, summaryType: 'sum', renderer: weekend_renderer});
-        columns.push({dataIndex:'__Monday',   width: day_width, text:'Mon',   align: 'center',
+        columns.push({dataIndex:'__Monday',   width: day_width, resizable: false, text:'Mon',   align: 'center',
             getEditor: editor_config, summaryType: 'sum'});
-        columns.push({dataIndex:'__Tuesday',  width: day_width, text:'Tue',   align: 'center',
+        columns.push({dataIndex:'__Tuesday',  width: day_width, resizable: false, text:'Tue',   align: 'center',
             getEditor: editor_config, summaryType: 'sum'});
-        columns.push({dataIndex:'__Wednesday',width: day_width, text:'Wed',   align: 'center',
+        columns.push({dataIndex:'__Wednesday',width: day_width, resizable: false, text:'Wed',   align: 'center',
             getEditor: editor_config, summaryType: 'sum'});
-        columns.push({dataIndex:'__Thursday', width: day_width, text:'Thur',  align: 'center',
+        columns.push({dataIndex:'__Thursday', width: day_width, resizable: false, text:'Thur',  align: 'center',
             getEditor: editor_config, summaryType: 'sum'});
-        columns.push({dataIndex:'__Friday',   width: day_width, text:'Fri',   align: 'center',
+        columns.push({dataIndex:'__Friday',   width: day_width, resizable: false, text:'Fri',   align: 'center',
             getEditor: editor_config, summaryType: 'sum'});
-        columns.push({dataIndex:'__Saturday', width: day_width, text:'Sat',   align: 'center',
+        columns.push({dataIndex:'__Saturday', width: day_width, resizable: false, text:'Sat',   align: 'center',
             getEditor: editor_config, summaryType: 'sum', renderer: weekend_renderer});
         columns.push({
             dataIndex:'__Total',
-            width: day_width, 
+            width: day_width, resizable: false, 
             text:'Total', 
             align: 'center',
             editor: null,summaryType: 'sum',
@@ -1071,6 +1112,42 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
             },
             renderer: total_renderer});
 
+        if ( !Ext.isEmpty(this.columns) ) {
+            // columns saved as state lose their renderer functions
+            var columns_by_index = {};
+            Ext.Array.each(columns, function(column) {
+                columns_by_index[column.dataIndex] = column;
+            });
+            
+            Ext.Array.each(this.columns, function(column){
+                var cfg = columns_by_index[column.dataIndex];
+                if ( column.width && column.width > 0 ) {
+                    column.flex = null;
+                }
+                if ( cfg && cfg.renderer ) {
+                    column.renderer = cfg.renderer;
+                }
+                if ( cfg && cfg.summaryRenderer ) {
+                    column.summaryRenderer = cfg.summaryRenderer;
+                }
+                
+                if ( cfg && cfg.editor ) {
+                    column.editor = cfg.editor;
+                }
+                
+                if ( cfg && cfg.summaryType ) {
+                    column.summaryType = cfg.summaryType;
+                }
+                
+                if ( cfg && cfg.exportRenderer ) {
+                    column.exportRenderer = cfg.exportRenderer;
+                }
+            
+            });
+            return this.columns;
+        }
+        
+        this.columns = columns;
         
         return columns;
     },
