@@ -391,7 +391,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
         this.grid = this.add({ 
             xtype:'rallygrid', 
             store: table_store,
-            columnCfgs: this._getColumns(),
+            columnCfgs: this.getColumns(),
             showPagingToolbar : false,
             showRowActionsColumn : false,
             sortableColumns: true,
@@ -863,7 +863,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
         return hasRow;
     },
     
-    _getColumns: function(task_states) {
+    getColumns: function() {
         var me = this;
 
         this.logger.log('saved columns:', this.columns);
@@ -889,6 +889,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                 text: 'User',
                 editor: null,
                 hidden: true,
+                _selectable: false,
                 renderer: function(value) {
                     return value.get('User').UserName;
                 }
@@ -898,6 +899,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                 text: 'Week Start',
                 editor: null,
                 hidden: true,
+                _selectable: false,
                 renderer: function(value) {
                     return value.get('WeekStartDate');
                 }
@@ -907,6 +909,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                 text: 'Locked',
                 editor: null,
                 hidden: true,
+                _selectable: false,
                 renderer: function(value, meta, record) {
                     return record.isLocked() || false;
                 }
@@ -918,6 +921,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                 text:'Manager', 
                 align: 'center',
                 hidden: true,
+                _selectable: false,
                 renderer: function(value) {
                     return value.get('User')[me.manager_field] || "none"; 
                 }
@@ -927,6 +931,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
             Ext.Array.push(columns,[{
                 dataIndex: '__Product',
                 text: 'Status',
+                _selectable: true,
                 renderer: function(v) { return me.timesheet_status; }
             }]);
         }
@@ -935,6 +940,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
             { 
                 text: '',
                 width: 25,
+                _selectable: false,
                 renderer: function(value,meta,record) {
                     var display_string = "";
                     
@@ -957,6 +963,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
             {
                 dataIndex: '__Product',
                 text: 'Product',
+                _selectable: true,
                 flex: 1,
                 editor: null,
                 renderer: function(value,meta,record) {
@@ -974,6 +981,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                 text:  'Feature',
                 flex: 1,
                 editor: null,
+                _selectable: true,
                 renderer: function(value) {
                     if ( Ext.isEmpty(value) ) { return ""; }
                     //console.log(value);
@@ -992,6 +1000,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                 text:  'Work Product',
                 flex: 1,
                 editor: null,
+                _selectable: true,
                 renderer: function(value, meta, record) {
                     if ( Ext.isEmpty(value) ) {
                         return record.get('WorkProductDisplayString');
@@ -1011,6 +1020,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                 text: 'Release',
                 flext: 1,
                 editor: null,
+                _selectable: true,
                 renderer: function(v) {
                     if ( Ext.isEmpty(v) ) { return ""; }
                     return v._refObjectName;
@@ -1021,6 +1031,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                 text:  'Task',
                 flex: 1,
                 editor: null,
+                _selectable: true,
                 renderer: function(value, meta, record) {
                     if ( Ext.isEmpty(value) ) {
                         return record.get('TaskDisplayString');
@@ -1084,26 +1095,35 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
             return value;
         }; 
         
-        columns.push({dataIndex:'__Sunday',   width: day_width, resizable: false, text:'Sun',   align: 'center',
+        columns.push({dataIndex:'__Sunday',   width: day_width, resizable: false,
+            _selectable: true, text:'Sun',   align: 'center',
             getEditor: editor_config, summaryType: 'sum', renderer: weekend_renderer});
-        columns.push({dataIndex:'__Monday',   width: day_width, resizable: false, text:'Mon',   align: 'center',
+        columns.push({dataIndex:'__Monday',   width: day_width, resizable: false,
+            _selectable: true, text:'Mon',   align: 'center',
             getEditor: editor_config, summaryType: 'sum'});
-        columns.push({dataIndex:'__Tuesday',  width: day_width, resizable: false, text:'Tue',   align: 'center',
+        columns.push({dataIndex:'__Tuesday',  width: day_width, resizable: false,
+            _selectable: true, text:'Tue',   align: 'center',
             getEditor: editor_config, summaryType: 'sum'});
-        columns.push({dataIndex:'__Wednesday',width: day_width, resizable: false, text:'Wed',   align: 'center',
+        columns.push({dataIndex:'__Wednesday',width: day_width, resizable: false,
+            _selectable: true, text:'Wed',   align: 'center',
             getEditor: editor_config, summaryType: 'sum'});
-        columns.push({dataIndex:'__Thursday', width: day_width, resizable: false, text:'Thur',  align: 'center',
+        columns.push({dataIndex:'__Thursday', width: day_width, resizable: false,
+            _selectable: true, text:'Thur',  align: 'center',
             getEditor: editor_config, summaryType: 'sum'});
-        columns.push({dataIndex:'__Friday',   width: day_width, resizable: false, text:'Fri',   align: 'center',
+        columns.push({dataIndex:'__Friday',   width: day_width, resizable: false,
+            _selectable: true, text:'Fri',   align: 'center',
             getEditor: editor_config, summaryType: 'sum'});
-        columns.push({dataIndex:'__Saturday', width: day_width, resizable: false, text:'Sat',   align: 'center',
+        columns.push({dataIndex:'__Saturday', width: day_width, resizable: false,
+            _selectable: true, text:'Sat',   align: 'center',
             getEditor: editor_config, summaryType: 'sum', renderer: weekend_renderer});
         columns.push({
             dataIndex:'__Total',
             width: day_width, resizable: false, 
             text:'Total', 
             align: 'center',
-            editor: null,summaryType: 'sum',
+            editor: null,
+            _selectable: true,
+            summaryType: 'sum',
             summaryRenderer: function(value,meta,record) {
                 if ( value < 40 ) {
                     meta.style = 'background: #fec6cd;';
@@ -1112,6 +1132,14 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
             },
             renderer: total_renderer});
 
+
+        this.columns = this._applyUnsavableColumnAttributes(columns);
+        
+        return this.columns;
+    },
+    
+    _applyUnsavableColumnAttributes: function(columns) {
+        console.log('_applyUnsavableColumnAttributes', columns, this.columns);
         if ( !Ext.isEmpty(this.columns) ) {
             // columns saved as state lose their renderer functions
             var columns_by_index = {};
@@ -1135,6 +1163,11 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                     column.editor = cfg.editor;
                 }
                 
+                                
+                if ( cfg && cfg.getEditor ) {
+                    column.getEditor = cfg.getEditor;
+                }
+                
                 if ( cfg && cfg.summaryType ) {
                     column.summaryType = cfg.summaryType;
                 }
@@ -1142,14 +1175,19 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                 if ( cfg && cfg.exportRenderer ) {
                     column.exportRenderer = cfg.exportRenderer;
                 }
+                
+                if ( cfg && cfg._selectable ) {
+                    column._selectable = cfg._selectable;
+                }
             
             });
+            
+            console.log('-->', this.columns);
             return this.columns;
         }
         
-        this.columns = columns;
-        
         return columns;
+        
     },
     
     getGrid: function() {

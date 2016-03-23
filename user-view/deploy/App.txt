@@ -3,11 +3,11 @@
 <head>
     <title>Extended Timesheet</title>
     <!--  (c) 2015 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Wed Mar 23 2016 14:26:22 GMT-0700 (PDT) -->
+    <!--  Build Date: Wed Mar 23 2016 15:42:23 GMT-0700 (PDT) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Wed Mar 23 2016 14:26:22 GMT-0700 (PDT)";
-        var CHECKSUM = 516873154363;
+        var APP_BUILD_DATE = "Wed Mar 23 2016 15:42:23 GMT-0700 (PDT)";
+        var CHECKSUM = 567623891980;
     </script>
     
     <script type="text/javascript" src="/apps/2.0/sdk.js"></script>
@@ -3197,7 +3197,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
         this.grid = this.add({ 
             xtype:'rallygrid', 
             store: table_store,
-            columnCfgs: this._getColumns(),
+            columnCfgs: this.getColumns(),
             showPagingToolbar : false,
             showRowActionsColumn : false,
             sortableColumns: true,
@@ -3669,7 +3669,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
         return hasRow;
     },
     
-    _getColumns: function(task_states) {
+    getColumns: function() {
         var me = this;
 
         this.logger.log('saved columns:', this.columns);
@@ -3695,6 +3695,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                 text: 'User',
                 editor: null,
                 hidden: true,
+                _selectable: false,
                 renderer: function(value) {
                     return value.get('User').UserName;
                 }
@@ -3704,6 +3705,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                 text: 'Week Start',
                 editor: null,
                 hidden: true,
+                _selectable: false,
                 renderer: function(value) {
                     return value.get('WeekStartDate');
                 }
@@ -3713,6 +3715,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                 text: 'Locked',
                 editor: null,
                 hidden: true,
+                _selectable: false,
                 renderer: function(value, meta, record) {
                     return record.isLocked() || false;
                 }
@@ -3724,6 +3727,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                 text:'Manager', 
                 align: 'center',
                 hidden: true,
+                _selectable: false,
                 renderer: function(value) {
                     return value.get('User')[me.manager_field] || "none"; 
                 }
@@ -3733,6 +3737,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
             Ext.Array.push(columns,[{
                 dataIndex: '__Product',
                 text: 'Status',
+                _selectable: true,
                 renderer: function(v) { return me.timesheet_status; }
             }]);
         }
@@ -3741,6 +3746,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
             { 
                 text: '',
                 width: 25,
+                _selectable: false,
                 renderer: function(value,meta,record) {
                     var display_string = "";
                     
@@ -3763,6 +3769,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
             {
                 dataIndex: '__Product',
                 text: 'Product',
+                _selectable: true,
                 flex: 1,
                 editor: null,
                 renderer: function(value,meta,record) {
@@ -3780,6 +3787,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                 text:  'Feature',
                 flex: 1,
                 editor: null,
+                _selectable: true,
                 renderer: function(value) {
                     if ( Ext.isEmpty(value) ) { return ""; }
                     //console.log(value);
@@ -3798,6 +3806,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                 text:  'Work Product',
                 flex: 1,
                 editor: null,
+                _selectable: true,
                 renderer: function(value, meta, record) {
                     if ( Ext.isEmpty(value) ) {
                         return record.get('WorkProductDisplayString');
@@ -3817,6 +3826,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                 text: 'Release',
                 flext: 1,
                 editor: null,
+                _selectable: true,
                 renderer: function(v) {
                     if ( Ext.isEmpty(v) ) { return ""; }
                     return v._refObjectName;
@@ -3827,6 +3837,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                 text:  'Task',
                 flex: 1,
                 editor: null,
+                _selectable: true,
                 renderer: function(value, meta, record) {
                     if ( Ext.isEmpty(value) ) {
                         return record.get('TaskDisplayString');
@@ -3890,26 +3901,35 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
             return value;
         }; 
         
-        columns.push({dataIndex:'__Sunday',   width: day_width, resizable: false, text:'Sun',   align: 'center',
+        columns.push({dataIndex:'__Sunday',   width: day_width, resizable: false,
+            _selectable: true, text:'Sun',   align: 'center',
             getEditor: editor_config, summaryType: 'sum', renderer: weekend_renderer});
-        columns.push({dataIndex:'__Monday',   width: day_width, resizable: false, text:'Mon',   align: 'center',
+        columns.push({dataIndex:'__Monday',   width: day_width, resizable: false,
+            _selectable: true, text:'Mon',   align: 'center',
             getEditor: editor_config, summaryType: 'sum'});
-        columns.push({dataIndex:'__Tuesday',  width: day_width, resizable: false, text:'Tue',   align: 'center',
+        columns.push({dataIndex:'__Tuesday',  width: day_width, resizable: false,
+            _selectable: true, text:'Tue',   align: 'center',
             getEditor: editor_config, summaryType: 'sum'});
-        columns.push({dataIndex:'__Wednesday',width: day_width, resizable: false, text:'Wed',   align: 'center',
+        columns.push({dataIndex:'__Wednesday',width: day_width, resizable: false,
+            _selectable: true, text:'Wed',   align: 'center',
             getEditor: editor_config, summaryType: 'sum'});
-        columns.push({dataIndex:'__Thursday', width: day_width, resizable: false, text:'Thur',  align: 'center',
+        columns.push({dataIndex:'__Thursday', width: day_width, resizable: false,
+            _selectable: true, text:'Thur',  align: 'center',
             getEditor: editor_config, summaryType: 'sum'});
-        columns.push({dataIndex:'__Friday',   width: day_width, resizable: false, text:'Fri',   align: 'center',
+        columns.push({dataIndex:'__Friday',   width: day_width, resizable: false,
+            _selectable: true, text:'Fri',   align: 'center',
             getEditor: editor_config, summaryType: 'sum'});
-        columns.push({dataIndex:'__Saturday', width: day_width, resizable: false, text:'Sat',   align: 'center',
+        columns.push({dataIndex:'__Saturday', width: day_width, resizable: false,
+            _selectable: true, text:'Sat',   align: 'center',
             getEditor: editor_config, summaryType: 'sum', renderer: weekend_renderer});
         columns.push({
             dataIndex:'__Total',
             width: day_width, resizable: false, 
             text:'Total', 
             align: 'center',
-            editor: null,summaryType: 'sum',
+            editor: null,
+            _selectable: true,
+            summaryType: 'sum',
             summaryRenderer: function(value,meta,record) {
                 if ( value < 40 ) {
                     meta.style = 'background: #fec6cd;';
@@ -3918,6 +3938,14 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
             },
             renderer: total_renderer});
 
+
+        this.columns = this._applyUnsavableColumnAttributes(columns);
+        
+        return this.columns;
+    },
+    
+    _applyUnsavableColumnAttributes: function(columns) {
+        console.log('_applyUnsavableColumnAttributes', columns, this.columns);
         if ( !Ext.isEmpty(this.columns) ) {
             // columns saved as state lose their renderer functions
             var columns_by_index = {};
@@ -3941,6 +3969,11 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                     column.editor = cfg.editor;
                 }
                 
+                                
+                if ( cfg && cfg.getEditor ) {
+                    column.getEditor = cfg.getEditor;
+                }
+                
                 if ( cfg && cfg.summaryType ) {
                     column.summaryType = cfg.summaryType;
                 }
@@ -3948,14 +3981,19 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                 if ( cfg && cfg.exportRenderer ) {
                     column.exportRenderer = cfg.exportRenderer;
                 }
+                
+                if ( cfg && cfg._selectable ) {
+                    column._selectable = cfg._selectable;
+                }
             
             });
+            
+            console.log('-->', this.columns);
             return this.columns;
         }
         
-        this.columns = columns;
-        
         return columns;
+        
     },
     
     getGrid: function() {
@@ -4420,6 +4458,225 @@ Ext.define('Rally.technicalservices.grid.TimeTableRowActionColumn', {
         return Ext.create('Rally.technicalservices.TimeEntryRecordMenu', menuOptions);
     }
 });
+Ext.define('CA.technicalservices.ColumnPickerDialog',{
+    extend: 'Rally.ui.dialog.Dialog',
+    alias: 'widget.tscolumnpickerdialog',
+    
+    width: 200,
+    closable: true,
+    
+    config: {
+        /**
+         * @cfg {String}
+         * Title to give to the dialog
+         */
+        title: 'Choose Columns',
+        /**
+         * @cfg {Boolean}
+         * Allow multiple selection or not
+         */
+        multiple: true,
+        /**
+         * 
+         * @cfg [{Ext.Column.column}]  columns that
+         * can be chosen.  hidden = false means chosen to 
+         * show.
+         *  
+         */
+        pickableColumns: [],
+        
+        selectionButtonText: 'Apply'
+        
+    },
+    
+    items: [{
+        xtype: 'panel',
+        border: false,
+        items: [{
+            xtype:'container', 
+            itemId:'grid_container',
+            layout: 'fit',
+            height: 325
+        }]
+    }],
+
+    constructor: function(config) {
+        this.mergeConfig(config);
+
+        this.callParent([this.config]);
+    },
+
+    initComponent: function() {
+        this.callParent(arguments);
+        this.addEvents(
+            /**
+             * @event columnsChosen
+             * Fires when user clicks done after choosing columns
+             * @param {CA.technicalservices.ColumnPickerDialog} this dialog
+             * @param [{Ext.column.Column}] columns with hidden marked true/false as appropriate
+             */
+            'columnsChosen'
+        );
+        
+        this._buildButtons();
+        //this._buildSearchBar();
+        this._buildGrid();
+    },
+    
+    _buildButtons: function() {
+        this.down('panel').addDocked({
+            xtype: 'toolbar',
+            dock: 'bottom',
+            padding: '0 0 10 0',
+            layout: {
+                type: 'hbox',
+                pack: 'center'
+            },
+            ui: 'footer',
+            items: [
+                {
+                    xtype: 'rallybutton',
+                    text: this.selectionButtonText,
+                    cls: 'primary small',
+                    scope: this,
+                    userAction: 'clicked done in dialog',
+                    handler: function() {
+                        var selectedRecords = this.getRecordsWithSelection();
+                        this.fireEvent('columnsChosen', this, selectedRecords);
+                        this.close();
+                    }
+                },
+                {
+                    xtype: 'rallybutton',
+                    text: 'Cancel',
+                    cls: 'secondary small',
+                    handler: this.close,
+                    scope: this,
+                    ui: 'link'
+                }
+            ]
+        });
+    },
+    
+    _buildGrid: function() {
+        var mode = this.multiple ? 'MULTI' : 'SINGLE';
+        this.selectionModel = Ext.create('Rally.ui.selection.CheckboxModel', {
+            mode: mode,
+            allowDeselect: true
+        });
+        
+        console.log('++', this.pickableColumns);
+        
+        var pickableColumns = Ext.Array.filter( this.pickableColumns, function(col) {
+            return ( !Ext.isEmpty(col.text) && col._selectable );
+        });
+        
+        console.log('--', pickableColumns);
+        
+        var store = Ext.create('Rally.data.custom.Store',{
+            data: pickableColumns
+        });
+        
+        
+        this.grid = Ext.create('Rally.ui.grid.Grid', {
+            selModel: this.selectionModel,
+            enableColumnHide: false,
+            enableColumnMove: false,
+            columnCfgs: this._getGridColumns(),
+            showPagingToolbar: false,
+            store: store,
+            listeners: {
+                viewready: function(grid) {
+                    var selectionModel = grid.getSelectionModel();
+                    
+                    Ext.Array.each(pickableColumns, function(col, idx){
+                        if ( !col.hidden ) {
+                            selectionModel.select(grid.store.data.items[idx],true);
+                        }
+                    });
+                }
+            }
+        });
+        
+        this.down('#grid_container').add(this.grid);
+    },
+    
+    _getGridColumns: function() {
+        return [
+            { dataIndex: 'text', flex: 1 }
+        ];
+    },
+    
+    getRecordsWithSelection: function() {
+        var selected_items = this.grid.getSelectionModel().getSelection(); 
+        var selected_items_by_dataindex = {};
+        Ext.Array.each(selected_items, function(selected_item){
+            selected_items_by_dataindex[selected_item.get('text')] = selected_item.getData();
+        });
+        
+        Ext.Array.each(this.pickableColumns, function(pickableColumn){
+            if (!Ext.isEmpty(pickableColumn.text) && pickableColumn._selectable ) {
+                pickableColumn.hidden = Ext.isEmpty(selected_items_by_dataindex[pickableColumn.text]);
+            }
+        });
+        
+        return this.pickableColumns;
+    }
+});
+Ext.define('CA.technicalservices.ColumnPickerButton',{
+    extend: 'Rally.ui.Button',
+    requires: [
+        'CA.technicalservices.ColumnPickerDialog'
+    ],
+    
+    alias: 'widget.tscolumnpickerbutton',
+    
+    config: {
+        columns: [],
+        text: '<span class="icon-add-column"> </span>'
+
+    },
+    
+    constructor:function (config) {
+        this.mergeConfig(config);
+
+        this.callParent([this.config]);
+    },
+    
+    initComponent: function() {
+        this.callParent(arguments);
+        this.addEvents(
+            /**
+             * @event columnsChosen
+             * Fires when user clicks done after choosing columns
+             * @param {CA.technicalservices.ColumnPickerButton} this button
+             * @param [{Ext.column.Column}] columns with hidden marked true/false as appropriate
+             */
+            'columnsChosen'
+        );
+    },
+    
+    afterRender: function() {
+        this.callParent(arguments);
+        this.mon(this.el, this.clickEvent, this._showDialog, this);
+
+    },
+    
+    _showDialog: function() {
+        var me = this;
+        Ext.create('CA.technicalservices.ColumnPickerDialog',{
+            autoShow: true,
+            pickableColumns: this.columns,
+            listeners: {
+                scope: this,
+                columnsChosen: function(dialog, columns) {
+                    this.fireEvent('columnsChosen', me, columns);
+                }
+                
+            }
+        });
+    }
+});
 Ext.define("TSExtendedTimesheet", {
     extend: 'Rally.app.App',
     componentCls: 'app',
@@ -4538,6 +4795,32 @@ Ext.define("TSExtendedTimesheet", {
         });
         
         this._addCommentButton(container);
+        
+        var timetable = this.down('tstimetable');
+        
+        if ( !Ext.isEmpty(timetable) ) {
+            container.add({
+                xtype:'tscolumnpickerbutton',
+                margin: '0px 5px 0px 5px',
+                padding: '1px 6px 2px 6px',
+                cls: 'secondary big',
+                columns: timetable.getColumns(),
+                listeners: {
+                    scope: this,
+                    columnsChosen: function(button,columns) {
+                        this.logger.log('columns:', columns);
+                        
+                        var grid = timetable.getGrid();
+                        var store = grid.getStore();
+                        
+                        grid.reconfigure(store, columns);
+                        
+                        this.fireEvent('columnsChosen', columns);
+                    }
+                }
+            });
+        }
+        
     },
     
     _addCommentButton: function(container) {

@@ -116,6 +116,32 @@ Ext.define("TSExtendedTimesheet", {
         });
         
         this._addCommentButton(container);
+        
+        var timetable = this.down('tstimetable');
+        
+        if ( !Ext.isEmpty(timetable) ) {
+            container.add({
+                xtype:'tscolumnpickerbutton',
+                margin: '0px 5px 0px 5px',
+                padding: '1px 6px 2px 6px',
+                cls: 'secondary big',
+                columns: timetable.getColumns(),
+                listeners: {
+                    scope: this,
+                    columnsChosen: function(button,columns) {
+                        this.logger.log('columns:', columns);
+                        
+                        var grid = timetable.getGrid();
+                        var store = grid.getStore();
+                        
+                        grid.reconfigure(store, columns);
+                        
+                        this.fireEvent('columnsChosen', columns);
+                    }
+                }
+            });
+        }
+        
     },
     
     _addCommentButton: function(container) {
