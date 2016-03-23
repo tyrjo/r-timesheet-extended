@@ -448,11 +448,20 @@ Ext.define("TSExtendedTimesheet", {
             TSUtilities.loadWsapiRecords(config).then({
                 scope: this,
                 success: function(tasks) {
-                    Ext.Array.each(tasks, function(task){
-                        timetable.addRowForItem(task);
-                    });
+                    var new_item_count = tasks.length;
+                    var current_count  = timetable.getGrid().getStore().getTotalCount();
                     
-                    this._addPinnedItems();
+                    if ( current_count + new_item_count > 100 ) {
+                        Ext.Msg.alert('Problem Adding Items', 'Cannot add items to grid. Limit is 100 lines in the time sheet.');
+                        this.setLoading(false);
+                    } else {
+                        Ext.Array.each(tasks, function(task){
+                            timetable.addRowForItem(task);
+                        });
+                        this._addPinnedItems();
+                    }
+                    
+                    
                 },
                 failure: function(msg) {
                     Ext.Msg.alert("Problem loading current tasks", msg);
@@ -482,6 +491,7 @@ Ext.define("TSExtendedTimesheet", {
             },
             failure: function(msg) {
                 Ext.Msg.alert("Problem loading pinned items",msg);
+                this.setLoading(false);
             }
         });
     },
@@ -515,29 +525,37 @@ Ext.define("TSExtendedTimesheet", {
             success: function(items) {
                 var promises = [];
                 
-                Ext.Array.each(items, function(item){
-
-                    if ( item.get('Release') && item.get('Release').c_IsDeployed == true ) {
-                        console.log('Cannot add item because it is locked');
-                        
-                        promises.push(function() { return timetable.unpinTime(item); });
-                        
-                        return;
-                    }
-                    timetable.addRowForItem(item);
-                });
+                var new_item_count = items.length;
+                var current_count  = timetable.getGrid().getStore().getTotalCount();
                 
-                if ( promises.length === 0 ) {
-                    deferred.resolve(items);
+                if ( current_count + new_item_count > 100 ) {
+                    deferred.reject( 'Cannot add items to grid. Limit is 100 lines in the time sheet.');
                 } else {
-                    Deft.Chain.sequence(promises).then({
-                        success: function(results) {
-                            deferred.resolve(results);
-                        },
-                        failure: function(msg) {
-                            deferred.reject(msg);
+                 
+                    Ext.Array.each(items, function(item){
+    
+                        if ( item.get('Release') && item.get('Release').c_IsDeployed == true ) {
+                            console.log('Cannot add item because it is locked');
+                            
+                            promises.push(function() { return timetable.unpinTime(item); });
+                            
+                            return;
                         }
+                        timetable.addRowForItem(item);
                     });
+                    
+                    if ( promises.length === 0 ) {
+                        deferred.resolve(items);
+                    } else {
+                        Deft.Chain.sequence(promises).then({
+                            success: function(results) {
+                                deferred.resolve(results);
+                            },
+                            failure: function(msg) {
+                                deferred.reject(msg);
+                            }
+                        });
+                    }
                 }
             },
             failure: function(msg) {
@@ -611,9 +629,17 @@ Ext.define("TSExtendedTimesheet", {
                             selectedRecords = [selectedRecords];
                         }
                         
-                        Ext.Array.each(selectedRecords, function(selectedRecord){
-                            timetable.addRowForItem(selectedRecord);
-                        });
+                        var new_item_count = selectedRecords.length;
+                        var current_count  = timetable.getGrid().getStore().getTotalCount();
+                        
+                        if ( current_count + new_item_count > 100 ) {
+                            Ext.Msg.alert('Problem Adding Tasks', 'Cannot add items to grid. Limit is 100 lines in the time sheet.');
+                        } else {
+                            
+                            Ext.Array.each(selectedRecords, function(selectedRecord){
+                                timetable.addRowForItem(selectedRecord);
+                            });
+                        }
                     },
                     scope: this
                 }
@@ -686,9 +712,16 @@ Ext.define("TSExtendedTimesheet", {
                             selectedRecords = [selectedRecords];
                         }
                         
-                        Ext.Array.each(selectedRecords, function(selectedRecord){
-                            timetable.addRowForItem(selectedRecord);
-                        });
+                        var new_item_count = selectedRecords.length;
+                        var current_count  = timetable.getGrid().getStore().getTotalCount();
+                        
+                        if ( current_count + new_item_count > 100 ) {
+                            Ext.Msg.alert('Problem Adding Stories', 'Cannot add items to grid. Limit is 100 lines in the time sheet.');
+                        } else {
+                            Ext.Array.each(selectedRecords, function(selectedRecord){
+                                timetable.addRowForItem(selectedRecord);
+                            });
+                        }
                     },
                     scope: this
                 }
