@@ -7,8 +7,7 @@ Ext.define("TSExtendedTimesheet", {
     layout: { type: 'border' },
     
     items: [
-        {xtype:'container', itemId:'selector_box', region: 'north',  layout: { type:'hbox' }, minHeight: 25},
-        {xtype:'container', itemId:'display_box' , region: 'center', layout: { type: 'border'} }
+        {xtype:'container', itemId:'selector_box', region: 'north',  layout: { type:'hbox' }, minHeight: 25}
     ],
 
     integrationHeaders : {
@@ -129,8 +128,6 @@ Ext.define("TSExtendedTimesheet", {
                 listeners: {
                     scope: this,
                     columnsChosen: function(button,columns) {
-                        this.logger.log('columns:', columns);
-                        
                         var grid = timetable.getGrid();
                         var store = grid.getStore();
                         
@@ -168,11 +165,14 @@ Ext.define("TSExtendedTimesheet", {
             button.setDisabled(true);
         });
                                 
-        var display_box = this.down('#display_box');
+        var timetable  = this.down('tstimetable');
         var button_box = this.down('#button_box');
         var status_box = this.down('#status_box');
         
-        display_box.removeAll();
+        if ( !Ext.isEmpty(timetable) ) {
+            timetable.destroy();
+        }
+        
         button_box.removeAll();
         status_box.removeAll();
         
@@ -210,10 +210,11 @@ Ext.define("TSExtendedTimesheet", {
                     }
                 }
 
-                this.time_table = display_box.add({ 
+                this.time_table = this.add({ 
                     xtype: 'tstimetable',
                     region: 'center',
                     layout: 'fit',
+                    margin: 15,
                     startDate: this.startDate,
                     editable: editable,
                     listeners: {
