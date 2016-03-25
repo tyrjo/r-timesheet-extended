@@ -7,8 +7,7 @@ Ext.define("TSExtendedTimesheet", {
     layout: { type: 'border' },
     
     items: [
-        {xtype:'container', itemId:'selector_box', region: 'north',  layout: { type:'hbox' }, minHeight: 25},
-        {xtype:'container', itemId:'display_box' , region: 'center', layout: { type: 'border'} }
+        {xtype:'container', itemId:'selector_box', region: 'north',  layout: { type:'hbox' }, minHeight: 25}
     ],
 
     integrationHeaders : {
@@ -116,6 +115,30 @@ Ext.define("TSExtendedTimesheet", {
         });
         
         this._addCommentButton(container);
+        
+        var timetable = this.down('tstimetable');
+        
+        if ( !Ext.isEmpty(timetable) ) {
+            container.add({
+                xtype:'tscolumnpickerbutton',
+                margin: '0px 5px 0px 5px',
+                padding: '1px 6px 2px 6px',
+                cls: 'secondary big',
+                columns: timetable.getColumns(),
+                listeners: {
+                    scope: this,
+                    columnsChosen: function(button,columns) {
+                        var grid = timetable.getGrid();
+                        var store = grid.getStore();
+                        
+                        grid.reconfigure(store, columns);
+                        
+                        this.fireEvent('columnsChosen', columns);
+                    }
+                }
+            });
+        }
+        
     },
     
     _addCommentButton: function(container) {
@@ -142,11 +165,14 @@ Ext.define("TSExtendedTimesheet", {
             button.setDisabled(true);
         });
                                 
-        var display_box = this.down('#display_box');
+        var timetable  = this.down('tstimetable');
         var button_box = this.down('#button_box');
         var status_box = this.down('#status_box');
         
-        display_box.removeAll();
+        if ( !Ext.isEmpty(timetable) ) {
+            timetable.destroy();
+        }
+        
         button_box.removeAll();
         status_box.removeAll();
         
@@ -184,10 +210,11 @@ Ext.define("TSExtendedTimesheet", {
                     }
                 }
 
-                this.time_table = display_box.add({ 
+                this.time_table = this.add({ 
                     xtype: 'tstimetable',
                     region: 'center',
                     layout: 'fit',
+                    margin: 15,
                     startDate: this.startDate,
                     editable: editable,
                     listeners: {
@@ -448,11 +475,20 @@ Ext.define("TSExtendedTimesheet", {
             TSUtilities.loadWsapiRecords(config).then({
                 scope: this,
                 success: function(tasks) {
-                    Ext.Array.each(tasks, function(task){
-                        timetable.addRowForItem(task);
-                    });
+                    var new_item_count = tasks.length;
+                    var current_count  = timetable.getGrid().getStore().getTotalCount();
                     
-                    this._addPinnedItems();
+                    if ( current_count + new_item_count > 100 ) {
+                        Ext.Msg.alert('Problem Adding Items', 'Cannot add items to grid. Limit is 100 lines in the time sheet.');
+                        this.setLoading(false);
+                    } else {
+                        Ext.Array.each(tasks, function(task){
+                            timetable.addRowForItem(task);
+                        });
+                        this._addPinnedItems();
+                    }
+                    
+                    
                 },
                 failure: function(msg) {
                     Ext.Msg.alert("Problem loading current tasks", msg);
@@ -482,6 +518,7 @@ Ext.define("TSExtendedTimesheet", {
             },
             failure: function(msg) {
                 Ext.Msg.alert("Problem loading pinned items",msg);
+                this.setLoading(false);
             }
         });
     },
@@ -515,29 +552,37 @@ Ext.define("TSExtendedTimesheet", {
             success: function(items) {
                 var promises = [];
                 
-                Ext.Array.each(items, function(item){
-
-                    if ( item.get('Release') && item.get('Release').c_IsDeployed == true ) {
-                        console.log('Cannot add item because it is locked');
-                        
-                        promises.push(function() { return timetable.unpinTime(item); });
-                        
-                        return;
-                    }
-                    timetable.addRowForItem(item);
-                });
+                var new_item_count = items.length;
+                var current_count  = timetable.getGrid().getStore().getTotalCount();
                 
-                if ( promises.length === 0 ) {
-                    deferred.resolve(items);
+                if ( current_count + new_item_count > 100 ) {
+                    deferred.reject( 'Cannot add items to grid. Limit is 100 lines in the time sheet.');
                 } else {
-                    Deft.Chain.sequence(promises).then({
-                        success: function(results) {
-                            deferred.resolve(results);
-                        },
-                        failure: function(msg) {
-                            deferred.reject(msg);
+                 
+                    Ext.Array.each(items, function(item){
+    
+                        if ( item.get('Release') && item.get('Release').c_IsDeployed == true ) {
+                            console.log('Cannot add item because it is locked');
+                            
+                            promises.push(function() { return timetable.unpinTime(item); });
+                            
+                            return;
                         }
+                        timetable.addRowForItem(item);
                     });
+                    
+                    if ( promises.length === 0 ) {
+                        deferred.resolve(items);
+                    } else {
+                        Deft.Chain.sequence(promises).then({
+                            success: function(results) {
+                                deferred.resolve(results);
+                            },
+                            failure: function(msg) {
+                                deferred.reject(msg);
+                            }
+                        });
+                    }
                 }
             },
             failure: function(msg) {
@@ -611,9 +656,17 @@ Ext.define("TSExtendedTimesheet", {
                             selectedRecords = [selectedRecords];
                         }
                         
-                        Ext.Array.each(selectedRecords, function(selectedRecord){
-                            timetable.addRowForItem(selectedRecord);
-                        });
+                        var new_item_count = selectedRecords.length;
+                        var current_count  = timetable.getGrid().getStore().getTotalCount();
+                        
+                        if ( current_count + new_item_count > 100 ) {
+                            Ext.Msg.alert('Problem Adding Tasks', 'Cannot add items to grid. Limit is 100 lines in the time sheet.');
+                        } else {
+                            
+                            Ext.Array.each(selectedRecords, function(selectedRecord){
+                                timetable.addRowForItem(selectedRecord);
+                            });
+                        }
                     },
                     scope: this
                 }
@@ -686,9 +739,16 @@ Ext.define("TSExtendedTimesheet", {
                             selectedRecords = [selectedRecords];
                         }
                         
-                        Ext.Array.each(selectedRecords, function(selectedRecord){
-                            timetable.addRowForItem(selectedRecord);
-                        });
+                        var new_item_count = selectedRecords.length;
+                        var current_count  = timetable.getGrid().getStore().getTotalCount();
+                        
+                        if ( current_count + new_item_count > 100 ) {
+                            Ext.Msg.alert('Problem Adding Stories', 'Cannot add items to grid. Limit is 100 lines in the time sheet.');
+                        } else {
+                            Ext.Array.each(selectedRecords, function(selectedRecord){
+                                timetable.addRowForItem(selectedRecord);
+                            });
+                        }
                     },
                     scope: this
                 }
