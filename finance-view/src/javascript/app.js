@@ -183,10 +183,22 @@ Ext.define("TSFinanceReport", {
         };
         
         Deft.Chain.sequence([
-            function() { return TSUtilities.loadWsapiRecordsWithParallelPages(teitem_config);  },
-            function() { return TSUtilities.loadWsapiRecordsWithParallelPages(tevalue_config); },
-            function() { return me._loadTimeEntryAppends(); },
-            function() { return me._loadTimeEntryAmends(); }
+            function() { 
+                me.setLoading('Loading Time Entry Items...');
+                return TSUtilities.loadWsapiRecordsWithParallelPages(teitem_config);  
+            },
+            function() { 
+                me.setLoading('Loading Time Entry Values...');
+                return TSUtilities.loadWsapiRecordsWithParallelPages(tevalue_config); 
+            },
+            function() { 
+                me.setLoading('Loading Appended Data...');
+                return me._loadTimeEntryAppends(); 
+            },
+            function() { 
+                me.setLoading('Loading Amended Data...');
+                return me._loadTimeEntryAmends(); 
+            }
         ],this).then({
             scope: this,
             success: function(results) {
@@ -811,11 +823,13 @@ Ext.define("TSFinanceReport", {
     },
     
     _addGrid: function(container, timesheets) {
-        this.logger.log('add grid', timesheets);
+        this.logger.log('_addGrid');
+        
+        this.rows = timesheets;
         
         var store = Ext.create('Rally.data.custom.Store',{
             data:timesheets,
-            pageSize: 50000,
+            pageSize: 25,
             model: 'TSTimesheetFinanceRow'
         });
         
@@ -828,15 +842,25 @@ Ext.define("TSFinanceReport", {
             enableEditing: false,
             showRowActionsColumn: false,
             enableBulkEdit: false,
-            showPagingToolbar: false
+            showPagingToolbar: true
         });
+        
         this.setLoading(false);
     },
     
     _getColumns: function() {
         var columns = [];
         columns.push({dataIndex:'__ChangeType',text:' '});
-        columns.push({dataIndex:'User',text:'User', renderer: function(v) { return v._refObjectName; }});
+        columns.push({
+            dataIndex:'User',
+            text:'User', 
+            renderer: function(v) { 
+                if ( Ext.isEmpty(v) ) {
+                    return "";
+                }
+                return v._refObjectName; 
+            }
+        });
         columns.push({dataIndex:'__Location',text:'Location' });
         columns.push({dataIndex:'__AssociateID',text:'Associate ID' });
         columns.push({dataIndex:'__EmployeeType', text:'Employee Type' });
@@ -844,7 +868,14 @@ Ext.define("TSFinanceReport", {
             return Ext.String.format('="{0}"', v);
         }});
         
-        columns.push({dataIndex:'DateVal',text:'Work Date', align: 'center', renderer: function(v) {
+        columns.push({dataIndex:'DateVal',text:'Work Date', align: 'center', renderer: function(v,m,r) {
+            if ( Ext.isEmpty(v) ) {
+                return "";
+            }
+            
+            if ( Ext.isString(v) ) {
+                return v;
+            }
             return TSDateUtils.formatShiftedDate(v,'Y-m-d');
         }});
         
@@ -914,21 +945,25 @@ Ext.define("TSFinanceReport", {
     },
     
     _export: function(){
-        var grid = this.down('rallygrid');
         var me = this;
+        this.logger.log('_export');
+        this.setLoading("Generating CSV");
         
-        if ( !grid ) { return; }
-        
-        this.logger.log('_export',grid);
+        var grid = this.down('rallygrid');
+        var rows = this.rows;
+                
+        if ( !grid || !rows ) { return; }
 
         var filename = Ext.String.format('project-report.csv');
 
-        this.setLoading("Generating CSV");
+        this.logger.log('saving file:', filename);
+        
         Deft.Chain.sequence([
-            function() { return Rally.technicalservices.FileUtilities.getCSVFromGrid(this,grid) } 
+            function() { return Rally.technicalservices.FileUtilities.getCSVFromRows(this,grid,rows); } 
         ]).then({
             scope: this,
             success: function(csv){
+                this.logger.log('got back csv ', csv.length);
                 if (csv && csv.length > 0){
                     Rally.technicalservices.FileUtilities.saveCSVToFile(csv,filename);
                 } else {
@@ -936,7 +971,7 @@ Ext.define("TSFinanceReport", {
                 }
                 
             }
-        }).always(function() { me.setLoading(false); });
+        }).always(function() { me.setLoading(false); });                
     },
     
     isExternal: function(){

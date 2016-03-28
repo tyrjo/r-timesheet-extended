@@ -47,7 +47,7 @@ Ext.define('TSUtilities', {
                 config.limit = config.pageSize;
                 var total = operation.resultSet.totalRecords;
                 var page_count = Math.ceil(total/config.pageSize);
-                    
+     
                 var promises = [];
                 Ext.Array.each(_.range(1,page_count+1), function(page_index) {
                     var config_clone = Ext.clone(config);
