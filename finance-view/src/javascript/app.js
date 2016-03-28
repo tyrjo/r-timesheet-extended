@@ -25,6 +25,7 @@ Ext.define("TSFinanceReport", {
     },
     
     launch: function() {
+        Ext.Ajax.timeout = 60000;
         this._addSelectors(this.down('#selector_box'));
     },
     

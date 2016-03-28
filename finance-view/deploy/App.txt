@@ -3,11 +3,11 @@
 <head>
     <title>TimeSheet Finance Report</title>
     <!--  (c) 2015 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Sun Mar 27 2016 20:08:55 GMT-0700 (PDT) -->
+    <!--  Build Date: Mon Mar 28 2016 13:48:43 GMT-0700 (PDT) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Sun Mar 27 2016 20:08:55 GMT-0700 (PDT)";
-        var CHECKSUM = 692392344563;
+        var APP_BUILD_DATE = "Mon Mar 28 2016 13:48:43 GMT-0700 (PDT)";
+        var CHECKSUM = 692630198964;
     </script>
     
     <script type="text/javascript" src="/apps/2.0/sdk.js"></script>
@@ -4881,6 +4881,7 @@ Ext.define("TSFinanceReport", {
     },
     
     launch: function() {
+        Ext.Ajax.timeout = 60000;
         this._addSelectors(this.down('#selector_box'));
     },
     
