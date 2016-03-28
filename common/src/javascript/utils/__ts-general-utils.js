@@ -39,6 +39,7 @@ Ext.define('TSUtilities', {
         var count_check_config = Ext.clone(config);
         count_check_config.limit = 1;
         count_check_config.pageSize = 1;
+        count_check_config.fetch = ['ObjectID'];
         
         this.loadWsapiRecords(count_check_config, true).then({
             success: function(operation) {                
