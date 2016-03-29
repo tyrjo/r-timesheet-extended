@@ -3,11 +3,11 @@
 <head>
     <title>TimeSheet Finance Report</title>
     <!--  (c) 2015 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Mon Mar 28 2016 13:48:43 GMT-0700 (PDT) -->
+    <!--  Build Date: Tue Mar 29 2016 14:55:53 GMT-0700 (PDT) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Mon Mar 28 2016 13:48:43 GMT-0700 (PDT)";
-        var CHECKSUM = 692630198964;
+        var APP_BUILD_DATE = "Tue Mar 29 2016 14:55:53 GMT-0700 (PDT)";
+        var CHECKSUM = 693554763668;
     </script>
     
     <script type="text/javascript" src="/apps/2.0/sdk.js"></script>
@@ -4854,6 +4854,11 @@ Ext.define('TSTimesheet',{
     }
     
 });
+Ext.define('Rally.data.lookback.WsapiProxyOverride', {
+    override: 'Rally.data.wsapi.Proxy',
+    timeout: 300000
+});
+
 Ext.define("TSFinanceReport", {
     extend: 'Rally.app.App',
     componentCls: 'app',
@@ -4881,7 +4886,6 @@ Ext.define("TSFinanceReport", {
     },
     
     launch: function() {
-        Ext.Ajax.timeout = 60000;
         this._addSelectors(this.down('#selector_box'));
     },
     

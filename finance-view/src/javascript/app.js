@@ -1,3 +1,8 @@
+Ext.define('Rally.data.lookback.WsapiProxyOverride', {
+    override: 'Rally.data.wsapi.Proxy',
+    timeout: 300000
+});
+
 Ext.define("TSFinanceReport", {
     extend: 'Rally.app.App',
     componentCls: 'app',
@@ -25,7 +30,6 @@ Ext.define("TSFinanceReport", {
     },
     
     launch: function() {
-        Ext.Ajax.timeout = 60000;
         this._addSelectors(this.down('#selector_box'));
     },
     
