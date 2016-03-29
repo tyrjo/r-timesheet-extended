@@ -32,13 +32,14 @@ Ext.define('TSUtilities', {
         return deferred.promise;
     },
     
-    loadWsapiRecordsWithParallelPages: function(config) {
+    loadWsapiRecordsWithParallelPages: function(config, msg) {
         var deferred = Ext.create('Deft.Deferred'),
             me = this;
         
         var count_check_config = Ext.clone(config);
         count_check_config.limit = 1;
         count_check_config.pageSize = 1;
+        count_check_config.fetch = ['ObjectID'];
         
         this.loadWsapiRecords(count_check_config, true).then({
             success: function(operation) {                
@@ -46,12 +47,15 @@ Ext.define('TSUtilities', {
                 config.limit = config.pageSize;
                 var total = operation.resultSet.totalRecords;
                 var page_count = Math.ceil(total/config.pageSize);
-                    
+     
                 var promises = [];
                 Ext.Array.each(_.range(1,page_count+1), function(page_index) {
                     var config_clone = Ext.clone(config);
                     config_clone.currentPage = page_index;
-                    promises.push(function() { 
+                    promises.push(function() {
+                        var percentage = parseInt( page_index * 100 / page_count, 10);
+                        var message = msg || "Loading values";
+                        Rally.getApp().setLoading(message + " (" + percentage + "%)");
                         return me.loadWsapiRecords(config_clone); 
                     });
                 });

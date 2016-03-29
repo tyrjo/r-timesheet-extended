@@ -13,6 +13,7 @@ module.exports = function(grunt) {
         config.js_files = grunt.file.expand([
             '../common/src/javascript/utils/*.js',
             '../common/src/javascript/*.js',
+            '../common/src/javascript/timesheet_menu/*.js',
             'src/javascript/utils/*.js',
             'src/javascript/menu/*.js',
             'src/javascript/*.js'
@@ -144,7 +145,6 @@ module.exports = function(grunt) {
         grunt.file.write(deploy_file,output);
         
     });
-
 
     grunt.registerTask('install', 'Deploy the app to a rally instance', function() {
         
