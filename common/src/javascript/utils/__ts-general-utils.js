@@ -32,7 +32,7 @@ Ext.define('TSUtilities', {
         return deferred.promise;
     },
     
-    loadWsapiRecordsWithParallelPages: function(config) {
+    loadWsapiRecordsWithParallelPages: function(config, msg) {
         var deferred = Ext.create('Deft.Deferred'),
             me = this;
         
@@ -52,7 +52,10 @@ Ext.define('TSUtilities', {
                 Ext.Array.each(_.range(1,page_count+1), function(page_index) {
                     var config_clone = Ext.clone(config);
                     config_clone.currentPage = page_index;
-                    promises.push(function() { 
+                    promises.push(function() {
+                        var percentage = parseInt( page_index * 100 / page_count, 10);
+                        var message = msg || "Loading values";
+                        Rally.getApp().setLoading(message + " (" + percentage + "%)");
                         return me.loadWsapiRecords(config_clone); 
                     });
                 });

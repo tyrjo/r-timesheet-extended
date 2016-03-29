@@ -3,11 +3,11 @@
 <head>
     <title>TimeSheet Finance Report</title>
     <!--  (c) 2015 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Tue Mar 29 2016 14:55:53 GMT-0700 (PDT) -->
+    <!--  Build Date: Tue Mar 29 2016 15:11:09 GMT-0700 (PDT) -->
     
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Tue Mar 29 2016 14:55:53 GMT-0700 (PDT)";
-        var CHECKSUM = 693554763668;
+        var APP_BUILD_DATE = "Tue Mar 29 2016 15:11:09 GMT-0700 (PDT)";
+        var CHECKSUM = 695523281677;
     </script>
     
     <script type="text/javascript" src="/apps/2.0/sdk.js"></script>
@@ -469,7 +469,7 @@ Ext.define('TSUtilities', {
         return deferred.promise;
     },
     
-    loadWsapiRecordsWithParallelPages: function(config) {
+    loadWsapiRecordsWithParallelPages: function(config, msg) {
         var deferred = Ext.create('Deft.Deferred'),
             me = this;
         
@@ -489,7 +489,10 @@ Ext.define('TSUtilities', {
                 Ext.Array.each(_.range(1,page_count+1), function(page_index) {
                     var config_clone = Ext.clone(config);
                     config_clone.currentPage = page_index;
-                    promises.push(function() { 
+                    promises.push(function() {
+                        var percentage = parseInt( page_index * 100 / page_count, 10);
+                        var message = msg || "Loading values";
+                        Rally.getApp().setLoading(message + " (" + percentage + "%)");
                         return me.loadWsapiRecords(config_clone); 
                     });
                 });
@@ -5045,12 +5048,14 @@ Ext.define("TSFinanceReport", {
         
         Deft.Chain.sequence([
             function() { 
-                me.setLoading('Loading Time Entry Items...');
-                return TSUtilities.loadWsapiRecordsWithParallelPages(teitem_config);  
+                var msg = 'Loading Time Entry Items...';
+                me.setLoading(msg);
+                return TSUtilities.loadWsapiRecordsWithParallelPages(teitem_config, msg);  
             },
             function() { 
-                me.setLoading('Loading Time Entry Values...');
-                return TSUtilities.loadWsapiRecordsWithParallelPages(tevalue_config); 
+                msg = 'Loading Time Entry Values...';
+                me.setLoading(msg);
+                return TSUtilities.loadWsapiRecordsWithParallelPages(tevalue_config, msg); 
             },
             function() { 
                 me.setLoading('Loading Appended Data...');

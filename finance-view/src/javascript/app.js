@@ -189,12 +189,14 @@ Ext.define("TSFinanceReport", {
         
         Deft.Chain.sequence([
             function() { 
-                me.setLoading('Loading Time Entry Items...');
-                return TSUtilities.loadWsapiRecordsWithParallelPages(teitem_config);  
+                var msg = 'Loading Time Entry Items...';
+                me.setLoading(msg);
+                return TSUtilities.loadWsapiRecordsWithParallelPages(teitem_config, msg);  
             },
             function() { 
-                me.setLoading('Loading Time Entry Values...');
-                return TSUtilities.loadWsapiRecordsWithParallelPages(tevalue_config); 
+                msg = 'Loading Time Entry Values...';
+                me.setLoading(msg);
+                return TSUtilities.loadWsapiRecordsWithParallelPages(tevalue_config, msg); 
             },
             function() { 
                 me.setLoading('Loading Appended Data...');
