@@ -152,12 +152,22 @@ Ext.define('TSUtilities', {
         var workspace_admin_list = Ext.Array.filter(permissions, function(p) {
             return (p.Role == "Workspace Admin" || p.Role == "Subscription Admin");
         });
+<<<<<<< HEAD
 
         var currentWorkspaceOid = this._getOidFromRef(app.getContext().getWorkspace()._ref);
         var is_workspace_admin = false;
 
         if (workspace_admin_list.length > 0) {
             Ext.Array.each(workspace_admin_list, function(p) {
+=======
+        
+        var currentWorkspaceOid = this._getOidFromRef(app.getContext().getWorkspace()._ref);
+        var is_workspace_admin = false;
+                
+        if ( workspace_admin_list.length > 0 ) {
+            Ext.Array.each(workspace_admin_list, function(p){
+                
+>>>>>>> 418
                 if (currentWorkspaceOid == this._getOidFromRef(p._ref)) {
                     is_workspace_admin = true;
                 }
@@ -192,12 +202,22 @@ Ext.define('TSUtilities', {
         var workspace_admin_list = Ext.Array.filter(permissions, function(p) {
             return (p.Role == "Workspace Admin" || p.Role == "Subscription Admin");
         });
+<<<<<<< HEAD
 
         var currentWorkspaceOid = this._getOidFromRef(app.getContext().getWorkspace()._ref);
         var can_unlock = false;
 
         if (workspace_admin_list.length > 0) {
             Ext.Array.each(workspace_admin_list, function(p) {
+=======
+        
+        var currentWorkspaceOid = this._getOidFromRef(app.getContext().getWorkspace()._ref);
+        var can_unlock = false;
+                
+        if ( workspace_admin_list.length > 0 ) {
+            Ext.Array.each(workspace_admin_list, function(p){
+                
+>>>>>>> 418
                 if (currentWorkspaceOid == this._getOidFromRef(p._ref)) {
                     can_unlock = true;
                 }
