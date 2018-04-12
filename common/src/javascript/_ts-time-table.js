@@ -1097,25 +1097,25 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
         
         columns.push({dataIndex:'__Sunday',   width: day_width, resizable: false,
             _selectable: true, text:'Sun',   align: 'center',
-            getEditor: editor_config, summaryType: 'sum', renderer: weekend_renderer});
+            getEditor: editor_config, summaryType: 'sum', renderer: weekend_renderer, field: {}});
         columns.push({dataIndex:'__Monday',   width: day_width, resizable: false,
             _selectable: true, text:'Mon',   align: 'center',
-            getEditor: editor_config, summaryType: 'sum'});
+            getEditor: editor_config, summaryType: 'sum', field: {}});
         columns.push({dataIndex:'__Tuesday',  width: day_width, resizable: false,
             _selectable: true, text:'Tue',   align: 'center',
-            getEditor: editor_config, summaryType: 'sum'});
+            getEditor: editor_config, summaryType: 'sum', field: {}});
         columns.push({dataIndex:'__Wednesday',width: day_width, resizable: false,
             _selectable: true, text:'Wed',   align: 'center',
-            getEditor: editor_config, summaryType: 'sum'});
+            getEditor: editor_config, summaryType: 'sum', field: {}});
         columns.push({dataIndex:'__Thursday', width: day_width, resizable: false,
             _selectable: true, text:'Thur',  align: 'center',
-            getEditor: editor_config, summaryType: 'sum'});
+            getEditor: editor_config, summaryType: 'sum', field: {}});
         columns.push({dataIndex:'__Friday',   width: day_width, resizable: false,
             _selectable: true, text:'Fri',   align: 'center',
-            getEditor: editor_config, summaryType: 'sum'});
+            getEditor: editor_config, summaryType: 'sum', field: {}});
         columns.push({dataIndex:'__Saturday', width: day_width, resizable: false,
             _selectable: true, text:'Sat',   align: 'center',
-            getEditor: editor_config, summaryType: 'sum', renderer: weekend_renderer});
+            getEditor: editor_config, summaryType: 'sum', renderer: weekend_renderer, field: {}});
         columns.push({
             dataIndex:'__Total',
             width: day_width, resizable: false, 
