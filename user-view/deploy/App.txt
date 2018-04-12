@@ -1,20 +1,935 @@
 <!DOCTYPE html>
 <html>
+
 <head>
-    <title>Extended Timesheet</title>
-    <!--  (c) 2015 Rally Software Development Corp.  All Rights Reserved. -->
-    <!--  Build Date: Wed Mar 23 2016 15:51:10 GMT-0700 (PDT) -->
-    
+    <title>CATS-
+        timesheet-with-approval-
+            0.0.1
+    </title>
+    <!--  (c) 2017 CA Technologies.  All Rights Reserved. -->
+    <!--  Build Date: Thu Apr 12 2018 15:49:18 GMT+0000 (UTC) -->
+
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Wed Mar 23 2016 15:51:10 GMT-0700 (PDT)";
-        var CHECKSUM = 566664874749;
+        var APP_BUILD_DATE = "Thu Apr 12 2018 15:49:18 GMT+0000 (UTC)";
+        var ARTIFACT = "";
+        var BUILDER = "ec2-user";
+        var CHECKSUM = "594227668137";
     </script>
-    
-    <script type="text/javascript" src="/apps/2.0/sdk.js"></script>
+
+    <script type="text/javascript" src="https://us1.rallydev.com/apps/2.1/sdk-debug.js"></script>
+    <!-- our highcharts (needed so that we can add patterns)
+    <script type="text/javascript" src="/apps/2.1/lib/analytics/analytics-all.js"></script>
+    -->
+
 
     <script type="text/javascript">
         Rally.onReady(function() {
              
+Ext.define('TSUtilities', {
+    singleton: true,
+
+    timeLockKeyPrefix: 'rally.technicalservices.timesheet.weeklock',
+    approvalKeyPrefix: 'rally.technicalservices.timesheet.status',
+    deletionKeyPrefix: 'rally.technicalservices.timesheet.deletion',
+    pinKeyPrefix: 'rally.technicalservices.timesheet.pin',
+
+    archiveSuffix: '~archived',
+
+    loadWsapiRecords: function(config, returnOperation) {
+        var deferred = Ext.create('Deft.Deferred');
+        var me = this;
+
+        var default_config = {
+            model: 'Defect',
+            fetch: ['ObjectID']
+        };
+        Ext.create('Rally.data.wsapi.Store', Ext.Object.merge(default_config, config)).load({
+            callback: function(records, operation, successful) {
+                if (successful) {
+                    if (returnOperation) {
+                        deferred.resolve(operation);
+                    }
+                    else {
+                        deferred.resolve(records);
+                    }
+                }
+                else {
+                    deferred.reject('Problem loading: ' + operation.error.errors.join('. '));
+                }
+            }
+        });
+        return deferred.promise;
+    },
+
+    loadWsapiRecordsWithParallelPages: function(config, msg) {
+        var deferred = Ext.create('Deft.Deferred'),
+            me = this;
+
+        var count_check_config = Ext.clone(config);
+        count_check_config.limit = 1;
+        count_check_config.pageSize = 1;
+        count_check_config.fetch = ['ObjectID'];
+
+        this.loadWsapiRecords(count_check_config, true).then({
+            success: function(operation) {
+                config.pageSize = 200;
+                config.limit = config.pageSize;
+                var total = operation.resultSet.totalRecords;
+                var page_count = Math.ceil(total / config.pageSize);
+
+                var promises = [];
+                Ext.Array.each(_.range(1, page_count + 1), function(page_index) {
+                    var config_clone = Ext.clone(config);
+                    config_clone.currentPage = page_index;
+                    promises.push(function() {
+                        var percentage = parseInt(page_index * 100 / page_count, 10);
+                        var message = msg || "Loading values";
+                        Rally.getApp().setLoading(message + " (" + percentage + "%)");
+                        return me.loadWsapiRecords(config_clone);
+                    });
+                });
+                CA.techservices.promise.ParallelThrottle.throttle(promises, 6, me).then({
+                    success: function(results) {
+                        deferred.resolve(Ext.Array.flatten(results));
+                    },
+                    failure: function(msg) {
+                        deferred.reject(msg);
+                    }
+                });
+            },
+            failure: function(msg) {
+                deferred.reject(msg);
+            }
+        });
+        return deferred.promise;
+    },
+
+    getPreferenceProject: function() {
+        var app = Rally.getApp();
+
+        return app.getSetting('preferenceProjectRef');
+    },
+
+    isEditableProjectForCurrentUser: function(projectRef, scope) {
+        var app = scope || Rally.getApp(),
+            me = this;
+
+        if (this.currentUserIsAdmin(scope)) {
+            return true;
+        }
+
+        var project_oid = this._getOidFromRef(projectRef);
+        var editor_permissions = Ext.Array.filter(app.getContext().getPermissions().userPermissions, function(permission) {
+            if (permission.Role != "Editor" && permission.Role != "ProjectAdmin") {
+                return false;
+            }
+
+            return (me._getOidFromRef(permission._ref) == project_oid);
+        });
+
+        console.log(editor_permissions);
+        return (editor_permissions.length > 0);
+    },
+
+    getEditableProjectForCurrentUser: function() {
+        var app = Rally.getApp();
+        if (this._currentUserCanWrite()) {
+            return app.getContext().getProjectRef();
+        }
+
+        var workspace_oid = this._getOidFromRef(app.getContext().getWorkspaceRef());
+
+        var editor_permissions = Ext.Array.filter(app.getContext().getPermissions().userPermissions, function(permission) {
+            if (Ext.isEmpty(permission.Workspace)) {
+                return false;
+            }
+            var permission_oid = this._getOidFromRef(permission.Workspace);
+
+            //console.log('comparing ', workspace_oid, permission_oid, permission);
+            if (workspace_oid != permission_oid) {
+                return false;
+            }
+
+            return (permission.Role == "Editor" || permission.Role == "ProjectAdmin");
+        }, this);
+
+
+        if (editor_permissions.length > 0) {
+            return editor_permissions[0]._ref;
+        }
+        return false;
+    },
+
+    _getOidFromRef: function(ref) {
+        var ref_array = ref.replace(/\.js$/, '').split(/\//);
+        return ref_array[ref_array.length - 1].replace(/\.js/, '');
+    },
+
+    // true if sub or workspace admin
+    currentUserIsAdmin: function(scope) {
+        var app = scope || Rally.getApp();
+
+        console.log('current user:', app.getContext().getUser());
+        if (this.currentUserIsSubAdmin()) {
+            return true;
+        }
+
+        var permissions = app.getContext().getPermissions().userPermissions;
+
+        var workspace_admin_list = Ext.Array.filter(permissions, function(p) {
+            return (p.Role == "Workspace Admin" || p.Role == "Subscription Admin");
+        });
+
+        var currentWorkspaceOid = this._getOidFromRef(app.getContext().getWorkspace()._ref);
+        var is_workspace_admin = false;
+
+        if (workspace_admin_list.length > 0) {
+            Ext.Array.each(workspace_admin_list, function(p) {
+                if (currentWorkspaceOid == this._getOidFromRef(p._ref)) {
+                    is_workspace_admin = true;
+                }
+            }, this);
+        }
+
+        return is_workspace_admin;
+    },
+
+    currentUserIsSubAdmin: function(scope) {
+        var app = scope || Rally.getApp();
+
+        var permissions = app.getContext().getPermissions().userPermissions;
+
+        var sub_admin_list = Ext.Array.filter(permissions, function(p) {
+            return (p.Role == 'Subscription Admin');
+        });
+
+        return (sub_admin_list.length > 0);
+    },
+
+    _currentUserCanWrite: function() {
+        var app = Rally.getApp();
+
+        //console.log('_currentUserCanWrite',app.getContext().getUser(), app.getContext().getUser().SubscriptionAdmin);
+        if (app.getContext().getUser().SubscriptionAdmin) {
+            return true;
+        }
+
+        var permissions = app.getContext().getPermissions().userPermissions;
+
+        var workspace_admin_list = Ext.Array.filter(permissions, function(p) {
+            return (p.Role == "Workspace Admin" || p.Role == "Subscription Admin");
+        });
+
+        var currentWorkspaceOid = this._getOidFromRef(app.getContext().getWorkspace()._ref);
+        var can_unlock = false;
+
+        if (workspace_admin_list.length > 0) {
+            Ext.Array.each(workspace_admin_list, function(p) {
+                if (currentWorkspaceOid == this._getOidFromRef(p._ref)) {
+                    can_unlock = true;
+                }
+            }, this);
+        }
+
+        return can_unlock;
+    },
+
+    _currentUserCanUnapprove: function() {
+        return this.currentUserIsAdmin();
+    }
+});
+
+/**
+ * A link that pops up a version dialog box
+ */
+
+Ext.define('Rally.technicalservices.InfoLink',{
+    extend: 'Rally.ui.dialog.Dialog',
+    alias: 'widget.tsinfolink',
+    
+    /**
+     * @cfg {String} informationHtml
+     * Additional text to be displayed on the popup dialog (for exmaple,
+     * to add a description of the app's use or functionality)
+     */
+    informationHtml: null,
+    
+    /**
+     * 
+     * cfg {String} title
+     * The title for the dialog box
+     */
+    title: "Build Information",
+    
+    defaults: { padding: 5, margin: 5 },
+
+    closable: true,
+     
+    draggable: true,
+
+    autoShow: true,
+   
+    width: 350, 
+    
+    initComponent: function() {
+        var id = Ext.id(this);
+        this.title =  "<span class='icon-help'> </span>" + this.title;
+        this.callParent(arguments);
+    },
+    
+    _generateChecksum: function(string){
+        var chk = 0x12345678,
+            i;
+        string = string.replace(/var CHECKSUM = .*;/,"");
+        string = string.replace(/\s/g,"");  //Remove all whitespace from the string.
+        
+        for (i = 0; i < string.length; i++) {
+            chk += (string.charCodeAt(i) * i);
+        }
+    
+        return chk;
+    },
+    
+    _checkChecksum: function(container) {
+        var deferred = Ext.create('Deft.Deferred');
+        console.log("_checkChecksum", container);
+        var me = this;
+        
+        Ext.Ajax.request({
+            url: document.URL,
+            params: {
+                id: 1
+            },
+            success: function (response) {
+                text = response.responseText;
+                if ( CHECKSUM ) {
+                    if ( CHECKSUM !== me._generateChecksum(text) ) {
+                        console.log("Checksums don't match!");
+                        deferred.resolve(false);
+                        return;
+                    }
+                }
+                deferred.resolve(true);
+            }
+        });
+        
+        return deferred.promise;
+    },
+    
+    afterRender: function() {
+        var app = Rally.getApp();
+        
+        if (! app.isExternal() ) {
+                
+            this._checkChecksum(app).then({
+                scope: this,
+                success: function(result){
+                    if ( !result ) {
+                        this.addDocked({
+                            xtype:'container',
+                            cls: 'build-info',
+                            padding: 2,
+                            html:'<span class="icon-warning"> </span>Checksums do not match'
+                        });
+                    }
+                },
+                failure: function(msg){
+                    console.log("oops:",msg);
+                }
+            });
+        } else {
+            this.addDocked({
+                xtype:'container',
+                cls: 'build-info',
+                padding: 2,
+                html:'... Running externally'
+            });
+        }
+        this.callParent(arguments);
+    },
+    
+    beforeRender: function() {
+        var me = this;
+        this.callParent(arguments);
+
+        if (this.informationHtml) {
+            this.addDocked({
+                xtype: 'component',
+                componentCls: 'intro-panel',
+                padding: 2,
+                html: this.informationHtml
+            });
+        }
+        
+        this.addDocked({
+            xtype:'container',
+            cls: 'build-info',
+            padding: 2,
+            html:"This app was created by the Rally Technical Services Team."
+        });
+        
+        if ( APP_BUILD_DATE ) {
+            this.addDocked({
+                xtype:'container',
+                cls: 'build-info',
+                padding: 2,
+                html:'Build date/time: ' + APP_BUILD_DATE
+            });
+        }
+    }
+});
+
+/*
+ */
+Ext.define('Rally.technicalservices.Logger',{
+    constructor: function(config){
+        Ext.apply(this,config);
+    },
+    log: function(args){
+        var timestamp = "[ " + Ext.util.Format.date(new Date(), "Y-m-d H:i:s.u") + " ]";
+        //var output_args = arguments;
+        //output_args.unshift( [ "[ " + timestamp + " ]" ] );
+        //output_args = Ext.Array.push(output_args,arguments);
+        
+        var output_args = [];
+        output_args = Ext.Array.push(output_args,[timestamp]);
+        output_args = Ext.Array.push(output_args, Ext.Array.slice(arguments,0));
+
+        window.console && console.log.apply(console,output_args);
+    }
+
+});
+
+Ext.define('CA.techservices.promise.ParallelThrottle',{
+    requires: ['Deft.promise.Promise'],
+    statics: {
+
+        throttle: function (fns, maxParallelCalls, scope) {
+
+            if (maxParallelCalls <= 0 || fns.length < maxParallelCalls){
+                return Deft.promise.Chain.parallel(fns, scope);
+            }
+
+
+            var parallelFns = [],
+                fnChunks = [],
+                idx = -1;
+
+            for (var i = 0; i < fns.length; i++) {
+                if (i % maxParallelCalls === 0) {
+                    idx++;
+                    fnChunks[idx] = [];
+                }
+                fnChunks[idx].push(fns[i]);
+            }
+
+            _.each(fnChunks, function (chunk) {
+                parallelFns.push(function () {
+                    return Deft.promise.Chain.parallel(chunk, scope);
+                });
+            });
+
+            return Deft.Promise.reduce(parallelFns, function(groupResults, fnGroup) {
+                return Deft.Promise.when(fnGroup.call(scope)).then(function(results) {
+                    groupResults = groupResults.concat(results || []);
+                    return groupResults;
+                });
+            }, []);
+        }
+    }
+});
+Ext.define('TSDateUtils', {
+    singleton: true,
+    
+    getBeginningOfWeekForLocalDate: function(week_date) {
+        var start_of_week_here = Ext.Date.add(week_date, Ext.Date.DAY, -1 * week_date.getDay());
+        return start_of_week_here;
+    },
+    
+    getBeginningOfWeekISOForLocalDate: function(week_date,showShiftedTimeStamp) {
+        var offset = week_date.getTimezoneOffset();  // 480 is pacific, -330 is india
+        
+        var local_beginning = TSDateUtils.getBeginningOfWeekForLocalDate(week_date);
+        var shifted_time = Rally.util.DateTime.add(week_date,'minute',offset);
+                
+        if ( shifted_time.getUTCDay() === 0 && shifted_time.getHours() === 0  ) {
+            // this is already the beginning of the week
+            var shifted_string = this.formatShiftedDate(week_date, 'Y-m-d');
+            if ( showShiftedTimeStamp ) {
+                return shifted_string + 'T00:00:00.0Z';
+            }
+            return shifted_string;
+        }
+        
+        if (showShiftedTimeStamp) {
+            return Rally.util.DateTime.toIsoString(local_beginning).replace(/T.*$/,'T00:00:00.0Z');
+        }
+        
+        return Rally.util.DateTime.toIsoString(local_beginning).replace(/T.*$/,'');
+    },
+    
+    formatShiftedDate: function(jsdate,format) {
+        var offset = jsdate.getTimezoneOffset();  // 480 is pacific, -330 is india
+
+        if ( offset > 0 ) {
+            jsdate = Rally.util.DateTime.add(jsdate,'minute',offset);
+        }
+
+        return Ext.util.Format.date(jsdate,format);
+    },
+    
+    pretendIMeantUTC: function(jsdate,asUTC) {
+        var offset = jsdate.getTimezoneOffset();
+        
+        if ( asUTC ) {
+            return Rally.util.DateTime.toIsoString(jsdate).replace(/T.*$/,'T00:00:00.000Z');
+        }
+        var shiftedDate = Rally.util.DateTime.add(jsdate,'minute',-1 * offset);
+        
+        return shiftedDate;
+    },
+    
+    // returns a promise, fulfills with a boolean
+    isApproved: function(week_start_iso, user_oid) {
+        var deferred = Ext.create('Deft.Deferred');
+        
+        var short_iso_date = week_start_iso;
+        var key_user_oid = user_oid || Rally.getApp().getContext().getUser().ObjectID;
+        
+        var key = Ext.String.format("{0}.{1}.{2}", 
+            TSUtilities.approvalKeyPrefix,
+            short_iso_date,
+            key_user_oid
+        );
+        
+        this._loadWeekStatusPreference(key).then({
+            success: function(preference) {
+                if (preference.length === 0) { 
+                    deferred.resolve(false);
+                    return;
+                }
+                var value = preference[0].get('Value');
+                if ( /{/.test(value) ) {
+                    var status_object = Ext.JSON.decode(value);
+                    if ( status_object.status == "Approved" ) { 
+                        deferred.resolve(true);
+                        return;
+                    }
+                }
+                
+                deferred.resolve(false);
+            },
+            failure: function(msg) {
+                deferred.reject(msg);
+            }
+        });
+        
+        return deferred.promise;
+    },
+    
+    _loadWeekStatusPreference: function(key) {
+        
+        var config = {
+            model:'Preference',
+            limit: 1,
+            pageSize: 1,
+            filters: [
+                {property:'Name',operator: 'contains', value:key},
+                {property:'Name',operator:'!contains',value: TSUtilities.archiveSuffix}
+            ],
+            fetch: ['Name','Value'],
+            sorters: [{property:'CreationDate', direction: 'DESC'}]
+        };
+        
+        return TSUtilities.loadWsapiRecords(config);
+    }
+});
+
+Ext.define('recordHolder',{
+    data: {},
+    constructor: function(config) {
+        Ext.apply(this, config);
+    },
+    
+    get: function(field) {
+        return this.data[field];
+    }
+});
+
+Ext.define('Rally.technicalservices.FileUtilities', {
+    singleton: true,
+    logger: new Rally.technicalservices.Logger(),
+    
+    saveCSVToFile:function(csv,file_name,type_object){
+        if (type_object === undefined){
+            type_object = {type:'text/csv;charset=utf-8'};
+        }
+        this.saveAs(csv,file_name, type_object);
+    },
+    
+    saveAs: function(textToWrite, fileName)
+    {
+        this.logger.log('saveAs:', fileName);
+        
+        if (Ext.isIE9m){
+            Rally.ui.notify.Notifier.showWarning({message: "Export is not supported for IE9 and below."});
+            return;
+        }
+
+        var textFileAsBlob = null;
+        try {
+            textFileAsBlob = new Blob([textToWrite], {type:'text/plain'});
+        }
+        catch(e){
+            this.logger.log('Caught an error ', e);
+            
+            window.BlobBuilder = window.BlobBuilder ||
+                        window.WebKitBlobBuilder ||
+                    window.MozBlobBuilder ||
+                    window.MSBlobBuilder;
+            if (window.BlobBuilder ) { //&&  e.name === 'TypeError'){
+                bb = new BlobBuilder();
+                bb.append([textToWrite]);
+                textFileAsBlob = bb.getBlob("text/plain");
+            }
+
+        }
+
+        if (!textFileAsBlob){
+            Rally.ui.notify.Notifier.showWarning({message: "Export is not supported for this browser."});
+            return;
+        }
+
+        var fileNameToSaveAs = fileName;
+
+        if (Ext.isIE10p){
+            window.navigator.msSaveOrOpenBlob(textFileAsBlob,fileNameToSaveAs); // Now the user will have the option of clicking the Save button and the Open button.
+            return;
+        }
+
+        var url = this.createObjectURL(textFileAsBlob);
+
+        if (url){
+            var downloadLink = document.createElement("a");
+            if ("download" in downloadLink){
+                downloadLink.download = fileNameToSaveAs;
+            } else {
+                //Open the file in a new tab
+                downloadLink.target = "_blank";
+            }
+
+            downloadLink.innerHTML = "Download File";
+            downloadLink.href = url;
+            if (!Ext.isChrome){
+                // Firefox requires the link to be added to the DOM
+                // before it can be clicked.
+                downloadLink.onclick = this.destroyClickedElement;
+                downloadLink.style.display = "none";
+                document.body.appendChild(downloadLink);
+            }
+            downloadLink.click();
+        } else {
+            Rally.ui.notify.Notifier.showError({message: "Export is not supported "});
+        }
+
+    },
+    createObjectURL: function ( file ) {
+        if ( window.webkitURL ) {
+            return window.webkitURL.createObjectURL( file );
+        } else if ( window.URL && window.URL.createObjectURL ) {
+            return window.URL.createObjectURL( file );
+        } else {
+            return null;
+        }
+    },
+    saveTextAsFile: function(textToWrite, fileName) {
+        var textFileAsBlob = new Blob([textToWrite], {type:'text/plain'});
+        var fileNameToSaveAs = fileName;
+
+        var downloadLink = document.createElement("a");
+        downloadLink.download = fileNameToSaveAs;
+        downloadLink.innerHTML = "Download File";
+        if (window.webkitURL != null)
+        {
+            // Chrome allows the link to be clicked
+            // without actually adding it to the DOM.
+            downloadLink.href = window.webkitURL.createObjectURL(textFileAsBlob);
+        }
+        else
+        {
+            // Firefox requires the link to be added to the DOM
+            // before it can be clicked.
+            downloadLink.href = window.URL.createObjectURL(textFileAsBlob);
+            downloadLink.onclick = destroyClickedElement;
+            downloadLink.style.display = "none";
+            document.body.appendChild(downloadLink);
+        }
+        downloadLink.click();
+    },
+    destroyClickedElement: function(event)
+    {
+        document.body.removeChild(event.target);
+    },
+    convertDataArrayToCSVText: function(data_array, requestedFieldHash){
+       
+        var text = '';
+        Ext.each(Object.keys(requestedFieldHash), function(key){
+            text += requestedFieldHash[key] + ',';
+        });
+        text = text.replace(/,$/,'\n');
+        
+        Ext.each(data_array, function(d){
+            Ext.each(Object.keys(requestedFieldHash), function(key){
+                if (d[key]){
+                    if (typeof d[key] === 'object'){
+                        if (d[key].FormattedID) {
+                            text += Ext.String.format("\"{0}\",",d[key].FormattedID ); 
+                        } else if (d[key].Name) {
+                            text += Ext.String.format("\"{0}\",",d[key].Name );                    
+                        } else if (!isNaN(Date.parse(d[key]))){
+                            text += Ext.String.format("\"{0}\",",Rally.util.DateTime.formatWithDefaultDateTime(d[key]));
+                        }else {
+                            text += Ext.String.format("\"{0}\",",d[key].toString());
+                        }
+                    } else {
+                        text += Ext.String.format("\"{0}\",",d[key] );                    
+                    }
+                } else {
+                    text += ',';
+                }
+            },this);
+            text = text.replace(/,$/,'\n');
+        },this);
+        return text;
+    },
+    _getCSVFromWsapiBackedGrid: function(grid,skip_headers) {
+        var deferred = Ext.create('Deft.Deferred');
+        var store = Ext.create('Rally.data.wsapi.Store',{
+            fetch: grid.getStore().config.fetch,
+            filters: grid.getStore().config.filters,
+            model: grid.getStore().config.model,
+            pageSize: 200
+        });
+        
+        var columns = grid.columns;
+        
+        var record_count = grid.getStore().getTotalCount(),
+            page_size = grid.getStore().pageSize,
+            pages = Math.ceil(record_count/page_size),
+            promises = [];
+
+        for (var page = 1; page <= pages; page ++ ) {
+            promises.push(this.loadStorePage(grid, store, columns, page, pages));
+        }
+        Deft.Promise.all(promises).then({
+            success: function(csvs){
+                var csv = [];
+                if ( !skip_headers ) {
+                    csv.push('"' + this._getHeadersFromGrid(grid).join('","') + '"');
+                }
+                _.each(csvs, function(c){
+                    _.each(c, function(line){
+                        csv.push(line);
+                    });
+                });
+                csv = csv.join('\r\n');
+                deferred.resolve(csv);
+                Rally.getApp().setLoading(false);
+            }
+        });
+        return deferred.promise;
+    },
+    
+    getCSVFromRows: function(scope, grid, rows) {
+        var me = this;
+        var columns = grid.columns;
+        var store = grid.getStore();
+        
+        var model = grid.model;        
+        var csv = [];
+        
+        csv.push('"' + this._getHeadersFromGrid(grid).join('","') + '"');
+        
+        Ext.Array.each(rows,function(row){
+            csv.push( me._getCSVFromRecord(row, grid, store) );
+        });
+        
+        csv = csv.join('\r\n');
+        return csv;
+    },
+    
+    // custom grid assumes there store is fully loaded
+    _getCSVFromCustomBackedGrid: function(grid, skip_headers) {
+        var deferred = Ext.create('Deft.Deferred');
+        var store = Ext.clone( grid.getStore() );
+        var columns = grid.columns;
+        Rally.getApp().setLoading("Generating CSV...");
+        
+        var record_count = store.getTotalCount(),
+            page_size = store.pageSize,
+            pages = Math.ceil(record_count/page_size),
+            promises = [];
+
+        for (var page = 1; page <= pages; page ++ ) {
+            promises.push(this.loadStorePage(grid, store, columns, page, pages));
+        }
+        
+        Deft.Promise.all(promises).then({
+            scope: this,
+            success: function(csvs){
+                var csv = [];
+                if ( !skip_headers ) {
+                    csv.push('"' + this._getHeadersFromGrid(grid).join('","') + '"');
+                }
+                _.each(csvs, function(c){
+                    _.each(c, function(line){
+                        csv.push(line);
+                    });
+                });
+                csv = csv.join('\r\n');
+                deferred.resolve(csv);
+                Rally.getApp().setLoading(false);
+            }
+        });
+        return deferred.promise;
+    },
+    
+    _getHeadersFromGrid: function(grid) {
+        var headers = [];        
+        var columns = grid.columns;
+
+        Ext.Array.each(columns,function(column){
+            if ( column.hidden ) { return; }
+            
+            if ( column.dataIndex || column.renderer ) {
+                if ( column.csvText ) {
+                    headers.push(column.csvText.replace('&nbsp;',' '));
+                } else if ( column.text )  {
+                    headers.push(column.text.replace('&nbsp;',' '));
+                }
+            }
+        });
+        
+        return headers;
+    },
+    
+    _getColumnNamesFromGrid: function(grid) {
+        var names = [];
+        var columns = grid.columns;
+
+        Ext.Array.each(columns,function(column){
+            if ( column.dataIndex || column.renderer ) {
+                names.push(column.dataIndex);
+            }
+        });
+        
+        return names;
+    },
+    /*
+     * will render using your grid renderer.  If you want it to ignore the grid renderer, 
+     * have the column set _csvIgnoreRender: true
+     */
+    getCSVFromGrid:function(app, grid, skip_headers){
+        this.logger.log("Exporting grid with store type:", Ext.getClassName(grid.getStore()));
+        
+        if ( Ext.getClassName(grid.getStore()) != "Rally.data.custom.Store" ) {
+            return this._getCSVFromWsapiBackedGrid(grid,skip_headers);
+        }
+        
+        return this._getCSVFromCustomBackedGrid(grid,skip_headers);
+    },
+    loadStorePage: function(grid, store, columns, page, total_pages){
+        var deferred = Ext.create('Deft.Deferred');
+        this.logger.log('loadStorePage',page, total_pages);
+
+        store.loadPage(page, {
+            callback: function (records) {
+                var csv = [];
+                Rally.getApp().setLoading(Ext.String.format('Page {0} of {1} loaded',page, total_pages));
+                for (var i = 0; i < records.length; i++) {
+                    var record = records[i];
+                    csv.push( this._getCSVFromRecord(record, grid, store) );
+                }
+                deferred.resolve(csv);
+            },
+            scope: this
+        });
+        return deferred;
+    },
+    
+    _getCSVFromRecord: function(record, grid, store) {
+        //console.log('record:', record);
+        
+        var mock_meta_data = {
+            align: "right",
+            classes: [],
+            cellIndex: 9,
+            column: null,
+            columnIndex: 9,
+            innerCls: undefined,
+            recordIndex: 5,
+            rowIndex: 5,
+            style: "",
+            tdAttr: "",
+            tdCls: "x-grid-cell x-grid-td x-grid-cell-headerId-gridcolumn-1029 x-grid-cell-last x-unselectable",
+            unselectableAttr: "unselectable='on'"
+        };
+        
+        var node_values = [];
+        var columns = grid.columns;
+        
+        Ext.Array.each(columns, function (column) {
+            if (column.xtype == 'rallyrowactioncolumn'  || column.xtype == 'tsrowactioncolumn') {
+                return;
+            }
+            
+            if ( column.hidden ) {
+                return;
+            }
+            
+            if (column.dataIndex) {
+                var column_name = column.dataIndex;
+                
+                var display_value = record.get(column_name);
+
+                if (!column._csvIgnoreRender && ( column.renderer || column.exportRenderer) ) {
+                    if (column.exportRenderer) {
+                        display_value = column.exportRenderer(display_value, mock_meta_data, record, 0, 0, store, grid.getView());
+                    } else {
+                        display_value = column.renderer(display_value, mock_meta_data, record, 0, 0, store, grid.getView());
+                    }
+                }
+                node_values.push(display_value);
+            } else {
+                var display_value = null;
+                if (!column._csvIgnoreRender && column.renderer) {
+                    if (column.exportRenderer) {
+                        display_value = column.exportRenderer(display_value, mock_meta_data, record, record, 0, 0, store, grid.getView());
+                    } else {
+                        display_value = column.renderer(display_value, mock_meta_data, record, record, 0, 0, store, grid.getView());
+                    }
+                    node_values.push(display_value);
+                }
+            }
+        }, this);
+        
+        var csv_string = "";
+        Ext.Array.each(node_values, function(node_value,idx){
+            if ( idx > 0 ) {
+                csv_string = csv_string + ",";
+            }
+            if (/^=/.test(node_value) ) {
+                csv_string = csv_string + node_value;
+            } else {
+                csv_string = csv_string + '"' + node_value + '"';
+            }
+
+        });
+        
+        return csv_string;
+    }
+
+});
 /* Blob.js
  * A Blob implementation.
  * 2014-05-31
@@ -435,782 +1350,6 @@ if (typeof module !== "undefined" && module !== null) {
     return saveAs;
   });
 }
-Ext.define('TSUtilities', {
-    singleton: true,
-    
-    timeLockKeyPrefix: 'rally.technicalservices.timesheet.weeklock',
-    approvalKeyPrefix: 'rally.technicalservices.timesheet.status',
-    deletionKeyPrefix: 'rally.technicalservices.timesheet.deletion',
-    pinKeyPrefix     : 'rally.technicalservices.timesheet.pin',
-
-    archiveSuffix: '~archived',
-    
-    loadWsapiRecords: function(config,returnOperation){
-        var deferred = Ext.create('Deft.Deferred');
-        var me = this;
-        
-        var default_config = {
-            model: 'Defect',
-            fetch: ['ObjectID']
-        };
-        Ext.create('Rally.data.wsapi.Store', Ext.Object.merge(default_config,config)).load({
-            callback : function(records, operation, successful) {
-                if (successful){
-                    if ( returnOperation ) {
-                        deferred.resolve(operation);
-                    } else {
-                        deferred.resolve(records);
-                    }
-                } else {
-                    deferred.reject('Problem loading: ' + operation.error.errors.join('. '));
-                }
-            }
-        });
-        return deferred.promise;
-    },
-    
-    loadWsapiRecordsWithParallelPages: function(config) {
-        var deferred = Ext.create('Deft.Deferred'),
-            me = this;
-        
-        var count_check_config = Ext.clone(config);
-        count_check_config.limit = 1;
-        count_check_config.pageSize = 1;
-        
-        this.loadWsapiRecords(count_check_config, true).then({
-            success: function(operation) {                
-                config.pageSize = 200;
-                config.limit = config.pageSize;
-                var total = operation.resultSet.totalRecords;
-                var page_count = Math.ceil(total/config.pageSize);
-                    
-                var promises = [];
-                Ext.Array.each(_.range(1,page_count+1), function(page_index) {
-                    var config_clone = Ext.clone(config);
-                    config_clone.currentPage = page_index;
-                    promises.push(function() { 
-                        return me.loadWsapiRecords(config_clone); 
-                    });
-                });
-                CA.techservices.promise.ParallelThrottle.throttle(promises, 6, me).then({
-                        success: function(results){
-                            deferred.resolve( Ext.Array.flatten(results) );
-                        },
-                        failure: function(msg) {
-                            deferred.reject(msg);
-                        }
-                });
-            },
-            failure: function(msg) {
-                deferred.reject(msg);
-            }
-        });
-        return deferred.promise;
-    },
-    
-    getPreferenceProject: function() {
-        var app = Rally.getApp();
-        
-        return app.getSetting('preferenceProjectRef');
-    },
-    
-    isEditableProjectForCurrentUser: function(projectRef,scope) {
-        var app = scope || Rally.getApp(),
-            me = this;
-
-        if ( this.currentUserIsAdmin(scope) ) {
-            return true;
-        }
-        
-        var project_oid = this._getOidFromRef(projectRef);
-        var editor_permissions = Ext.Array.filter(app.getContext().getPermissions().userPermissions, function(permission){
-            if ( permission.Role != "Editor" && permission.Role != "ProjectAdmin") {
-                return false;
-            }
-            
-            return ( me._getOidFromRef(permission._ref) == project_oid );
-        });
-        
-        console.log(editor_permissions);
-        return ( editor_permissions.length > 0 );
-    },
-    
-    getEditableProjectForCurrentUser: function() {
-        var app = Rally.getApp();
-        if ( this._currentUserCanWrite() ) {
-            return app.getContext().getProjectRef();
-        }
-        
-        var workspace_oid = this._getOidFromRef( app.getContext().getWorkspaceRef());
-        
-        var editor_permissions = Ext.Array.filter(app.getContext().getPermissions().userPermissions, function(permission){
-            if ( Ext.isEmpty(permission.Workspace) ) {
-                return false;
-            }
-            var permission_oid = this._getOidFromRef(permission.Workspace);
-
-            //console.log('comparing ', workspace_oid, permission_oid, permission);
-            if (workspace_oid  !=  permission_oid) {
-                return false;
-            }
-                        
-            return ( permission.Role == "Editor" || permission.Role == "ProjectAdmin");
-        },this);
-        
-        
-        if ( editor_permissions.length > 0 ) {
-            return editor_permissions[0]._ref;
-        }
-        return false;
-    },
-    
-    _getOidFromRef: function(ref) {
-        var ref_array = ref.replace(/\.js$/,'').split(/\//);
-        return ref_array[ref_array.length-1].replace(/\.js/,'');
-    },
-    
-    // true if sub or workspace admin
-    currentUserIsAdmin: function(scope){
-        var app = scope || Rally.getApp();
-        
-        console.log('current user:', app.getContext().getUser());
-        if ( this.currentUserIsSubAdmin() ) {
-            return true;
-        }
-        
-        var permissions = app.getContext().getPermissions().userPermissions;
-
-        var workspace_admin_list = Ext.Array.filter(permissions, function(p) {
-            return ( p.Role == "Workspace Admin" || p.Role == "Subscription Admin");
-        });
-        
-        var current_workspace_ref = app.getContext().getWorkspace()._ref;
-        var is_workspace_admin = false;
-                
-        if ( workspace_admin_list.length > 0 ) {
-            Ext.Array.each(workspace_admin_list, function(p){
-                
-                if (current_workspace_ref.replace(/\.js$/,'') == p._ref.replace(/\.js$/,'')) {
-                    is_workspace_admin = true;
-                }
-            });
-        }
-        
-        return is_workspace_admin;
-    },
-    
-    currentUserIsSubAdmin: function(scope) {
-        var app = scope || Rally.getApp();
-                
-        var permissions = app.getContext().getPermissions().userPermissions;
-
-        var sub_admin_list = Ext.Array.filter(permissions, function(p) {
-            return ( p.Role == 'Subscription Admin' );
-        });
-        
-        return ( sub_admin_list.length > 0 );
-    },
-    
-    _currentUserCanWrite: function() {
-        var app = Rally.getApp();
-        
-        //console.log('_currentUserCanWrite',app.getContext().getUser(), app.getContext().getUser().SubscriptionAdmin);
-        if ( app.getContext().getUser().SubscriptionAdmin ) {
-            return true;
-        }
-        
-        var permissions = app.getContext().getPermissions().userPermissions;
-
-        var workspace_admin_list = Ext.Array.filter(permissions, function(p) {
-            return ( p.Role == "Workspace Admin" || p.Role == "Subscription Admin");
-        });
-        
-        var current_workspace_ref = app.getContext().getWorkspace()._ref;
-        var can_unlock = false;
-                
-        if ( workspace_admin_list.length > 0 ) {
-            Ext.Array.each(workspace_admin_list, function(p){
-                
-                if (current_workspace_ref.replace(/\.js$/,'') == p._ref.replace(/\.js$/,'')) {
-                    can_unlock = true;
-                }
-            });
-        }
-        
-        return can_unlock;
-    },
-    
-    _currentUserCanUnapprove: function() {
-        return this.currentUserIsAdmin();
-    }
-});
-/**
- * A link that pops up a version dialog box
- */
-
-Ext.define('Rally.technicalservices.InfoLink',{
-    extend: 'Rally.ui.dialog.Dialog',
-    alias: 'widget.tsinfolink',
-    
-    /**
-     * @cfg {String} informationHtml
-     * Additional text to be displayed on the popup dialog (for exmaple,
-     * to add a description of the app's use or functionality)
-     */
-    informationHtml: null,
-    
-    /**
-     * 
-     * cfg {String} title
-     * The title for the dialog box
-     */
-    title: "Build Information",
-    
-    defaults: { padding: 5, margin: 5 },
-
-    closable: true,
-     
-    draggable: true,
-
-    autoShow: true,
-   
-    width: 350, 
-    
-    initComponent: function() {
-        var id = Ext.id(this);
-        this.title =  "<span class='icon-help'> </span>" + this.title;
-        this.callParent(arguments);
-    },
-    
-    _generateChecksum: function(string){
-        var chk = 0x12345678,
-            i;
-        string = string.replace(/var CHECKSUM = .*;/,"");
-        string = string.replace(/\s/g,"");  //Remove all whitespace from the string.
-        
-        for (i = 0; i < string.length; i++) {
-            chk += (string.charCodeAt(i) * i);
-        }
-    
-        return chk;
-    },
-    
-    _checkChecksum: function(container) {
-        var deferred = Ext.create('Deft.Deferred');
-        console.log("_checkChecksum", container);
-        var me = this;
-        
-        Ext.Ajax.request({
-            url: document.URL,
-            params: {
-                id: 1
-            },
-            success: function (response) {
-                text = response.responseText;
-                if ( CHECKSUM ) {
-                    if ( CHECKSUM !== me._generateChecksum(text) ) {
-                        console.log("Checksums don't match!");
-                        deferred.resolve(false);
-                        return;
-                    }
-                }
-                deferred.resolve(true);
-            }
-        });
-        
-        return deferred.promise;
-    },
-    
-    afterRender: function() {
-        var app = Rally.getApp();
-        
-        if (! app.isExternal() ) {
-                
-            this._checkChecksum(app).then({
-                scope: this,
-                success: function(result){
-                    if ( !result ) {
-                        this.addDocked({
-                            xtype:'container',
-                            cls: 'build-info',
-                            padding: 2,
-                            html:'<span class="icon-warning"> </span>Checksums do not match'
-                        });
-                    }
-                },
-                failure: function(msg){
-                    console.log("oops:",msg);
-                }
-            });
-        } else {
-            this.addDocked({
-                xtype:'container',
-                cls: 'build-info',
-                padding: 2,
-                html:'... Running externally'
-            });
-        }
-        this.callParent(arguments);
-    },
-    
-    beforeRender: function() {
-        var me = this;
-        this.callParent(arguments);
-
-        if (this.informationHtml) {
-            this.addDocked({
-                xtype: 'component',
-                componentCls: 'intro-panel',
-                padding: 2,
-                html: this.informationHtml
-            });
-        }
-        
-        this.addDocked({
-            xtype:'container',
-            cls: 'build-info',
-            padding: 2,
-            html:"This app was created by the Rally Technical Services Team."
-        });
-        
-        if ( APP_BUILD_DATE ) {
-            this.addDocked({
-                xtype:'container',
-                cls: 'build-info',
-                padding: 2,
-                html:'Build date/time: ' + APP_BUILD_DATE
-            });
-        }
-    }
-});
-
-/*
- */
-Ext.define('Rally.technicalservices.Logger',{
-    constructor: function(config){
-        Ext.apply(this,config);
-    },
-    log: function(args){
-        var timestamp = "[ " + Ext.util.Format.date(new Date(), "Y-m-d H:i:s.u") + " ]";
-        //var output_args = arguments;
-        //output_args.unshift( [ "[ " + timestamp + " ]" ] );
-        //output_args = Ext.Array.push(output_args,arguments);
-        
-        var output_args = [];
-        output_args = Ext.Array.push(output_args,[timestamp]);
-        output_args = Ext.Array.push(output_args, Ext.Array.slice(arguments,0));
-
-        window.console && console.log.apply(console,output_args);
-    }
-
-});
-
-Ext.define('CA.techservices.promise.ParallelThrottle',{
-    requires: ['Deft.promise.Promise'],
-    statics: {
-
-        throttle: function (fns, maxParallelCalls, scope) {
-
-            if (maxParallelCalls <= 0 || fns.length < maxParallelCalls){
-                return Deft.promise.Chain.parallel(fns, scope);
-            }
-
-
-            var parallelFns = [],
-                fnChunks = [],
-                idx = -1;
-
-            for (var i = 0; i < fns.length; i++) {
-                if (i % maxParallelCalls === 0) {
-                    idx++;
-                    fnChunks[idx] = [];
-                }
-                fnChunks[idx].push(fns[i]);
-            }
-
-            _.each(fnChunks, function (chunk) {
-                parallelFns.push(function () {
-                    return Deft.promise.Chain.parallel(chunk, scope);
-                });
-            });
-
-            return Deft.Promise.reduce(parallelFns, function(groupResults, fnGroup) {
-                return Deft.Promise.when(fnGroup.call(scope)).then(function(results) {
-                    groupResults = groupResults.concat(results || []);
-                    return groupResults;
-                });
-            }, []);
-        }
-    }
-});
-Ext.define('TSDateUtils', {
-    singleton: true,
-    
-    getBeginningOfWeekForLocalDate: function(week_date) {
-        var start_of_week_here = Ext.Date.add(week_date, Ext.Date.DAY, -1 * week_date.getDay());
-        return start_of_week_here;
-    },
-    
-    getBeginningOfWeekISOForLocalDate: function(week_date,showShiftedTimeStamp) {
-        var offset = week_date.getTimezoneOffset();  // 480 is pacific, -330 is india
-        
-        var local_beginning = TSDateUtils.getBeginningOfWeekForLocalDate(week_date);
-        var shifted_time = Rally.util.DateTime.add(week_date,'minute',offset);
-                
-        if ( shifted_time.getUTCDay() === 0 && shifted_time.getHours() === 0  ) {
-            // this is already the beginning of the week
-            var shifted_string = this.formatShiftedDate(week_date, 'Y-m-d');
-            if ( showShiftedTimeStamp ) {
-                return shifted_string + 'T00:00:00.0Z';
-            }
-            return shifted_string;
-        }
-        
-        if (showShiftedTimeStamp) {
-            return Rally.util.DateTime.toIsoString(local_beginning).replace(/T.*$/,'T00:00:00.0Z');
-        }
-        
-        return Rally.util.DateTime.toIsoString(local_beginning).replace(/T.*$/,'');
-    },
-    
-    formatShiftedDate: function(jsdate,format) {
-        var offset = jsdate.getTimezoneOffset();  // 480 is pacific, -330 is india
-
-        if ( offset > 0 ) {
-            jsdate = Rally.util.DateTime.add(jsdate,'minute',offset);
-        }
-
-        return Ext.util.Format.date(jsdate,format);
-    },
-    
-    pretendIMeantUTC: function(jsdate,asUTC) {
-        var offset = jsdate.getTimezoneOffset();
-        
-        if ( asUTC ) {
-            return Rally.util.DateTime.toIsoString(jsdate).replace(/T.*$/,'T00:00:00.000Z');
-        }
-        var shiftedDate = Rally.util.DateTime.add(jsdate,'minute',-1 * offset);
-        
-        return shiftedDate;
-    },
-    
-    // returns a promise, fulfills with a boolean
-    isApproved: function(week_start_iso, user_oid) {
-        var deferred = Ext.create('Deft.Deferred');
-        
-        var short_iso_date = week_start_iso;
-        var key_user_oid = user_oid || Rally.getApp().getContext().getUser().ObjectID;
-        
-        var key = Ext.String.format("{0}.{1}.{2}", 
-            TSUtilities.approvalKeyPrefix,
-            short_iso_date,
-            key_user_oid
-        );
-        
-        this._loadWeekStatusPreference(key).then({
-            success: function(preference) {
-                if (preference.length === 0) { 
-                    deferred.resolve(false);
-                    return;
-                }
-                var value = preference[0].get('Value');
-                if ( /{/.test(value) ) {
-                    var status_object = Ext.JSON.decode(value);
-                    if ( status_object.status == "Approved" ) { 
-                        deferred.resolve(true);
-                        return;
-                    }
-                }
-                
-                deferred.resolve(false);
-            },
-            failure: function(msg) {
-                deferred.reject(msg);
-            }
-        });
-        
-        return deferred.promise;
-    },
-    
-    _loadWeekStatusPreference: function(key) {
-        
-        var config = {
-            model:'Preference',
-            limit: 1,
-            pageSize: 1,
-            filters: [
-                {property:'Name',operator: 'contains', value:key},
-                {property:'Name',operator:'!contains',value: TSUtilities.archiveSuffix}
-            ],
-            fetch: ['Name','Value'],
-            sorters: [{property:'CreationDate', direction: 'DESC'}]
-        };
-        
-        return TSUtilities.loadWsapiRecords(config);
-    }
-});
-
-Ext.define('Rally.technicalservices.FileUtilities', {
-    singleton: true,
-    logger: new Rally.technicalservices.Logger(),
-    saveCSVToFile:function(csv,file_name,type_object){
-            if (type_object == undefined){
-                type_object = {type:'text/csv;charset=utf-8'};
-            }
-            var blob = new Blob([csv],type_object);
-            saveAs(blob,file_name);
-    },
-    saveTextAsFile: function(textToWrite, fileName) {
-        var textFileAsBlob = new Blob([textToWrite], {type:'text/plain'});
-        var fileNameToSaveAs = fileName;
-
-        var downloadLink = document.createElement("a");
-        downloadLink.download = fileNameToSaveAs;
-        downloadLink.innerHTML = "Download File";
-        if (window.webkitURL != null)
-        {
-            // Chrome allows the link to be clicked
-            // without actually adding it to the DOM.
-            downloadLink.href = window.webkitURL.createObjectURL(textFileAsBlob);
-        }
-        else
-        {
-            // Firefox requires the link to be added to the DOM
-            // before it can be clicked.
-            downloadLink.href = window.URL.createObjectURL(textFileAsBlob);
-            downloadLink.onclick = destroyClickedElement;
-            downloadLink.style.display = "none";
-            document.body.appendChild(downloadLink);
-        }
-        downloadLink.click();
-    },
-    destroyClickedElement: function(event)
-    {
-        document.body.removeChild(event.target);
-    },
-    convertDataArrayToCSVText: function(data_array, requestedFieldHash){
-       
-        var text = '';
-        Ext.each(Object.keys(requestedFieldHash), function(key){
-            text += requestedFieldHash[key] + ',';
-        });
-        text = text.replace(/,$/,'\n');
-        
-        Ext.each(data_array, function(d){
-            Ext.each(Object.keys(requestedFieldHash), function(key){
-                if (d[key]){
-                    if (typeof d[key] === 'object'){
-                        if (d[key].FormattedID) {
-                            text += Ext.String.format("\"{0}\",",d[key].FormattedID ); 
-                        } else if (d[key].Name) {
-                            text += Ext.String.format("\"{0}\",",d[key].Name );                    
-                        } else if (!isNaN(Date.parse(d[key]))){
-                            text += Ext.String.format("\"{0}\",",Rally.util.DateTime.formatWithDefaultDateTime(d[key]));
-                        }else {
-                            text += Ext.String.format("\"{0}\",",d[key].toString());
-                        }
-                    } else {
-                        text += Ext.String.format("\"{0}\",",d[key] );                    
-                    }
-                } else {
-                    text += ',';
-                }
-            },this);
-            text = text.replace(/,$/,'\n');
-        },this);
-        return text;
-    },
-    _getCSVFromWsapiBackedGrid: function(grid,skip_headers) {
-        var deferred = Ext.create('Deft.Deferred');
-        this.logger.log("_getCSVFromWsapiBackedGrid", grid, skip_headers);
-        
-        var store = Ext.create('Rally.data.wsapi.Store',{
-            fetch: grid.getStore().config.fetch,
-            filters: grid.getStore().config.filters,
-            model: grid.getStore().config.model,
-            pageSize: 200
-        });
-        
-        var columns = grid.columns;
-        
-        var record_count = grid.getStore().getTotalCount(),
-            page_size = grid.getStore().pageSize,
-            pages = Math.ceil(record_count/page_size),
-            promises = [];
-
-        for (var page = 1; page <= pages; page ++ ) {
-            promises.push(this.loadStorePage(grid, store, columns, page, pages));
-        }
-        Deft.Promise.all(promises).then({
-            success: function(csvs){
-                var csv = [];
-                if ( !skip_headers ) {
-                    csv.push('"' + this._getHeadersFromGrid(grid).join('","') + '"');
-                }
-                _.each(csvs, function(c){
-                    _.each(c, function(line){
-                        csv.push(line);
-                    });
-                });
-                csv = csv.join('\r\n');
-                deferred.resolve(csv);
-                Rally.getApp().setLoading(false);
-            }
-        });
-        return deferred.promise;
-    },
-    
-    // custom grid assumes there store is fully loaded
-    _getCSVFromCustomBackedGrid: function(grid, skip_headers) {
-        var store = grid.getStore();
-        
-        var csv = [];
-
-        if ( !skip_headers ) {
-            csv.push('"' + this._getHeadersFromGrid(grid).join('","') + '"');
-        }
-        var number_of_records = store.getTotalCount();
-        
-        for (var i = 0; i < number_of_records; i++) {
-            var record = store.getAt(i);
-            if ( ! record ) {
-                return;
-            }
-            csv.push( this._getCSVFromRecord(record, grid, store) );
-        }
-        
-        this.logger.log("Number or lines in CSV:", csv.length);
-        return csv.join('\r\n');
-    },
-    
-    _getHeadersFromGrid: function(grid) {
-        var headers = [];        
-        var columns = grid.columns;
-
-        Ext.Array.each(columns,function(column){
-            
-            if ( column.dataIndex || column.renderer ) {
-                if ( column.csvText ) {
-                    headers.push(column.csvText.replace('&nbsp;',' '));
-                } else if ( column.text )  {
-                    headers.push(column.text.replace('&nbsp;',' '));
-                }
-            }
-        });
-        
-        return headers;
-    },
-    
-    _getColumnNamesFromGrid: function(grid) {
-        var names = [];
-        var columns = grid.columns;
-
-        Ext.Array.each(columns,function(column){
-            if ( column.dataIndex || column.renderer ) {
-                names.push(column.dataIndex);
-            }
-        });
-        
-        return names;
-    },
-    /*
-     * will render using your grid renderer.  If you want it to ignore the grid renderer, 
-     * have the column set _csvIgnoreRender: true
-     */
-    getCSVFromGrid:function(app, grid, skip_headers){
-        this.logger.log("Exporting grid with store type:", Ext.getClassName(grid.getStore()));
-        
-        if ( Ext.getClassName(grid.getStore()) != "Rally.data.custom.Store" ) {
-            return this._getCSVFromWsapiBackedGrid(grid,skip_headers);
-        }
-        
-        return this._getCSVFromCustomBackedGrid(grid,skip_headers);
-    },
-    loadStorePage: function(grid, store, columns, page, total_pages){
-        var deferred = Ext.create('Deft.Deferred');
-        this.logger.log('loadStorePage',page, total_pages);
-
-        store.loadPage(page, {
-            callback: function (records) {
-                var csv = [];
-                Rally.getApp().setLoading(Ext.String.format('Page {0} of {1} loaded',page, total_pages));
-                for (var i = 0; i < records.length; i++) {
-                    var record = records[i];
-                    csv.push( this._getCSVFromRecord(record, grid, store) );
-                }
-                deferred.resolve(csv);
-            },
-            scope: this
-        });
-        return deferred;
-    },
-    
-    _getCSVFromRecord: function(record, grid, store) {
-        var mock_meta_data = {
-            align: "right",
-            classes: [],
-            cellIndex: 9,
-            column: null,
-            columnIndex: 9,
-            innerCls: undefined,
-            recordIndex: 5,
-            rowIndex: 5,
-            style: "",
-            tdAttr: "",
-            tdCls: "x-grid-cell x-grid-td x-grid-cell-headerId-gridcolumn-1029 x-grid-cell-last x-unselectable",
-            unselectableAttr: "unselectable='on'"
-        };
-        
-        var node_values = [];
-        var columns = grid.columns;
-        
-        Ext.Array.each(columns, function (column) {
-            if (column.xtype != 'rallyrowactioncolumn'  && column.xtype != 'tsrowactioncolumn' && !column._exportHide) {
-                if (column.dataIndex) {
-                    var column_name = column.dataIndex;
-                    
-                    var display_value = record.get(column_name);
-
-                    if (!column._csvIgnoreRender && ( column.renderer || column.exportRenderer) ) {
-                        if (column.exportRenderer) {
-                            display_value = column.exportRenderer(display_value, mock_meta_data, record, 0, 0, store, grid.getView());
-                        } else {
-                            display_value = column.renderer(display_value, mock_meta_data, record, 0, 0, store, grid.getView());
-                        }
-                    }
-                    node_values.push(display_value);
-                } else {
-                    var display_value = null;
-                    if (!column._csvIgnoreRender && column.renderer) {
-                        if (column.exportRenderer) {
-                            display_value = column.exportRenderer(display_value, mock_meta_data, record, record, 0, 0, store, grid.getView());
-                        } else {
-                            display_value = column.renderer(display_value, mock_meta_data, record, record, 0, 0, store, grid.getView());
-                        }
-                        node_values.push(display_value);
-                    }
-                }
-
-            }
-        }, this);
-        
-        var csv_string = "";
-        Ext.Array.each(node_values, function(node_value,idx){
-            if ( idx > 0 ) {
-                csv_string = csv_string + ",";
-            }
-            if (/^=/.test(node_value) ) {
-                csv_string = csv_string + node_value;
-            } else {
-                csv_string = csv_string + '"' + node_value + '"';
-            }
-
-        });
-        
-        return csv_string;
-    }
-
-});
 Ext.define('Rally.technicalservices.CommentDialog',{
     extend: 'Rally.ui.dialog.Dialog',
     alias: 'widget.tscommentdialog',
@@ -2804,7 +2943,7 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
         
     }
 });
-Ext.override(Rally.ui.grid.plugin.Validation,{
+Ext.override(Rally.ui.grid.plugin.Validation, {
     _onBeforeEdit: function(editor, object, eOpts) {
         // clear this because it won't let us do the getEditor on cells
     }
@@ -2812,26 +2951,27 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
 
 /**
  */
- 
- Ext.define('Rally.technicalservices.TimeTable', {
+
+Ext.define('Rally.technicalservices.TimeTable', {
     extend: 'Ext.Container',
     alias: 'widget.tstimetable',
-    
+
     mixins: ['Ext.state.Stateful'],
-    
+
     logger: new Rally.technicalservices.Logger(),
 
     rows: [],
     columns: null,
-    
+
     /**
      * @property {String} cls The base class applied to this object's element
      */
     cls: "tstimetable",
 
-    time_entry_item_fetch: ['WeekStartDate','WorkProductDisplayString','WorkProduct','Task',
-        'TaskDisplayString','Feature','Project', 'ObjectID', 'Name', 'Release'],
-        
+    time_entry_item_fetch: ['WeekStartDate', 'WorkProductDisplayString', 'WorkProduct', 'Task',
+        'TaskDisplayString', 'Feature', 'Project', 'ObjectID', 'Name', 'Release'
+    ],
+
     config: {
         startDate: null,
         editable: true,
@@ -2840,41 +2980,42 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
         manager_field: null,
         week_locked: false
     },
-    
+
     stateId: 'ca.technicalservices.extended.timesheet.columns',
     stateful: true,
     stateEvents: ['columnresize'],
-    
-    getState: function() {
-        var me = this,
-            state = null;
+    /*
+        getState: function() {
+            var me = this,
+                state = null;
 
-        state = {
-            columns: this.columns
-        };
+            state = {
+                columns: this.columns
+            };
 
-        return state;
-    },
-    
-    applyState: function(state) {
-        if (state) {
-            Ext.apply(this, state);
-        }
-    },
-    
-    constructor: function (config) {
+            return state;
+        },
+
+        applyState: function(state) {
+            if (state) {
+                Ext.apply(this, state);
+            }
+        },
+        */
+
+    constructor: function(config) {
         this.mergeConfig(config);
-        
+
         if (Ext.isEmpty(config.startDate) || !Ext.isDate(config.startDate)) {
             throw "Rally.technicalservices.TimeTable requires startDate parameter (JavaScript Date)";
         }
         this.callParent([this.config]);
     },
 
-    initComponent: function () {
+    initComponent: function() {
         var me = this;
         this.callParent(arguments);
-        
+
         this.addEvents(
             /**
              * @event
@@ -2884,19 +3025,19 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
              */
             'gridReady'
         );
-        
+
         this.startDateString = TSDateUtils.getBeginningOfWeekISOForLocalDate(this.startDate, true);
 
-        this.logger.log("Week Start: ", this.startDate, this.startDateString );
-        
-        if ( Ext.isEmpty(this.timesheet_user) ) {
+        this.logger.log("Week Start: ", this.startDate, this.startDateString);
+
+        if (Ext.isEmpty(this.timesheet_user)) {
             this.timesheet_user = Rally.getApp().getContext().getUser();
         }
-        
+
         Deft.Chain.sequence([
             me._getTEIModel,
-            function() { return Rally.technicalservices.TimeModelBuilder.build('TimeEntryItem','TSTableRow'); }
-        ],this).then({
+            function() { return Rally.technicalservices.TimeModelBuilder.build('TimeEntryItem', 'TSTableRow'); }
+        ], this).then({
             scope: this,
             success: function(model) {
                 this._updateData();
@@ -2906,7 +3047,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
             }
         });
     },
-    
+
     _getTEIModel: function() {
         var deferred = Ext.create('Deft.Deferred');
         Rally.data.ModelFactory.getModel({
@@ -2919,7 +3060,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
         });
         return deferred.promise;
     },
-    
+
     _updateData: function() {
         this.setLoading('Loading time...');
         var me = this;
@@ -2930,71 +3071,71 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
             this._loadTimeEntryAppends,
             this._loadTimeEntryAmends,
             this._loadDefaultPreference
-        ],this).then({
+        ], this).then({
             scope: this,
             success: function(results) {
-                var time_entry_items  = results[0];
+                var time_entry_items = results[0];
                 var time_entry_values = results[1];
                 var time_entry_appends = results[2];
                 var time_entry_amends = results[3];
                 var time_default_preference = results[4];
-                
+
                 this.timePreference = Ext.create('TSDefaultPreference');
-                
-                if ( time_default_preference.length > 0 ) {
+
+                if (time_default_preference.length > 0) {
                     this.timePreference = Ext.create('TSDefaultPreference', { '__Preference': time_default_preference[0] });
                 }
                 this.logger.log('Time preference: ', this.timePreference);
-                
-                var rows = Ext.Array.map(time_entry_items, function(item){
+
+                var rows = Ext.Array.map(time_entry_items, function(item) {
                     var product = item.get('Project');
 
                     var workproduct = item.get('WorkProduct');
                     var feature = null;
                     var release = null;
-                    
-                    if ( !Ext.isEmpty(workproduct) ) {
+
+                    if (!Ext.isEmpty(workproduct)) {
                         product = workproduct.Project;
-                        if ( workproduct.Feature ) {
+                        if (workproduct.Feature) {
                             feature = workproduct.Feature;
                             product = feature.Project;
                         }
                     }
-                    
-                    if ( !Ext.isEmpty(workproduct) && workproduct.Release ) {
+
+                    if (!Ext.isEmpty(workproduct) && workproduct.Release) {
                         release = workproduct.Release;
                     }
-                    
+
                     var data = {
-                        __TimeEntryItem:item,
+                        __TimeEntryItem: item,
                         __Feature: feature,
                         __Product: product,
                         __Release: release,
                         __Pinned: me._isItemPinned(item)
                     };
-                    
-                    return Ext.create('TSTableRow',Ext.Object.merge(data, item.getData()));
+
+                    return Ext.create('TSTableRow', Ext.Object.merge(data, item.getData()));
                 });
-                
+
                 var rows = this._addTimeEntryValues(rows, time_entry_values);
                 var appended_rows = this._getAppendedRowsFromPreferences(time_entry_appends);
                 var amended_rows = this._getAmendedRowsFromPreferences(time_entry_amends);
-                
+
                 this.logger.log('TEIs:', time_entry_items);
                 this.logger.log('Rows:', rows);
                 this.logger.log('Appended Rows:', appended_rows);
                 this.logger.log('Amended Rows:', amended_rows);
 
-                this.rows = Ext.Array.merge(rows,appended_rows,amended_rows);
+                this.rows = Ext.Array.merge(rows, appended_rows, amended_rows);
                 this._makeGrid(this.rows);
                 this.setLoading(false);
             }
         });
-        
+
     },
-    
+
     _getAppendedRowsFromPreferences: function(prefs) {
-        return Ext.Array.map(prefs, function(pref){
+        return Ext.Array.map(prefs, function(pref) {
             var value = Ext.JSON.decode(pref.get('Value'));
             value.ObjectID = pref.get('ObjectID');
             value.__PrefID = pref.get('ObjectID');
@@ -3005,9 +3146,9 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
             return row;
         });
     },
-    
+
     _getAmendedRowsFromPreferences: function(prefs) {
-        return Ext.Array.map(prefs, function(pref){
+        return Ext.Array.map(prefs, function(pref) {
             var value = Ext.JSON.decode(pref.get('Value'));
             value.ObjectID = pref.get('ObjectID');
             value.__PrefID = pref.get('ObjectID');
@@ -3018,27 +3159,27 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
             return row;
         });
     },
-    
+
     _addTimeEntryValues: function(rows, time_entry_values) {
         var rows_by_oid = {};
-        
+
         Ext.Array.each(rows, function(row) { rows_by_oid[row.get('ObjectID')] = row; });
-        
-        Ext.Array.each(time_entry_values, function(value){
+
+        Ext.Array.each(time_entry_values, function(value) {
             var parent_oid = value.get('TimeEntryItem').ObjectID;
 
             var row = rows_by_oid[parent_oid];
             row.addTimeEntryValue(value);
         });
-        
+
         return rows;
     },
-    
+
     _loadTimeEntryItems: function() {
         this.setLoading('Loading time entry items...');
 
         var user_oid = Rally.getApp().getContext().getUser().ObjectID;
-        if ( !Ext.isEmpty(this.timesheet_user) ) {
+        if (!Ext.isEmpty(this.timesheet_user)) {
             user_oid = this.timesheet_user.ObjectID;
         }
 
@@ -3047,163 +3188,162 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
             context: {
                 project: null
             },
-            fetch: Ext.Array.merge(Rally.technicalservices.TimeModelBuilder.getFetchFields(), 
-                this.time_entry_item_fetch,
-                [this.manager_field]
+            fetch: Ext.Array.merge(Rally.technicalservices.TimeModelBuilder.getFetchFields(),
+                this.time_entry_item_fetch, [this.manager_field]
             ),
             filters: [
-                {property:'WeekStartDate',value:this.startDateString},
-                {property:'User.ObjectID',value:user_oid}
+                { property: 'WeekStartDate', value: this.startDateString },
+                { property: 'User.ObjectID', value: user_oid }
             ]
         };
-        
+
         return TSUtilities.loadWsapiRecords(config);
     },
-    
+
     _loadTimeEntryValues: function() {
         this.setLoading('Loading time entry values...');
-        
+
         var user_oid = Rally.getApp().getContext().getUser().ObjectID;
-        if ( !Ext.isEmpty(this.timesheet_user) ) {
+        if (!Ext.isEmpty(this.timesheet_user)) {
             user_oid = this.timesheet_user.ObjectID;
         }
-        
+
         var config = {
             model: 'TimeEntryValue',
             context: {
                 project: null
             },
-            fetch: ['DateVal','Hours','TimeEntryItem','ObjectID'],
+            fetch: ['DateVal', 'Hours', 'TimeEntryItem', 'ObjectID'],
             filters: [
-                {property:'TimeEntryItem.WeekStartDate',value:this.startDateString},
-                {property:'TimeEntryItem.User.ObjectID',value:user_oid}
+                { property: 'TimeEntryItem.WeekStartDate', value: this.startDateString },
+                { property: 'TimeEntryItem.User.ObjectID', value: user_oid }
             ]
         };
-        
+
         return TSUtilities.loadWsapiRecords(config);
     },
-    
+
     _loadTimeEntryAppends: function() {
         this.setLoading('Loading time entry additions...');
-        
+
         var user_oid = Rally.getApp().getContext().getUser().ObjectID;
-        
-        if ( !Ext.isEmpty(this.timesheet_user) ) {
+
+        if (!Ext.isEmpty(this.timesheet_user)) {
             user_oid = this.timesheet_user.ObjectID;
         }
-        
-        var key = Ext.String.format("{0}.{1}.{2}", 
+
+        var key = Ext.String.format("{0}.{1}.{2}",
             Rally.technicalservices.TimeModelBuilder.appendKeyPrefix,
-            this.startDateString.replace(/T.*$/,''),
+            this.startDateString.replace(/T.*$/, ''),
             user_oid
         );
-        
+
         var config = {
             model: 'Preference',
             context: {
                 project: null
             },
-            fetch: ['Name','Value','ObjectID'],
+            fetch: ['Name', 'Value', 'ObjectID'],
             filters: [
-                {property:'Name',operator:'contains',value:key}
+                { property: 'Name', operator: 'contains', value: key }
             ]
         };
-        
-        this.logger.log('finding by key',key);
 
-        
+        this.logger.log('finding by key', key);
+
+
         return TSUtilities.loadWsapiRecords(config);
     },
-    
+
     _loadTimeEntryAmends: function() {
         this.setLoading('Loading time entry amendments...');
-        
+
         var user_oid = Rally.getApp().getContext().getUser().ObjectID;
-        
-        if ( !Ext.isEmpty(this.timesheet_user) ) {
+
+        if (!Ext.isEmpty(this.timesheet_user)) {
             user_oid = this.timesheet_user.ObjectID;
         }
-        
-        var key = Ext.String.format("{0}.{1}.{2}", 
+
+        var key = Ext.String.format("{0}.{1}.{2}",
             Rally.technicalservices.TimeModelBuilder.amendKeyPrefix,
-            this.startDateString.replace(/T.*$/,''),
+            this.startDateString.replace(/T.*$/, ''),
             user_oid
         );
-        
-        this.logger.log('finding by key',key);
 
-        
+        this.logger.log('finding by key', key);
+
+
         var config = {
             model: 'Preference',
             context: {
                 project: null
             },
-            fetch: ['Name','Value','ObjectID'],
+            fetch: ['Name', 'Value', 'ObjectID'],
             filters: [
-                {property:'Name',operator:'contains',value:key}
+                { property: 'Name', operator: 'contains', value: key }
             ]
         };
-        
+
         return TSUtilities.loadWsapiRecords(config);
     },
-    
+
     getDefaultPreference: function() {
         return this.timePreference;
     },
-    
+
     _loadDefaultPreference: function() {
         this.setLoading('Loading preference information...');
-        
+
         var user_oid = Rally.getApp().getContext().getUser().ObjectID;
-        
-        if ( !Ext.isEmpty(this.timesheet_user) ) {
+
+        if (!Ext.isEmpty(this.timesheet_user)) {
             user_oid = this.timesheet_user.ObjectID;
         }
-        
-        var key = Ext.String.format("{0}.{1}", 
+
+        var key = Ext.String.format("{0}.{1}",
             TSUtilities.pinKeyPrefix,
             user_oid
         );
-        
-        this.logger.log('finding by key',key);
+
+        this.logger.log('finding by key', key);
 
         var config = {
             model: 'Preference',
             context: {
                 project: null
             },
-            fetch: ['Name','Value','ObjectID'],
+            fetch: ['Name', 'Value', 'ObjectID'],
             filters: [
-                {property:'Name',operator:'contains',value:key}
+                { property: 'Name', operator: 'contains', value: key }
             ]
         };
-        
+
         return TSUtilities.loadWsapiRecords(config);
     },
-    
+
     _makeGrid: function(rows) {
         this.removeAll();
 
-        var table_store = Ext.create('Rally.data.custom.Store',{
+        var table_store = Ext.create('Rally.data.custom.Store', {
             model: 'TSTableRow',
             groupField: '__SecretKey',
             data: rows,
             pageSize: 100
         });
-                
-        
+
+
         var me = this;
 
-        this.grid = this.add({ 
-            xtype:'rallygrid', 
+        this.grid = this.add({
+            xtype: 'rallygrid',
             store: table_store,
             columnCfgs: this.getColumns(),
-            showPagingToolbar : false,
-            showRowActionsColumn : false,
+            showPagingToolbar: false,
+            showRowActionsColumn: false,
             sortableColumns: true,
             disableSelection: true,
             enableColumnMove: false,
-            enableColumnResize : true,
+            enableColumnResize: true,
 
             viewConfig: {
                 listeners: {
@@ -3222,22 +3362,22 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
             }],
             listeners: {
                 scope: this,
-                columnresize: function(header_container,column,width){
-                    Ext.Array.each(this.columns, function(col){
-                        if ( col.dataIndex == column.dataIndex ) {
+                columnresize: function(header_container, column, width) {
+                    Ext.Array.each(this.columns, function(col) {
+                        if (col.dataIndex == column.dataIndex) {
                             col.width = column.width;
                         }
                     });
-                    
-                    this.fireEvent('columnresize',this.columns);
+
+                    this.fireEvent('columnresize', this.columns);
                 }
             }
         });
-        
+
         this.fireEvent('gridReady', this, this.grid);
-        
+
     },
-    
+
     _addTooltip: function(view) {
         this.toolTip = Ext.create('Ext.tip.ToolTip', {
             target: view.el,
@@ -3252,68 +3392,71 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                         columnTitle = view.getHeaderByCell(trigger).text,
                         columnDataIndex = view.getHeaderByCell(trigger).dataIndex;
                     var record = view.getRecord(parent);
-                    if ( !record ) {
+                    if (!record) {
                         return false;
                     }
-                    
+
                     var columnText = null;
                     var value = record.get(columnDataIndex);
-                    
-                    if ( columnTitle == "Work Product" && ! Ext.isEmpty(value) ) {
+
+                    if (columnTitle == "Work Product" && !Ext.isEmpty(value)) {
                         columnText = value.Project && value.Project._refObjectName;
                     }
-                    
-                    if (!Ext.isEmpty(columnText)){
+
+                    if (!Ext.isEmpty(columnText)) {
                         tip.update("<b>Project:</b> " + columnText);
-                    } else {
+                    }
+                    else {
                         return false;
                     }
                 }
             }
         });
     },
-    
+
     _isForCurrentUser: function() {
-        return ( this.timesheet_user.ObjectID == Rally.getApp().getContext().getUser().ObjectID);
+        return (this.timesheet_user.ObjectID == Rally.getApp().getContext().getUser().ObjectID);
     },
-    
+
     absorbTime: function(record) {
-        
+
         var clone = Ext.clone(record).getData();
         record.clearAndRemove();
 
-        if ( clone.__Appended ) {
+        if (clone.__Appended) {
             return this._absorbAppended(clone);
-        } else {
+        }
+        else {
             var original_row = this.getRowForAmendedRow(clone);
-                        
-            if ( Ext.isEmpty(original_row) ) {
+
+            if (Ext.isEmpty(original_row)) {
                 return this._absorbAppended(clone); // original must have been removed
-            } else {
+            }
+            else {
                 return this._absorbAmended(clone);
             }
         }
-        
+
     },
-    
+
     _absorbAmended: function(clone) {
         var deferred = Ext.create('Deft.Deferred');
-        
-        var days = ['__Monday','__Tuesday','__Wednesday','__Thursday','__Friday','__Saturday','__Sunday','__Total'];
+
+        var days = ['__Monday', '__Tuesday', '__Wednesday', '__Thursday', '__Friday', '__Saturday', '__Sunday', '__Total'];
         var original_row = this.getRowForAmendedRow(clone);
 
         //var days = me._getDayValuesFromRow(clone);
         Ext.Array.each(days, function(day) {
             var clone_value = clone[day] || 0;
             var original_value = original_row.get(day) || 0;
-            
+
             var new_value = original_value + clone[day];
-            if ( new_value < 0 ) { new_value = 0; }
-            if ( new_value > 24 ) { new_value = 24; }
-            
-            original_row.set(day,new_value);
+            if (new_value < 0) { new_value = 0; }
+            if (new_value > 24) { new_value = 24; }
+
+            original_row.set(day, new_value);
         });
-        
+
         original_row.save().then({
             success: function(result) {
                 deferred.resolve(result);
@@ -3321,36 +3464,36 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
             failure: function(msg) {
                 deferred.reject(msg);
             }
-        
+
         });
-        
+
         return deferred.promise;
     },
-    
+
     _absorbAppended: function(clone) {
         var deferred = Ext.create('Deft.Deferred'),
             me = this;
-        
+
         var work_item = clone.Task;
-            
-        if ( Ext.isEmpty(work_item) ) {
+
+        if (Ext.isEmpty(work_item)) {
             work_item = clone.WorkProduct;
         }
-        
+
         this._getItemFromRef(work_item._ref).then({
             success: function(item) {
-                me.addRowForItem(item,true).then({
-                    scope:this,
+                me.addRowForItem(item, true).then({
+                    scope: this,
                     success: function(row) {
-                        var days = ['__Monday','__Tuesday','__Wednesday','__Thursday','__Friday','__Saturday','__Sunday','__Total'];
+                        var days = ['__Monday', '__Tuesday', '__Wednesday', '__Thursday', '__Friday', '__Saturday', '__Sunday', '__Total'];
 
                         //var days = me._getDayValuesFromRow(clone);
                         Ext.Array.each(days, function(day) {
-                            if ( clone[day] > 0 ) {
-                                row.set(day,clone[day]);
+                            if (clone[day] > 0) {
+                                row.set(day, clone[day]);
                             }
                         });
-                        
+
                         row.save().then({
                             success: function(result) {
                                 deferred.resolve(result);
@@ -3371,97 +3514,99 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
         });
         return deferred.promise;
     },
-    
+
     pinTime: function(record) {
-        if ( this.updatePinProcess && this.updatePinProcess.getState() === 'pending' ) {
+        if (this.updatePinProcess && this.updatePinProcess.getState() === 'pending') {
             console.log('pinning in process...');
-        } else {
+        }
+        else {
             console.log('-- ', this.updatePinProcess && this.updatePinProcess.getState());
         }
-        
+
         this.updatePinProcess = this.timePreference.addPin(record);
         this.updatePinProcess.then({
             success: function() {
                 record.set('__Pinned', true);
             },
-            failure: function(msg){
+            failure: function(msg) {
                 Ext.Msg.alert("Problem saving pin:", msg);
             }
         });
-        
+
     },
-    
+
     unpinTime: function(record) {
         var deferred = Ext.create('Deft.Deferred');
-        
-        if ( this.updatePinProcess && this.updatePinProcess.getState() === 'pending' ) {
+
+        if (this.updatePinProcess && this.updatePinProcess.getState() === 'pending') {
             console.log('pinning in process...');
-        } else {
+        }
+        else {
             console.log('-- ', this.updatePinProcess && this.updatePinProcess.getState());
         }
-        
+
         this.updatePinProcess = this.timePreference.removePin(record);
         this.updatePinProcess.then({
             success: function() {
                 record.set('__Pinned', false);
                 deferred.resolve(record);
             },
-            failure: function(msg){
+            failure: function(msg) {
                 deferred.reject(msg);
             }
         });
         return deferred.promise;
     },
-    
+
     _isItemPinned: function(item) {
         this.logger.log('is Item pinned?', item);
-        if ( Ext.isEmpty(this.timePreference) ) { return false; }
+        if (Ext.isEmpty(this.timePreference)) { return false; }
         return this.timePreference.isPinned(item);
     },
-    
+
     _getItemFromRef: function(item_ref) {
         var deferred = Ext.create('Deft.Deferred');
         var ref_array = item_ref.split(/\//);
-        
+
         var objectid = ref_array.pop();
         var type = ref_array.pop();
-        
+
         Rally.data.ModelFactory.getModel({
             type: type,
             success: function(model) {
                 model.load(objectid, {
-                    fetch: ['Name', 'FormattedID', 'Project','ObjectID','WorkProduct'],
+                    fetch: ['Name', 'FormattedID', 'Project', 'ObjectID', 'WorkProduct'],
                     callback: function(result, operation) {
-                        if(operation.wasSuccessful()) {
+                        if (operation.wasSuccessful()) {
                             deferred.resolve(result);
                         }
                     }
                 });
             }
         });
-        
-        
+
+
         return deferred.promise;
     },
-    
+
     cloneForAppending: function(record) {
         var me = this;
         var item = record.get('WorkProduct');
-        
-        if (! Ext.isEmpty( record.get('Task') ) ) {
+
+        if (!Ext.isEmpty(record.get('Task'))) {
             item = record.get('Task');
         }
-        
+
         var type = item._type;
         var objectid = item.ObjectID;
-        
+
         Rally.data.ModelFactory.getModel({
             type: type,
             success: function(model) {
                 model.load(objectid, {
-                    fetch: ['Name', 'FormattedID', 'Project','ObjectID','WorkProduct','Feature'],
+                    fetch: ['Name', 'FormattedID', 'Project', 'ObjectID', 'WorkProduct', 'Feature'],
                     callback: function(result, operation) {
-                        if(operation.wasSuccessful()) {
+                        if (operation.wasSuccessful()) {
                             result.set('__Amended', true);
                             me.addRowForItem(result);
                         }
@@ -3470,49 +3615,50 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
             }
         });
     },
-    
+
     getRowForAmendedRow: function(amended_row) {
         this.logger.log('getting item row for', amended_row);
         var work_item = amended_row.Task;
-        if ( Ext.isEmpty(work_item) ) {
+        if (Ext.isEmpty(work_item)) {
             work_item = amended_row.WorkProduct;
         }
-        
-        
+
+
         var returnRow = null;
         var rows = [];
-        var store_count = this.grid.getStore().data.items.length;  // this.grid.getStore().getTotalCount();
-                
-        for ( var i=0; i<store_count; i++ ) {
+        var store_count = this.grid.getStore().data.items.length; // this.grid.getStore().getTotalCount();
+
+        for (var i = 0; i < store_count; i++) {
             rows.push(this.grid.getStore().getAt(i));
         }
-        
+
         Ext.Array.each(rows, function(row) {
-            if ( row ) { 
-                if ( !row.get('__Amended')  && row.get('WorkProduct') ) {
+            if (row) {
+                if (!row.get('__Amended') && row.get('WorkProduct')) {
                     var task_oid = row.get('Task') && row.get('Task').ObjectID;
                     var wp_oid = row.get('WorkProduct').ObjectID;
-                    
-                    if ( task_oid == work_item.ObjectID || wp_oid == work_item.ObjectID ) {
+
+                    if (task_oid == work_item.ObjectID || wp_oid == work_item.ObjectID) {
                         returnRow = row;
                     }
                 }
             }
         });
-        
+
         return returnRow;
     },
-    
+
     // use force=true to ignore the fact that there's already a row (for appending)
-    addRowForItem: function(item,force) {
+    addRowForItem: function(item, force) {
         var me = this,
             deferred = Ext.create('Deft.Deferred');
 
         this.logger.log('addRowForItem', item, force);
-        
-        if ( !force && this._hasRowForItem(item) ) {
+
+        if (!force && this._hasRowForItem(item)) {
             this.logger.log('has row already:', item);
-        } else {
+        }
+        else {
             var item_type = item.get('_type');
 
             var config = {
@@ -3523,55 +3669,56 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                     ObjectID: item.get('ObjectID')
                 },
                 WeekStartDate: this.startDateString,
-                User: { 
+                User: {
                     _ref: '/user/' + this.timesheet_user.ObjectID,
                     ObjectID: this.timesheet_user.ObjectID
                 }
             };
-            
-            if ( item.get('Project') ) {
+
+            if (item.get('Project')) {
                 config.Project = item.get('Project');
             }
-            
-            if ( item_type == "task" ) {
+
+            if (item_type == "task") {
                 config.TaskDisplayString = item.get('FormattedID') + ":" + item.get('Name');
-                config.Task = { 
+                config.Task = {
                     _ref: item.get('_ref'),
                     _refObjectName: config.TaskDisplayString,
                     ObjectID: item.get('ObjectID')
                 };
-                
+
                 config.WorkProductDisplayString = item.get('WorkProduct').FormattedID + ":" + item.get('WorkProduct').Name;
-                
+
                 config.WorkProduct = {
                     _refObjectName: item.get('WorkProduct').Name,
                     _ref: item.get('WorkProduct')._ref,
                     ObjectID: item.get('WorkProduct').ObjectID
                 };
             }
-            
-            if ( !this._isForCurrentUser() ) {
+
+            if (!this._isForCurrentUser()) {
                 // create a shadow item
                 config.ObjectID = -1;
                 config._type = "timeentryitem";
 
                 config._refObjectUUID = -1;
-                
+
                 var data = {
-                    __TimeEntryItem: Ext.create(this.tei_model,config),
+                    __TimeEntryItem: Ext.create(this.tei_model, config),
                     __Feature: null,
                     __Product: config.Project,
                     __Release: config.WorkProduct.Release
                 };
-                
-                                
-                if ( item.get('__Amended') ) {
+
+
+                if (item.get('__Amended')) {
                     data.__Amended = true;
-                } else {
+                }
+                else {
                     data.__Appended = true;
                 }
-                
-                var row = Ext.create('TSTableRow',Ext.Object.merge(data, config));
+
+                var row = Ext.create('TSTableRow', Ext.Object.merge(data, config));
                 row.save();
                 row.set('updatable', true); // so we can add values to the week 
 
@@ -3579,49 +3726,51 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
 
                 me.rows.push(row);
                 return row;
-            } else {
+            }
+            else {
                 var fields = this.tei_model.getFields();
 
-                var time_entry_item = Ext.create(this.tei_model,config);
-                
+                var time_entry_item = Ext.create(this.tei_model, config);
+
                 var fetch = Ext.Array.merge(Rally.technicalservices.TimeModelBuilder.getFetchFields(), this.time_entry_item_fetch);
 
                 time_entry_item.save({
                     fetch: fetch,
                     callback: function(result, operation) {
-                        if(operation.wasSuccessful()) {
+                        if (operation.wasSuccessful()) {
                             var product = result.get('Project');
                             var workproduct = result.get('WorkProduct');
                             var feature = null;
                             var release = null;
-                            
-                            if ( !Ext.isEmpty(workproduct) && workproduct.Feature ) {
+
+                            if (!Ext.isEmpty(workproduct) && workproduct.Feature) {
                                 feature = workproduct.Feature;
                                 product = feature.Project;
                             }
-                                                            
-                            if ( !Ext.isEmpty(workproduct) && workproduct.Release ) {
+
+                            if (!Ext.isEmpty(workproduct) && workproduct.Release) {
                                 release = workproduct.Release;
                             }
 
                             var data = {
-                                __TimeEntryItem:result,
+                                __TimeEntryItem: result,
                                 __Feature: feature,
                                 __Product: product,
                                 __Release: release,
                                 __Pinned: me._isItemPinned(result) || false
                             };
 
-                            
-                            var row = Ext.create('TSTableRow',Ext.Object.merge(data, time_entry_item.getData()));
 
-                            
+                            var row = Ext.create('TSTableRow', Ext.Object.merge(data, time_entry_item.getData()));
+
+
                             me.grid.getStore().loadRecords([row], { addRecords: true });
                             me.rows.push(row);
-                            
+
                             deferred.resolve(row);
-                        } else {
-                            if ( operation.error && operation.error.errors ) {
+                        }
+                        else {
+                            if (operation.error && operation.error.errors) {
                                 console.log("ERROR:", operation);
                                 Ext.Msg.alert("Problem saving time:", operation.error.errors.join(' '));
                                 deferred.reject();
@@ -3632,65 +3781,65 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                 });
             }
         }
-        
+
         return deferred.promise;
     },
-    
+
     _hasRowForItem: function(item) {
         var item_type = item.get('_type');
         var amender = item.get('__Amended');
-        
+
         var hasRow = false;
         var rows = [];
-        var store_count = this.grid.getStore().data.items.length;  // this.grid.getStore().getTotalCount();
-                
-        for ( var i=0; i<store_count; i++ ) {
+        var store_count = this.grid.getStore().data.items.length; // this.grid.getStore().getTotalCount();
+
+        for (var i = 0; i < store_count; i++) {
             rows.push(this.grid.getStore().getAt(i));
         }
-        
+
         Ext.Array.each(rows, function(row) {
-            if ( row ) { // when clear and remove, we get an undefined row
-                if ( item_type == "task" ) {
-                    if ( row.get('Task') && row.get('Task')._ref == item.get('_ref') ) {
-                        if ( amender && row.get('__Amended') || !amender ) {
+            if (row) { // when clear and remove, we get an undefined row
+                if (item_type == "task") {
+                    if (row.get('Task') && row.get('Task')._ref == item.get('_ref')) {
+                        if (amender && row.get('__Amended') || !amender) {
                             hasRow = true;
                         }
                     }
-                } else {
-                    if ( Ext.isEmpty(row.get('Task')) && row.get('WorkProduct') && row.get('WorkProduct')._ref == item.get('_ref') ) {
-                        if ( amender && row.get('__Amended') || !amender ) {
+                }
+                else {
+                    if (Ext.isEmpty(row.get('Task')) && row.get('WorkProduct') && row.get('WorkProduct')._ref == item.get('_ref')) {
+                        if (amender && row.get('__Amended') || !amender) {
                             hasRow = true;
                         }
                     }
                 }
             }
         });
-        
+
         return hasRow;
     },
-    
+
     getColumns: function() {
         var me = this;
 
         this.logger.log('saved columns:', this.columns);
-        
+
         var columns = [];
-        var isForModification = ! this._isForCurrentUser();
-        
-        if ( this.week_locked ) {
+        var isForModification = !this._isForCurrentUser();
+
+        if (this.week_locked) {
             isForModification = false;
         }
-        
-        if ( this.editable ||  isForModification ) {
+
+        if (this.editable || isForModification) {
             columns.push({
                 xtype: 'tstimetablerowactioncolumn',
                 forModification: isForModification,
                 _exportHide: true
             });
-        } 
-            
-        Ext.Array.push(columns, [
-            {
+        }
+
+        Ext.Array.push(columns, [{
                 dataIndex: '__TimeEntryItem',
                 text: 'User',
                 editor: null,
@@ -3719,49 +3868,49 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                 renderer: function(value, meta, record) {
                     return record.isLocked() || false;
                 }
-            }]);
-            
-        if ( me.manager_field ) {
+            }
+        ]);
+
+        if (me.manager_field) {
             columns.push({
-                dataIndex:'__TimeEntryItem', 
-                text:'Manager', 
+                dataIndex: '__TimeEntryItem',
+                text: 'Manager',
                 align: 'center',
                 hidden: true,
                 _selectable: false,
                 renderer: function(value) {
-                    return value.get('User')[me.manager_field] || "none"; 
+                    return value.get('User')[me.manager_field] || "none";
                 }
             });
         }
-        if ( me.timesheet_status || me.timesheet_status === false ) {
-            Ext.Array.push(columns,[{
+        if (me.timesheet_status || me.timesheet_status === false) {
+            Ext.Array.push(columns, [{
                 dataIndex: '__Product',
                 text: 'Status',
                 _selectable: true,
                 renderer: function(v) { return me.timesheet_status; }
             }]);
         }
-        
-        Ext.Array.push(columns, [
-            { 
+
+        Ext.Array.push(columns, [{
                 text: '',
                 width: 25,
                 _selectable: false,
-                renderer: function(value,meta,record) {
+                renderer: function(value, meta, record) {
                     var display_string = "";
-                    
-                    if ( record.isLocked() ) {
+
+                    if (record.isLocked()) {
                         display_string += "<span class='icon-lock'> </span>";
                     }
-                    
-                    if ( record.get('__Appended') ) {
+
+                    if (record.get('__Appended')) {
                         display_string += "<span class='red icon-edit'> </span>";
                     }
-                    
-                    if ( record.get('__Amended') ) {
+
+                    if (record.get('__Amended')) {
                         display_string += "<span class='red icon-history'> </span>";
                     }
-                    
+
                     return display_string;
                 },
                 _csvIgnoreRender: true
@@ -3772,8 +3921,8 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                 _selectable: true,
                 flex: 1,
                 editor: null,
-                renderer: function(value,meta,record) {
-                    if ( Ext.isEmpty(value) ) { 
+                renderer: function(value, meta, record) {
+                    if (Ext.isEmpty(value)) {
                         return "";
                     }
                     return value._refObjectName;
@@ -3784,40 +3933,40 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
             },
             {
                 dataIndex: '__Feature',
-                text:  'Feature',
+                text: 'Feature',
                 flex: 1,
                 editor: null,
                 _selectable: true,
                 renderer: function(value) {
-                    if ( Ext.isEmpty(value) ) { return ""; }
+                    if (Ext.isEmpty(value)) { return ""; }
                     //console.log(value);
                     return Ext.String.format("<a target='_blank' href='{0}'>{1}</a>",
                         Rally.nav.Manager.getDetailUrl(value),
                         value._refObjectName
                     );
                 },
-                exportRenderer: function(value,meta,record) {
-                    if ( Ext.isEmpty(value) ) { return ""; }
+                exportRenderer: function(value, meta, record) {
+                    if (Ext.isEmpty(value)) { return ""; }
                     return value._refObjectName
                 }
             },
             {
                 dataIndex: 'WorkProduct',
-                text:  'Work Product',
+                text: 'Work Product',
                 flex: 1,
                 editor: null,
                 _selectable: true,
                 renderer: function(value, meta, record) {
-                    if ( Ext.isEmpty(value) ) {
+                    if (Ext.isEmpty(value)) {
                         return record.get('WorkProductDisplayString');
                     }
-                    
+
                     return Ext.String.format("<a target='_blank' href='{0}'>{1}</a>",
                         Rally.nav.Manager.getDetailUrl(value),
                         record.get('WorkProductDisplayString')
                     );
                 },
-                exportRenderer: function(value,meta,record) {
+                exportRenderer: function(value, meta, record) {
                     return record.get('WorkProductDisplayString')
                 }
             },
@@ -3828,70 +3977,71 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                 editor: null,
                 _selectable: true,
                 renderer: function(v) {
-                    if ( Ext.isEmpty(v) ) { return ""; }
+                    if (Ext.isEmpty(v)) { return ""; }
                     return v._refObjectName;
                 }
             },
             {
                 dataIndex: 'Task',
-                text:  'Task',
+                text: 'Task',
                 flex: 1,
                 editor: null,
                 _selectable: true,
                 renderer: function(value, meta, record) {
-                    if ( Ext.isEmpty(value) ) {
+                    if (Ext.isEmpty(value)) {
                         return record.get('TaskDisplayString');
                     }
-                    
+
                     return Ext.String.format("<a target='_blank' href='{0}'>{1}</a>",
                         Rally.nav.Manager.getDetailUrl(value),
                         record.get('TaskDisplayString')
                     );
                 },
-                exportRenderer: function(value,meta,record) {
+                exportRenderer: function(value, meta, record) {
                     return record.get('TaskDisplayString')
                 }
             }
         ]);
-        
+
         var day_width = 50;
-        
-        var editor_config = function(record,df){
-                        
-            if( record && record.isLocked() ) {
+
+        var editor_config = function(record, df) {
+
+            if (record && record.isLocked()) {
                 return false;
             }
-            
+
             var minValue = 0;
-            
-            if ( record && record.get('__Amended') ) {
+
+            if (record && record.get('__Amended')) {
                 minValue = -24;
             }
 
             var disabled = !me.editable;
-            if ( record && ( record.get('__Appended') || record.get('__Amended') ) ) {
+            if (record && (record.get('__Appended') || record.get('__Amended'))) {
                 disabled = false;
             }
-            
+
             return Ext.create('Ext.grid.CellEditor', {
                 field: Ext.create('Rally.ui.NumberField', {
-                    xtype:'rallynumberfield',
+                    xtype: 'rallynumberfield',
                     minValue: minValue,
                     maxValue: 24,
                     disabled: disabled,
                     selectOnFocus: true,
                     listeners: {
-                        change: function(field, new_value, old_value) {1
-                            if ( Ext.isEmpty(new_value) ) {
+                        change: function(field, new_value, old_value) {
+                            1
+                            if (Ext.isEmpty(new_value)) {
                                 field.setValue(0);
                             }
                         }
                     }
                 })
             });
-            
+
         };
-        
+
         var weekend_renderer = function(value, meta, record) {
             meta.tdCls = "ts-weekend-cell";
             return value;
@@ -3899,107 +4049,167 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
         var total_renderer = function(value, meta, record) {
             meta.tdCls = "ts-total-cell";
             return value;
-        }; 
-        
-        columns.push({dataIndex:'__Sunday',   width: day_width, resizable: false,
-            _selectable: true, text:'Sun',   align: 'center',
-            getEditor: editor_config, summaryType: 'sum', renderer: weekend_renderer});
-        columns.push({dataIndex:'__Monday',   width: day_width, resizable: false,
-            _selectable: true, text:'Mon',   align: 'center',
-            getEditor: editor_config, summaryType: 'sum'});
-        columns.push({dataIndex:'__Tuesday',  width: day_width, resizable: false,
-            _selectable: true, text:'Tue',   align: 'center',
-            getEditor: editor_config, summaryType: 'sum'});
-        columns.push({dataIndex:'__Wednesday',width: day_width, resizable: false,
-            _selectable: true, text:'Wed',   align: 'center',
-            getEditor: editor_config, summaryType: 'sum'});
-        columns.push({dataIndex:'__Thursday', width: day_width, resizable: false,
-            _selectable: true, text:'Thur',  align: 'center',
-            getEditor: editor_config, summaryType: 'sum'});
-        columns.push({dataIndex:'__Friday',   width: day_width, resizable: false,
-            _selectable: true, text:'Fri',   align: 'center',
-            getEditor: editor_config, summaryType: 'sum'});
-        columns.push({dataIndex:'__Saturday', width: day_width, resizable: false,
-            _selectable: true, text:'Sat',   align: 'center',
-            getEditor: editor_config, summaryType: 'sum', renderer: weekend_renderer});
+        };
+
         columns.push({
-            dataIndex:'__Total',
-            width: day_width, resizable: false, 
-            text:'Total', 
+            dataIndex: '__Sunday',
+            field: {},
+            width: day_width,
+            resizable: false,
+            _selectable: true,
+            text: 'Sun',
+            align: 'center',
+            getEditor: editor_config,
+            summaryType: 'sum',
+            renderer: weekend_renderer
+        });
+        columns.push({
+            dataIndex: '__Monday',
+            field: {},
+            width: day_width,
+            resizable: false,
+            _selectable: true,
+            text: 'Mon',
+            align: 'center',
+            getEditor: editor_config,
+            summaryType: 'sum'
+        });
+        columns.push({
+            dataIndex: '__Tuesday',
+            field: {},
+            width: day_width,
+            resizable: false,
+            _selectable: true,
+            text: 'Tue',
+            align: 'center',
+            getEditor: editor_config,
+            summaryType: 'sum'
+        });
+        columns.push({
+            dataIndex: '__Wednesday',
+            field: {},
+            width: day_width,
+            resizable: false,
+            _selectable: true,
+            text: 'Wed',
+            align: 'center',
+            getEditor: editor_config,
+            summaryType: 'sum'
+        });
+        columns.push({
+            dataIndex: '__Thursday',
+            field: {},
+            width: day_width,
+            resizable: false,
+            _selectable: true,
+            text: 'Thur',
+            align: 'center',
+            getEditor: editor_config,
+            summaryType: 'sum'
+        });
+        columns.push({
+            dataIndex: '__Friday',
+            field: {},
+            width: day_width,
+            resizable: false,
+            _selectable: true,
+            text: 'Fri',
+            align: 'center',
+            getEditor: editor_config,
+            summaryType: 'sum'
+        });
+        columns.push({
+            dataIndex: '__Saturday',
+            field: {},
+            width: day_width,
+            resizable: false,
+            _selectable: true,
+            text: 'Sat',
+            align: 'center',
+            getEditor: editor_config,
+            summaryType: 'sum',
+            renderer: weekend_renderer
+        });
+        columns.push({
+            dataIndex: '__Total',
+            width: day_width,
+            resizable: false,
+            text: 'Total',
             align: 'center',
             editor: null,
             _selectable: true,
             summaryType: 'sum',
-            summaryRenderer: function(value,meta,record) {
-                if ( value < 40 ) {
+            summaryRenderer: function(value, meta, record) {
+                if (value < 40) {
                     meta.style = 'background: #fec6cd;';
                 }
                 return value;
             },
-            renderer: total_renderer});
+            renderer: total_renderer
+        });
 
 
         this.columns = this._applyUnsavableColumnAttributes(columns);
-        
+
         return this.columns;
     },
-    
+
     _applyUnsavableColumnAttributes: function(columns) {
         console.log('_applyUnsavableColumnAttributes', columns, this.columns);
-        if ( !Ext.isEmpty(this.columns) ) {
+        if (!Ext.isEmpty(this.columns)) {
             // columns saved as state lose their renderer functions
             var columns_by_index = {};
             Ext.Array.each(columns, function(column) {
                 columns_by_index[column.dataIndex] = column;
             });
-            
-            Ext.Array.each(this.columns, function(column){
+
+            Ext.Array.each(this.columns, function(column) {
                 var cfg = columns_by_index[column.dataIndex];
-                if ( column.width && column.width > 0 ) {
+                if (column.width && column.width > 0) {
                     column.flex = null;
                 }
-                if ( cfg && cfg.renderer ) {
+                if (cfg && cfg.renderer) {
                     column.renderer = cfg.renderer;
                 }
-                if ( cfg && cfg.summaryRenderer ) {
+                if (cfg && cfg.summaryRenderer) {
                     column.summaryRenderer = cfg.summaryRenderer;
                 }
-                
-                if ( cfg && cfg.editor ) {
+
+                if (cfg && cfg.editor) {
                     column.editor = cfg.editor;
                 }
-                
-                                
-                if ( cfg && cfg.getEditor ) {
+
+
+                if (cfg && cfg.getEditor) {
                     column.getEditor = cfg.getEditor;
                 }
-                
-                if ( cfg && cfg.summaryType ) {
+
+                if (cfg && cfg.summaryType) {
                     column.summaryType = cfg.summaryType;
                 }
-                
-                if ( cfg && cfg.exportRenderer ) {
+
+                if (cfg && cfg.exportRenderer) {
                     column.exportRenderer = cfg.exportRenderer;
                 }
-                
-                if ( cfg && cfg._selectable ) {
+
+                if (cfg && cfg._selectable) {
                     column._selectable = cfg._selectable;
                 }
-            
+
             });
-            
+
             console.log('-->', this.columns);
             return this.columns;
         }
-        
+
         return columns;
-        
+
     },
-    
+
     getGrid: function() {
         return this.down('rallygrid');
     }
-    
+
 
 });
 
@@ -5478,38 +5688,15 @@ Ext.define("TSExtendedTimesheet", {
         this.launch();
     }
 });
-            
-               Rally.launchApp('TSExtendedTimesheet', {
-                   name: 'Extended Timesheet'
-               });
+
+            Rally.launchApp('TSExtendedTimesheet', {
+                name: 'timesheet-with-approval'
+            });
         });
     </script>
-    
+
     <style type="text/css">
-
-td.ts-total-cell {
-    background-color: #eee !important;
-}
-
-.x-grid-row-summary {
-    background-color: #eee;
-}
-
-.x-grid-row-alt .x-grid-td {
-    background-color: #fff;
-}
-
-.x-border-layout-ct {
-    background-color: #ffffff;
-}
-
-td.ts-weekend-cell {
-    background-color: #B0E0E6 !important;
-}
-
-span.red {
-    color: red;
-}
+        
 .app {
 }
 .tsinfolink {
@@ -5532,5 +5719,7 @@ span.red {
     </style>
 
 </head>
+
 <body></body>
+
 </html>
