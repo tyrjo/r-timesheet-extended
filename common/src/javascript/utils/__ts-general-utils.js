@@ -151,16 +151,16 @@ Ext.define('TSUtilities', {
             return ( p.Role == "Workspace Admin" || p.Role == "Subscription Admin");
         });
         
-        var current_workspace_ref = app.getContext().getWorkspace()._ref;
+        var current_workspace_oid = this._getOidFromRef(app.getContext().getWorkspace()._ref);
         var is_workspace_admin = false;
                 
         if ( workspace_admin_list.length > 0 ) {
             Ext.Array.each(workspace_admin_list, function(p){
                 
-                if (current_workspace_ref.replace(/\.js$/,'') == p._ref.replace(/\.js$/,'')) {
+                if (current_workspace_oid == this._getOidFromRef(p._ref)) {
                     is_workspace_admin = true;
                 }
-            });
+            }, this);
         }
         
         return is_workspace_admin;
@@ -192,16 +192,16 @@ Ext.define('TSUtilities', {
             return ( p.Role == "Workspace Admin" || p.Role == "Subscription Admin");
         });
         
-        var current_workspace_ref = app.getContext().getWorkspace()._ref;
+        var current_workspace_oid = this._getOidFromRef(app.getContext().getWorkspace()._ref);
         var can_unlock = false;
                 
         if ( workspace_admin_list.length > 0 ) {
             Ext.Array.each(workspace_admin_list, function(p){
                 
-                if (current_workspace_ref.replace(/\.js$/,'') == p._ref.replace(/\.js$/,'')) {
+                if (current_workspace_oid == this._getOidFromRef(p._ref)) {
                     can_unlock = true;
                 }
-            });
+            }, this);
         }
         
         return can_unlock;

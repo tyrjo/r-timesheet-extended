@@ -217,7 +217,7 @@ Ext.define("TSTimeSheetApproval", {
         this.setLoading("Loading timesheets...");
         
         var filters = [
-            {property:'User.NoTimesheet', value: false },
+            // TODO (tj) disabling until required {property:'User.NoTimesheet', value: false },
             {property:'User.Disabled', value: false }
         ];
         

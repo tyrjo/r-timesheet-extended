@@ -1,7 +1,15 @@
 {
-    "name": "Time Sheet Approval",
+    "name": "timesheet-with-approval (manager-view)",
+    "sdk": "2.1",
+    "version": "0.0.1",
     "className": "TSTimeSheetApproval",
-    "server": "https://us1.rallydev.com",
-    "sdk": "2.0",
-    "apiKey": ""
+    "artifact": "",
+    "javascript": [
+        "../common/src/javascript/utils/*.js",
+        "../common/src/javascript/timesheet_menu/*.js",
+        "../common/src/javascript/*.js",
+        "src/javascript/utils/*.js",
+        "src/javascript/menu/*.js",
+        "src/javascript/*.js"
+    ]
 }
