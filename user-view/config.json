@@ -1,5 +1,5 @@
 {
-    "name": "timesheet-with-approval",
+    "name": "timesheet-with-approval (user-view)",
     "sdk": "2.1",
     "version": "0.0.1",
     "className": "TSExtendedTimesheet",
