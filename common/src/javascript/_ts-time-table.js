@@ -50,11 +50,14 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
         return state;
     },
     
+    /*
+    TODO (tj) DISABLE for TESTING
     applyState: function(state) {
         if (state) {
             Ext.apply(this, state);
         }
     },
+    */
     
     constructor: function (config) {
         this.mergeConfig(config);
@@ -1045,6 +1048,24 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                 exportRenderer: function(value,meta,record) {
                     return record.get('TaskDisplayString')
                 }
+            }, 
+            {
+                dataIndex: 'PlanEstimate',
+                text: 'Estimate',
+                flex: 1,
+                editor: null,
+            },
+            {
+                dataIndex: 'ScheduleState',
+                text: 'State',
+                flex: 1,
+                editor: null,
+            },
+            {
+                dataIndex: 'Iteration',
+                text: 'Iteration',
+                flex: 1,
+                editor: null
             }
         ]);
         

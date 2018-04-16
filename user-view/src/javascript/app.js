@@ -21,6 +21,9 @@ Ext.define("TSExtendedTimesheet", {
     },
    
     _commentKeyPrefix: 'rally.technicalservices.timesheet.comment',
+    
+    task_fetch_fields: ['ObjectID','Name','FormattedID','WorkProduct','Project', 'Feature', 'State', 'Iteration', 'Estimate'],
+    story_fetch_fields: ['WorkProduct','Feature','Project', 'ObjectID', 'Name', 'Release', 'PlanEstimate', 'ScheduleState'],
 
     launch: function() {
         var preference_project_ref = this.getSetting('preferenceProjectRef');
@@ -463,7 +466,7 @@ Ext.define("TSExtendedTimesheet", {
                 },
                 fetch: Ext.Array.merge(
                     Rally.technicalservices.TimeModelBuilder.getFetchFields(),
-                    ['ObjectID','Name','FormattedID','WorkProduct','Project']
+                    this.task_fetch_fields
                 ),
                 filters: [
                     {property:'Owner.ObjectID',value:this.getContext().getUser().ObjectID},
@@ -507,9 +510,9 @@ Ext.define("TSExtendedTimesheet", {
         }
         
         Deft.Chain.sequence([ 
-            function() { return me._addPinnedItemsByType('hierarchicalrequirement'); },
-            function() { return me._addPinnedItemsByType('defect'); },
-            function() { return me._addPinnedItemsByType('task'); }
+            function() { return me._addPinnedItemsByType('hierarchicalrequirement', this.story_fetch_fields); },
+            // TODO (tj) seems unused?? function() { return me._addPinnedItemsByType('defect', ['ObjectID','Name','FormattedID','WorkProduct','Project','Release']); },
+            function() { return me._addPinnedItemsByType('task', this.task_fetch_fields); }
             
         ]).then({
             scope: this,
@@ -523,7 +526,7 @@ Ext.define("TSExtendedTimesheet", {
         });
     },
     
-    _addPinnedItemsByType: function(type) {
+    _addPinnedItemsByType: function(type, fetchFields) {
         var deferred = Ext.create('Deft.Deferred');
         var timetable = this.down('tstimetable');
         
@@ -534,7 +537,6 @@ Ext.define("TSExtendedTimesheet", {
         this.setLoading("Finding items of type " + type + "...");
         
         var oids = timetable.getDefaultPreference().getPinnedOIDs();
-        
         var config = {
             model: type,
             context: {
@@ -542,7 +544,7 @@ Ext.define("TSExtendedTimesheet", {
             },
             fetch: Ext.Array.merge(
                 Rally.technicalservices.TimeModelBuilder.getFetchFields(),
-                ['ObjectID','Name','FormattedID','WorkProduct','Project','Release']
+                fetchFields
             ),
             filters: Rally.data.wsapi.Filter.or(Ext.Array.map(oids, function(oid) { return {property:'ObjectID',value:oid}; }))
         };
@@ -598,7 +600,7 @@ Ext.define("TSExtendedTimesheet", {
         
         var fetch_fields = Ext.Array.merge(
             Rally.technicalservices.TimeModelBuilder.getFetchFields(),
-            ['WorkProduct','Feature','Project']
+            this.task_fetch_fields
         );
                 
         if (timetable) {
@@ -731,7 +733,7 @@ Ext.define("TSExtendedTimesheet", {
         
                 fetchFields: Ext.Array.merge(
                     Rally.technicalservices.TimeModelBuilder.getFetchFields(),
-                    ['WorkProduct','Feature','Project', 'ObjectID', 'Name', 'Release']
+                    this.story_fetch_fields
                 ),
                 listeners: {
                     artifactchosen: function(dialog, selectedRecords){

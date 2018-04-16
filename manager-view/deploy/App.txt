@@ -7,13 +7,13 @@
             0.0.1
     </title>
     <!--  (c) 2017 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Fri Apr 13 2018 16:42:52 GMT+0000 (UTC) -->
+    <!--  Build Date: Mon Apr 16 2018 17:42:18 GMT+0000 (UTC) -->
 
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Fri Apr 13 2018 16:42:52 GMT+0000 (UTC)";
+        var APP_BUILD_DATE = "Mon Apr 16 2018 17:42:18 GMT+0000 (UTC)";
         var ARTIFACT = "";
         var BUILDER = "ec2-user";
-        var CHECKSUM = "747952527207";
+        var CHECKSUM = "750415643807";
     </script>
 
     <script type="text/javascript" src="https://us1.rallydev.com/apps/2.1/sdk-debug.js"></script>
@@ -3449,11 +3449,14 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
         return state;
     },
     
+    /*
+    TODO (tj) DISABLE for TESTING
     applyState: function(state) {
         if (state) {
             Ext.apply(this, state);
         }
     },
+    */
     
     constructor: function (config) {
         this.mergeConfig(config);
@@ -4444,6 +4447,24 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                 exportRenderer: function(value,meta,record) {
                     return record.get('TaskDisplayString')
                 }
+            }, 
+            {
+                dataIndex: 'PlanEstimate',
+                text: 'Estimate',
+                flex: 1,
+                editor: null,
+            },
+            {
+                dataIndex: 'ScheduleState',
+                text: 'State',
+                flex: 1,
+                editor: null,
+            },
+            {
+                dataIndex: 'Iteration',
+                text: 'Iteration',
+                flex: 1,
+                editor: null
             }
         ]);
         

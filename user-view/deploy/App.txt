@@ -7,13 +7,13 @@
             0.0.1
     </title>
     <!--  (c) 2017 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Fri Apr 13 2018 16:44:01 GMT+0000 (UTC) -->
+    <!--  Build Date: Mon Apr 16 2018 23:00:14 GMT+0000 (UTC) -->
 
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Fri Apr 13 2018 16:44:01 GMT+0000 (UTC)";
+        var APP_BUILD_DATE = "Mon Apr 16 2018 23:00:14 GMT+0000 (UTC)";
         var ARTIFACT = "";
         var BUILDER = "ec2-user";
-        var CHECKSUM = "594514331435";
+        var CHECKSUM = "599311945353";
     </script>
 
     <script type="text/javascript" src="https://us1.rallydev.com/apps/2.1/sdk-debug.js"></script>
@@ -2994,11 +2994,14 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
         return state;
     },
     
+    /*
+    TODO (tj) DISABLE for TESTING
     applyState: function(state) {
         if (state) {
             Ext.apply(this, state);
         }
     },
+    */
     
     constructor: function (config) {
         this.mergeConfig(config);
@@ -3989,6 +3992,24 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                 exportRenderer: function(value,meta,record) {
                     return record.get('TaskDisplayString')
                 }
+            }, 
+            {
+                dataIndex: 'PlanEstimate',
+                text: 'Estimate',
+                flex: 1,
+                editor: null,
+            },
+            {
+                dataIndex: 'ScheduleState',
+                text: 'State',
+                flex: 1,
+                editor: null,
+            },
+            {
+                dataIndex: 'Iteration',
+                text: 'Iteration',
+                flex: 1,
+                editor: null
             }
         ]);
         
@@ -4838,6 +4859,9 @@ Ext.define("TSExtendedTimesheet", {
     },
    
     _commentKeyPrefix: 'rally.technicalservices.timesheet.comment',
+    
+    task_fetch_fields: ['ObjectID','Name','FormattedID','WorkProduct','Project', 'Feature', 'State', 'Iteration', 'Estimate'],
+    story_fetch_fields: ['WorkProduct','Feature','Project', 'ObjectID', 'Name', 'Release', 'PlanEstimate', 'ScheduleState'],
 
     launch: function() {
         var preference_project_ref = this.getSetting('preferenceProjectRef');
@@ -5280,7 +5304,7 @@ Ext.define("TSExtendedTimesheet", {
                 },
                 fetch: Ext.Array.merge(
                     Rally.technicalservices.TimeModelBuilder.getFetchFields(),
-                    ['ObjectID','Name','FormattedID','WorkProduct','Project']
+                    this.task_fetch_fields
                 ),
                 filters: [
                     {property:'Owner.ObjectID',value:this.getContext().getUser().ObjectID},
@@ -5324,9 +5348,9 @@ Ext.define("TSExtendedTimesheet", {
         }
         
         Deft.Chain.sequence([ 
-            function() { return me._addPinnedItemsByType('hierarchicalrequirement'); },
-            function() { return me._addPinnedItemsByType('defect'); },
-            function() { return me._addPinnedItemsByType('task'); }
+            function() { return me._addPinnedItemsByType('hierarchicalrequirement', this.story_fetch_fields); },
+            // TODO (tj) seems unused?? function() { return me._addPinnedItemsByType('defect', ['ObjectID','Name','FormattedID','WorkProduct','Project','Release']); },
+            function() { return me._addPinnedItemsByType('task', this.task_fetch_fields); }
             
         ]).then({
             scope: this,
@@ -5340,7 +5364,7 @@ Ext.define("TSExtendedTimesheet", {
         });
     },
     
-    _addPinnedItemsByType: function(type) {
+    _addPinnedItemsByType: function(type, fetchFields) {
         var deferred = Ext.create('Deft.Deferred');
         var timetable = this.down('tstimetable');
         
@@ -5351,7 +5375,6 @@ Ext.define("TSExtendedTimesheet", {
         this.setLoading("Finding items of type " + type + "...");
         
         var oids = timetable.getDefaultPreference().getPinnedOIDs();
-        
         var config = {
             model: type,
             context: {
@@ -5359,7 +5382,7 @@ Ext.define("TSExtendedTimesheet", {
             },
             fetch: Ext.Array.merge(
                 Rally.technicalservices.TimeModelBuilder.getFetchFields(),
-                ['ObjectID','Name','FormattedID','WorkProduct','Project','Release']
+                fetchFields
             ),
             filters: Rally.data.wsapi.Filter.or(Ext.Array.map(oids, function(oid) { return {property:'ObjectID',value:oid}; }))
         };
@@ -5415,7 +5438,7 @@ Ext.define("TSExtendedTimesheet", {
         
         var fetch_fields = Ext.Array.merge(
             Rally.technicalservices.TimeModelBuilder.getFetchFields(),
-            ['WorkProduct','Feature','Project']
+            this.task_fetch_fields
         );
                 
         if (timetable) {
@@ -5548,7 +5571,7 @@ Ext.define("TSExtendedTimesheet", {
         
                 fetchFields: Ext.Array.merge(
                     Rally.technicalservices.TimeModelBuilder.getFetchFields(),
-                    ['WorkProduct','Feature','Project', 'ObjectID', 'Name', 'Release']
+                    this.story_fetch_fields
                 ),
                 listeners: {
                     artifactchosen: function(dialog, selectedRecords){
