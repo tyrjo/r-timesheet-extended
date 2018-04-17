@@ -7,13 +7,13 @@
             2.0.0
     </title>
     <!--  (c) 2017 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Tue Apr 17 2018 22:46:56 GMT+0000 (UTC) -->
+    <!--  Build Date: Tue Apr 17 2018 22:58:33 GMT+0000 (UTC) -->
 
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Tue Apr 17 2018 22:46:56 GMT+0000 (UTC)";
+        var APP_BUILD_DATE = "Tue Apr 17 2018 22:58:33 GMT+0000 (UTC)";
         var ARTIFACT = "";
         var BUILDER = "ec2-user";
-        var CHECKSUM = "773840089431";
+        var CHECKSUM = "773805525437";
     </script>
 
     <script type="text/javascript" src="https://us1.rallydev.com/apps/2.1/sdk-debug.js"></script>
@@ -3445,7 +3445,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
     stateId: 'ca.technicalservices.extended.timesheet.columns',
     stateful: true,
     stateEvents: ['columnresize'],
-    /*
+    
     getState: function() {
         var me = this,
             state = null;
@@ -3462,7 +3462,6 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
             Ext.apply(this, state);
         }
     },
-    */
     
     constructor: function (config) {
         this.time_entry_item_fetch = ['WeekStartDate','WorkProductDisplayString','WorkProduct','Task',
