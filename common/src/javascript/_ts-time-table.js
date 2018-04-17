@@ -50,14 +50,11 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
         return state;
     },
     
-    /*
-    TODO (tj) DISABLE for TESTING
     applyState: function(state) {
         if (state) {
             Ext.apply(this, state);
         }
     },
-    */
     
     constructor: function (config) {
         this.mergeConfig(config);
@@ -149,6 +146,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                     var workproduct = item.get('WorkProduct');
                     var feature = null;
                     var release = null;
+                    var iteration = null;
                     
                     if ( !Ext.isEmpty(workproduct) ) {
                         product = workproduct.Project;
@@ -156,20 +154,26 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                             feature = workproduct.Feature;
                             product = feature.Project;
                         }
-                    }
-                    
-                    if ( !Ext.isEmpty(workproduct) && workproduct.Release ) {
-                        release = workproduct.Release;
+                        
+                        if ( workproduct.Release ) {
+                            release = workproduct.Release;
+                        }
+                        
+                        if ( workproduct.Iteration ) {
+                            iteration = workproduct.Iteration;
+                        }
                     }
                     
                     var data = {
                         __TimeEntryItem:item,
                         __Feature: feature,
+                        __Iteration: iteration,
                         __Product: product,
                         __Release: release,
                         __Pinned: me._isItemPinned(item)
                     };
                     
+                    // TODO (tj) extra columns State, Estimate, Iteration
                     return Ext.create('TSTableRow',Ext.Object.merge(data, item.getData()));
                 });
                 
@@ -191,6 +195,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
     },
     
     _getAppendedRowsFromPreferences: function(prefs) {
+        // TODO (tj) extra columns from preferences?
         return Ext.Array.map(prefs, function(pref){
             var value = Ext.JSON.decode(pref.get('Value'));
             value.ObjectID = pref.get('ObjectID');
@@ -204,6 +209,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
     },
     
     _getAmendedRowsFromPreferences: function(prefs) {
+        // TODO (tj) extra columns from preferences?
         return Ext.Array.map(prefs, function(pref){
             var value = Ext.JSON.decode(pref.get('Value'));
             value.ObjectID = pref.get('ObjectID');
@@ -757,6 +763,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                 var data = {
                     __TimeEntryItem: Ext.create(this.tei_model,config),
                     __Feature: null,
+                    __Iteration: config.WorkProduct.Iteration,  // TODO (tj) is Iteration available here?
                     __Product: config.Project,
                     __Release: config.WorkProduct.Release
                 };
@@ -791,25 +798,33 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                             var workproduct = result.get('WorkProduct');
                             var feature = null;
                             var release = null;
+                            var iteration = null;
                             
-                            if ( !Ext.isEmpty(workproduct) && workproduct.Feature ) {
-                                feature = workproduct.Feature;
-                                product = feature.Project;
-                            }
-                                                            
-                            if ( !Ext.isEmpty(workproduct) && workproduct.Release ) {
-                                release = workproduct.Release;
+                            if ( !Ext.isEmpty(workproduct) ) {
+                                if ( workproduct.Feature ) {
+                                    feature = workproduct.Feature;
+                                    product = feature.Project;
+                                }
+                                
+                                if ( workproduct.Release ) {
+                                    release = workproduct.Release;
+                                }
+                                
+                                if ( workproduct.Iteration ) {
+                                    iteration = workproduct.Iteration;
+                                }
                             }
 
                             var data = {
                                 __TimeEntryItem:result,
                                 __Feature: feature,
+                                __Iteration: iteration,
                                 __Product: product,
                                 __Release: release,
                                 __Pinned: me._isItemPinned(result) || false
                             };
 
-                            
+                            // TODO (tj) get State, Iteration and Estimate here
                             var row = Ext.create('TSTableRow',Ext.Object.merge(data, time_entry_item.getData()));
 
                             
@@ -1021,7 +1036,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
             {
                 dataIndex: '__Release',
                 text: 'Release',
-                flext: 1,
+                flex: 1,
                 editor: null,
                 _selectable: true,
                 renderer: function(v) {
@@ -1050,20 +1065,47 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                 }
             }, 
             {
-                dataIndex: 'PlanEstimate',
-                text: 'Estimate',
+                text: 'Story Plan Estimate',
+                xtype: 'templatecolumn',
+                sortable: false,
+                tpl: '{WorkProduct.PlanEstimate}',
+                _selectable: true,
                 flex: 1,
                 editor: null,
             },
             {
-                dataIndex: 'ScheduleState',
-                text: 'State',
+                text: 'Task Estimate',
+                xtype: 'templatecolumn',
+                sortable: false,
+                tpl: '{Task.Estimate}',
+                _selectable: true,
                 flex: 1,
                 editor: null,
             },
             {
-                dataIndex: 'Iteration',
+                text: 'Story Schedule State',
+                xtype: 'templatecolumn',
+                sortable: false,
+                tpl: '{WorkProduct.ScheduleState}',
+                _selectable: true,
+                flex: 1,
+                editor: null,
+            },
+            {
+                text: 'Task State',
+                xtype: 'templatecolumn',
+                sortable: false,
+                tpl: '{Task.State}',
+                _selectable: true,
+                flex: 1,
+                editor: null,
+            },
+            {
                 text: 'Iteration',
+                xtype: 'templatecolumn',
+                dataIndex: '__Iteration',
+                tpl: '{WorkProduct.Iteration.Name}',
+                _selectable: true,
                 flex: 1,
                 editor: null
             }
