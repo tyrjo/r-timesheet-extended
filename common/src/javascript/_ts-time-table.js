@@ -23,8 +23,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
      */
     cls: "tstimetable",
 
-    time_entry_item_fetch: ['WeekStartDate','WorkProductDisplayString','WorkProduct','Task',
-        'TaskDisplayString','Feature','Project', 'ObjectID', 'Name', 'Release'],
+    time_entry_item_fetch: undefined,   // set in constructor
         
     config: {
         startDate: null,
@@ -57,6 +56,9 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
     },
     
     constructor: function (config) {
+        this.time_entry_item_fetch = ['WeekStartDate','WorkProductDisplayString','WorkProduct','Task',
+        'TaskDisplayString', TSUtilities.lowestPortfolioItemTypeName, 'Project', 'ObjectID', 'Name', 'Release'];
+        
         this.mergeConfig(config);
         
         if (Ext.isEmpty(config.startDate) || !Ext.isDate(config.startDate)) {
@@ -150,8 +152,8 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                     
                     if ( !Ext.isEmpty(workproduct) ) {
                         product = workproduct.Project;
-                        if ( workproduct.Feature ) {
-                            feature = workproduct.Feature;
+                        if ( workproduct[TSUtilities.lowestPortfolioItemTypeName] ) {
+                            feature = workproduct[TSUtilities.lowestPortfolioItemTypeName];
                             product = feature.Project;
                         }
                         
@@ -662,7 +664,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
             type: type,
             success: function(model) {
                 model.load(objectid, {
-                    fetch: ['Name', 'FormattedID', 'Project','ObjectID','WorkProduct','Feature'],
+                    fetch: ['Name', 'FormattedID', 'Project','ObjectID','WorkProduct',TSUtilities.lowestPortfolioItemTypeName],
                     callback: function(result, operation) {
                         if(operation.wasSuccessful()) {
                             result.set('__Amended', true);
@@ -801,8 +803,8 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                             var iteration = null;
                             
                             if ( !Ext.isEmpty(workproduct) ) {
-                                if ( workproduct.Feature ) {
-                                    feature = workproduct.Feature;
+                                if ( workproduct[TSUtilities.lowestPortfolioItemTypeName] ) {
+                                    feature = workproduct[TSUtilities.lowestPortfolioItemTypeName];
                                     product = feature.Project;
                                 }
                                 
@@ -996,7 +998,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
             },
             {
                 dataIndex: '__Feature',
-                text:  'Feature',
+                text:  TSUtilities.lowestPortfolioItemTypeName,
                 flex: 1,
                 editor: null,
                 _selectable: true,
@@ -1034,15 +1036,22 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                 }
             },
             {
-                dataIndex: '__Release',
-                text: 'Release',
+                text: 'Work Product Estimate',
+                xtype: 'templatecolumn',
+                sortable: false,
+                tpl: '{WorkProduct.PlanEstimate}',
+                _selectable: true,
                 flex: 1,
                 editor: null,
+            },
+            {
+                text: 'Work Product Schedule State',
+                xtype: 'templatecolumn',
+                sortable: false,
+                tpl: '{WorkProduct.ScheduleState}',
                 _selectable: true,
-                renderer: function(v) {
-                    if ( Ext.isEmpty(v) ) { return ""; }
-                    return v._refObjectName;
-                }
+                flex: 1,
+                editor: null,
             },
             {
                 dataIndex: 'Task',
@@ -1063,30 +1072,12 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                 exportRenderer: function(value,meta,record) {
                     return record.get('TaskDisplayString')
                 }
-            }, 
-            {
-                text: 'Story Plan Estimate',
-                xtype: 'templatecolumn',
-                sortable: false,
-                tpl: '{WorkProduct.PlanEstimate}',
-                _selectable: true,
-                flex: 1,
-                editor: null,
             },
             {
                 text: 'Task Estimate',
                 xtype: 'templatecolumn',
                 sortable: false,
                 tpl: '{Task.Estimate}',
-                _selectable: true,
-                flex: 1,
-                editor: null,
-            },
-            {
-                text: 'Story Schedule State',
-                xtype: 'templatecolumn',
-                sortable: false,
-                tpl: '{WorkProduct.ScheduleState}',
                 _selectable: true,
                 flex: 1,
                 editor: null,
@@ -1101,6 +1092,17 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                 editor: null,
             },
             {
+                dataIndex: '__Release',
+                text: 'Release',
+                flex: 1,
+                editor: null,
+                _selectable: true,
+                renderer: function(v) {
+                    if ( Ext.isEmpty(v) ) { return ""; }
+                    return v._refObjectName;
+                }
+            },
+            {
                 text: 'Iteration',
                 xtype: 'templatecolumn',
                 dataIndex: '__Iteration',
@@ -1108,7 +1110,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                 _selectable: true,
                 flex: 1,
                 editor: null
-            }
+            },
         ]);
         
         var day_width = 50;

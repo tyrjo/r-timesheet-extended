@@ -1,7 +1,7 @@
 {
     "name": "timesheet-with-approval (manager-view)",
     "sdk": "2.1",
-    "version": "0.0.1",
+    "version": "2.0.0",
     "className": "TSTimeSheetApproval",
     "artifact": "",
     "javascript": [

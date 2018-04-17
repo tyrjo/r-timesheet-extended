@@ -22,12 +22,16 @@ Ext.define("TSExtendedTimesheet", {
    
     _commentKeyPrefix: 'rally.technicalservices.timesheet.comment',
     
-    task_fetch_fields: ['ObjectID','Name','FormattedID','WorkProduct','Project', 'Feature', 'State', 'Iteration', 'Estimate'],
-    story_fetch_fields: ['WorkProduct','Feature','Project', 'ObjectID', 'Name', 'Release', 'PlanEstimate', 'ScheduleState'],
+    task_fetch_fields: undefined,   // Set in launch once we know the name of the lowest level PI type
+    story_fetch_fields: undefined,  // Set in launch once we know the name of the lowest level PI type
 
     launch: function() {
         var preference_project_ref = this.getSetting('preferenceProjectRef');
+        TSUtilities.lowestPortfolioItemTypeName = this.getSetting('lowestPortfolioItemTypeName');
         
+        this.task_fetch_fields = ['ObjectID','Name','FormattedID','WorkProduct','Project', TSUtilities.lowestPortfolioItemTypeName, 'State', 'Iteration', 'Estimate'];
+        this.story_fetch_fields = ['WorkProduct', TSUtilities.lowestPortfolioItemTypeName, 'Project', 'ObjectID', 'Name', 'Release', 'PlanEstimate', 'ScheduleState'];
+
         this._absorbOldApprovedTimesheets().then({
             scope: this,
             success: function(results) {
@@ -37,7 +41,10 @@ Ext.define("TSExtendedTimesheet", {
                 
                 if ( !  TSUtilities.isEditableProjectForCurrentUser(preference_project_ref,this) ) {
                     Ext.Msg.alert('Contact your Administrator', 'This app requires editor access to the preference project.');
-                } else {
+                } else if ( !TSUtilities.lowestPortfolioItemTypeName ) {
+                    Ext.Msg.alert('Contact your Administrator', 'This app requires the lowest level Portfolio Item Type Name to be set.');
+                }
+                else {
                     this._addSelectors(this.down('#selector_box'));
                 }
             },
@@ -694,12 +701,12 @@ Ext.define("TSExtendedTimesheet", {
                         attributeName: 'Name'
                     },
                     {
-                        displayName:'Feature',
-                        attributeName: 'Feature.Name'
+                        displayName: TSUtilities.lowestPortfolioItemTypeName,
+                        attributeName: TSUtilities.lowestPortfolioItemTypeName + '.Name'
                     },
                     {
-                        displayName: 'Feature Project',
-                        attributeName: 'Feature.Project.Name'
+                        displayName: TSUtilities.lowestPortfolioItemTypeName + ' Project',
+                        attributeName: TSUtilities.lowestPortfolioItemTypeName + '.Project.Name'
                     },
                     {
                         displayName:'Release',
@@ -772,7 +779,16 @@ Ext.define("TSExtendedTimesheet", {
             labelAlign: 'left',
             minWidth: 200,
             margin: 10
-        }];
+        },
+        Ext.merge(
+            {
+                labelWidth: 75,
+                labelAlign: 'left',
+                minWidth: 200,
+                margin: 10
+            },
+            TSUtilities.lowestPortfolioItemTypeNameSettingField
+        )];
     },
     
 //    getOptions: function() {

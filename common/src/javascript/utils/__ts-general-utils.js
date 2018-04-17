@@ -5,8 +5,16 @@ Ext.define('TSUtilities', {
     approvalKeyPrefix: 'rally.technicalservices.timesheet.status',
     deletionKeyPrefix: 'rally.technicalservices.timesheet.deletion',
     pinKeyPrefix     : 'rally.technicalservices.timesheet.pin',
-
     archiveSuffix: '~archived',
+    
+    // Must be set by app, preferably at launch using the `lowestPortfolioItemTypeSettingField` below
+    lowestPortfolioItemTypeName: undefined,
+    lowestPortfolioItemTypeNameSettingField: {
+        name: 'lowestPortfolioItemTypeName',
+        xtype: 'rallyportfolioitemtypecombobox',
+        fieldLabel: "Lowest Level Portfolio Item Type Name",
+        valueField: 'Name'
+    },
     
     loadWsapiRecords: function(config,returnOperation){
         var deferred = Ext.create('Deft.Deferred');
