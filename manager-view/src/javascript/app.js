@@ -29,9 +29,13 @@ Ext.define("TSTimeSheetApproval", {
     
     launch: function() {
         var preference_project_ref = this.getSetting('preferenceProjectRef');
+        TSUtilities.lowestPortfolioItemTypeName = this.getSetting('lowestPortfolioItemTypeName');
         if ( !  TSUtilities.isEditableProjectForCurrentUser(preference_project_ref,this) ) {
             Ext.Msg.alert('Contact your Administrator', 'This app requires editor access to the preference project.');
-        } else {
+        } else if ( !TSUtilities.lowestPortfolioItemTypeName ) {
+            Ext.Msg.alert('Contact your Administrator', 'This app requires the lowest level Portfolio Item Type to be set.');
+        }
+        else {
             this._addSelectors(this.down('#selector_box'));
         }
     },
@@ -744,7 +748,16 @@ Ext.define("TSTimeSheetApproval", {
                 }
             },
             readyEvent: 'ready'
-        }];
+        },
+        Ext.merge(
+            {
+                labelWidth: 75,
+                labelAlign: 'left',
+                minWidth: 200,
+                margin: 10
+            },
+            TSUtilities.lowestPortfolioItemTypeNameSettingField
+        )];
     },
     
     //onSettingsUpdate:  Override
