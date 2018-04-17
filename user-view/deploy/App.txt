@@ -7,13 +7,13 @@
             0.0.1
     </title>
     <!--  (c) 2017 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Fri Apr 13 2018 16:44:01 GMT+0000 (UTC) -->
+    <!--  Build Date: Tue Apr 17 2018 18:18:25 GMT+0000 (UTC) -->
 
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Fri Apr 13 2018 16:44:01 GMT+0000 (UTC)";
+        var APP_BUILD_DATE = "Tue Apr 17 2018 18:18:25 GMT+0000 (UTC)";
         var ARTIFACT = "";
         var BUILDER = "ec2-user";
-        var CHECKSUM = "594514331435";
+        var CHECKSUM = "609761051901";
     </script>
 
     <script type="text/javascript" src="https://us1.rallydev.com/apps/2.1/sdk-debug.js"></script>
@@ -2476,6 +2476,7 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
                     { name: '__TimeEntryItem', type:'object' },
                     { name: '__Feature',   type: 'object', sortType: oid_sort},
                     { name: '__Release',   type: 'object', sortType: name_sort },
+                    { name: '__Iteration', type: 'object', sortType: name_sort},    // Added to allow sorting
                     { name: '__Product',   type: 'object', sortType: name_sort },
                     { name: '__Total',     type: 'float', defaultValue: 0 },
                     { name: '__SecretKey', type:'auto', defaultValue: 1 },
@@ -2518,7 +2519,7 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
     },
     
     getFetchFields: function() {
-        return [ 'ObjectID', 'Name', 'Release', 'User', 'UserName', this.deploy_field ];
+        return [ 'ObjectID', 'Name', 'Release', 'User', 'UserName', 'Iteration', 'PlanEstimate', 'ScheduleState', 'Estimate', 'State', this.deploy_field ];
     },
     
     _isPinned: function() {
@@ -3090,6 +3091,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                     var workproduct = item.get('WorkProduct');
                     var feature = null;
                     var release = null;
+                    var iteration = null;
                     
                     if ( !Ext.isEmpty(workproduct) ) {
                         product = workproduct.Project;
@@ -3097,20 +3099,26 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                             feature = workproduct.Feature;
                             product = feature.Project;
                         }
-                    }
-                    
-                    if ( !Ext.isEmpty(workproduct) && workproduct.Release ) {
-                        release = workproduct.Release;
+                        
+                        if ( workproduct.Release ) {
+                            release = workproduct.Release;
+                        }
+                        
+                        if ( workproduct.Iteration ) {
+                            iteration = workproduct.Iteration;
+                        }
                     }
                     
                     var data = {
                         __TimeEntryItem:item,
                         __Feature: feature,
+                        __Iteration: iteration,
                         __Product: product,
                         __Release: release,
                         __Pinned: me._isItemPinned(item)
                     };
                     
+                    // TODO (tj) extra columns State, Estimate, Iteration
                     return Ext.create('TSTableRow',Ext.Object.merge(data, item.getData()));
                 });
                 
@@ -3132,6 +3140,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
     },
     
     _getAppendedRowsFromPreferences: function(prefs) {
+        // TODO (tj) extra columns from preferences?
         return Ext.Array.map(prefs, function(pref){
             var value = Ext.JSON.decode(pref.get('Value'));
             value.ObjectID = pref.get('ObjectID');
@@ -3145,6 +3154,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
     },
     
     _getAmendedRowsFromPreferences: function(prefs) {
+        // TODO (tj) extra columns from preferences?
         return Ext.Array.map(prefs, function(pref){
             var value = Ext.JSON.decode(pref.get('Value'));
             value.ObjectID = pref.get('ObjectID');
@@ -3698,6 +3708,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                 var data = {
                     __TimeEntryItem: Ext.create(this.tei_model,config),
                     __Feature: null,
+                    __Iteration: config.WorkProduct.Iteration,  // TODO (tj) is Iteration available here?
                     __Product: config.Project,
                     __Release: config.WorkProduct.Release
                 };
@@ -3732,25 +3743,33 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                             var workproduct = result.get('WorkProduct');
                             var feature = null;
                             var release = null;
+                            var iteration = null;
                             
-                            if ( !Ext.isEmpty(workproduct) && workproduct.Feature ) {
-                                feature = workproduct.Feature;
-                                product = feature.Project;
-                            }
-                                                            
-                            if ( !Ext.isEmpty(workproduct) && workproduct.Release ) {
-                                release = workproduct.Release;
+                            if ( !Ext.isEmpty(workproduct) ) {
+                                if ( workproduct.Feature ) {
+                                    feature = workproduct.Feature;
+                                    product = feature.Project;
+                                }
+                                
+                                if ( workproduct.Release ) {
+                                    release = workproduct.Release;
+                                }
+                                
+                                if ( workproduct.Iteration ) {
+                                    iteration = workproduct.Iteration;
+                                }
                             }
 
                             var data = {
                                 __TimeEntryItem:result,
                                 __Feature: feature,
+                                __Iteration: iteration,
                                 __Product: product,
                                 __Release: release,
                                 __Pinned: me._isItemPinned(result) || false
                             };
 
-                            
+                            // TODO (tj) get State, Iteration and Estimate here
                             var row = Ext.create('TSTableRow',Ext.Object.merge(data, time_entry_item.getData()));
 
                             
@@ -3962,7 +3981,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
             {
                 dataIndex: '__Release',
                 text: 'Release',
-                flext: 1,
+                flex: 1,
                 editor: null,
                 _selectable: true,
                 renderer: function(v) {
@@ -3989,6 +4008,51 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                 exportRenderer: function(value,meta,record) {
                     return record.get('TaskDisplayString')
                 }
+            }, 
+            {
+                text: 'Story Plan Estimate',
+                xtype: 'templatecolumn',
+                sortable: false,
+                tpl: '{WorkProduct.PlanEstimate}',
+                _selectable: true,
+                flex: 1,
+                editor: null,
+            },
+            {
+                text: 'Task Estimate',
+                xtype: 'templatecolumn',
+                sortable: false,
+                tpl: '{Task.Estimate}',
+                _selectable: true,
+                flex: 1,
+                editor: null,
+            },
+            {
+                text: 'Story Schedule State',
+                xtype: 'templatecolumn',
+                sortable: false,
+                tpl: '{WorkProduct.ScheduleState}',
+                _selectable: true,
+                flex: 1,
+                editor: null,
+            },
+            {
+                text: 'Task State',
+                xtype: 'templatecolumn',
+                sortable: false,
+                tpl: '{Task.State}',
+                _selectable: true,
+                flex: 1,
+                editor: null,
+            },
+            {
+                text: 'Iteration',
+                xtype: 'templatecolumn',
+                dataIndex: '__Iteration',
+                tpl: '{WorkProduct.Iteration.Name}',
+                _selectable: true,
+                flex: 1,
+                editor: null
             }
         ]);
         
@@ -4838,6 +4902,9 @@ Ext.define("TSExtendedTimesheet", {
     },
    
     _commentKeyPrefix: 'rally.technicalservices.timesheet.comment',
+    
+    task_fetch_fields: ['ObjectID','Name','FormattedID','WorkProduct','Project', 'Feature', 'State', 'Iteration', 'Estimate'],
+    story_fetch_fields: ['WorkProduct','Feature','Project', 'ObjectID', 'Name', 'Release', 'PlanEstimate', 'ScheduleState'],
 
     launch: function() {
         var preference_project_ref = this.getSetting('preferenceProjectRef');
@@ -5280,7 +5347,7 @@ Ext.define("TSExtendedTimesheet", {
                 },
                 fetch: Ext.Array.merge(
                     Rally.technicalservices.TimeModelBuilder.getFetchFields(),
-                    ['ObjectID','Name','FormattedID','WorkProduct','Project']
+                    this.task_fetch_fields
                 ),
                 filters: [
                     {property:'Owner.ObjectID',value:this.getContext().getUser().ObjectID},
@@ -5324,9 +5391,9 @@ Ext.define("TSExtendedTimesheet", {
         }
         
         Deft.Chain.sequence([ 
-            function() { return me._addPinnedItemsByType('hierarchicalrequirement'); },
-            function() { return me._addPinnedItemsByType('defect'); },
-            function() { return me._addPinnedItemsByType('task'); }
+            function() { return me._addPinnedItemsByType('hierarchicalrequirement', this.story_fetch_fields); },
+            // TODO (tj) seems unused?? function() { return me._addPinnedItemsByType('defect', ['ObjectID','Name','FormattedID','WorkProduct','Project','Release']); },
+            function() { return me._addPinnedItemsByType('task', this.task_fetch_fields); }
             
         ]).then({
             scope: this,
@@ -5340,7 +5407,7 @@ Ext.define("TSExtendedTimesheet", {
         });
     },
     
-    _addPinnedItemsByType: function(type) {
+    _addPinnedItemsByType: function(type, fetchFields) {
         var deferred = Ext.create('Deft.Deferred');
         var timetable = this.down('tstimetable');
         
@@ -5351,7 +5418,6 @@ Ext.define("TSExtendedTimesheet", {
         this.setLoading("Finding items of type " + type + "...");
         
         var oids = timetable.getDefaultPreference().getPinnedOIDs();
-        
         var config = {
             model: type,
             context: {
@@ -5359,7 +5425,7 @@ Ext.define("TSExtendedTimesheet", {
             },
             fetch: Ext.Array.merge(
                 Rally.technicalservices.TimeModelBuilder.getFetchFields(),
-                ['ObjectID','Name','FormattedID','WorkProduct','Project','Release']
+                fetchFields
             ),
             filters: Rally.data.wsapi.Filter.or(Ext.Array.map(oids, function(oid) { return {property:'ObjectID',value:oid}; }))
         };
@@ -5415,7 +5481,7 @@ Ext.define("TSExtendedTimesheet", {
         
         var fetch_fields = Ext.Array.merge(
             Rally.technicalservices.TimeModelBuilder.getFetchFields(),
-            ['WorkProduct','Feature','Project']
+            this.task_fetch_fields
         );
                 
         if (timetable) {
@@ -5548,7 +5614,7 @@ Ext.define("TSExtendedTimesheet", {
         
                 fetchFields: Ext.Array.merge(
                     Rally.technicalservices.TimeModelBuilder.getFetchFields(),
-                    ['WorkProduct','Feature','Project', 'ObjectID', 'Name', 'Release']
+                    this.story_fetch_fields
                 ),
                 listeners: {
                     artifactchosen: function(dialog, selectedRecords){
