@@ -7,13 +7,13 @@
             2.0.1
     </title>
     <!--  (c) 2017 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Thu Apr 19 2018 16:39:48 GMT+0000 (UTC) -->
+    <!--  Build Date: Thu Apr 19 2018 20:34:56 GMT+0000 (UTC) -->
 
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Thu Apr 19 2018 16:39:48 GMT+0000 (UTC)";
+        var APP_BUILD_DATE = "Thu Apr 19 2018 20:34:56 GMT+0000 (UTC)";
         var ARTIFACT = "";
         var BUILDER = "ec2-user";
-        var CHECKSUM = "681252131808";
+        var CHECKSUM = "683086455042";
     </script>
 
     <script type="text/javascript" src="https://us1.rallydev.com/apps/2.1/sdk-debug.js"></script>
@@ -243,6 +243,14 @@ Ext.define('TSUtilities', {
     },
     
     _currentUserCanUnapprove: function() {
+        return this.currentUserIsAdmin();
+    },
+    
+    _currentUserCanProcess: function() {
+        return this.currentUserIsAdmin();
+    },
+    
+    _currentUserCanUnprocess: function() {
         return this.currentUserIsAdmin();
     }
 });
@@ -4224,7 +4232,8 @@ Ext.define('TSTimesheet',{
             ALL: 'ALL',
             NOT_SUBMITTED: 'Not Submitted',
             SUBMITTED: 'Submitted',
-            APPROVED: 'Approved'  
+            APPROVED: 'Approved',
+            PROCESSED: 'Processed'
         }
     },
         
@@ -4306,6 +4315,14 @@ Ext.define('TSTimesheet',{
     
     unapprove: function() {
         return this._setStatus(TSTimesheet.STATUS.NOT_SUBMITTED);
+    },
+    
+    process: function() {
+        return this._setStatus(TSTimesheet.STATUS.PROCESSED);
+    },
+    
+    unprocess: function() {
+        return this._setStatus(TSTimesheet.STATUS.APPROVED);
     },
     
     _archivePreferences: function(key) {
@@ -5348,25 +5365,21 @@ Ext.define("TSExtendedTimesheet", {
                 var status_prefs = results[0];
                 var week_lock_prefs = results[1];
                 
-                var editable = true;
+                var editable = false;
                 if ( status_prefs.length > 0 ) {
                     var value = status_prefs[0].get('Value');
                     var status_object = Ext.JSON.decode(value);
                     statusValue = status_object.status;
-                    if ( statusValue === TSTimesheet.STATUS.SUBMITTED ) { 
-                        editable = false;
-                        status_box.add({xtype:'container',html:'Status: Submitted'});
-                    } else if ( statusValue === TSTimesheet.STATUS.APPROVED ) { 
-                        editable = false;
-                        status_box.add({xtype:'container',html:'Status: Approved'});
-                    } else { 
+                    // Check for any status that allows edit
+                    if ( statusValue === TSTimesheet.STATUS.NOT_SUBMITTED || statusValue === TSTimesheet.STATUS.UNKNOWN  ) { 
                         editable = true;
-                        status_box.add({xtype:'container',html:'Status: Unsubmitted'});
                     }
                 } else {
+                    // No current status, is currently not submitted
                     editable = true;
-                    status_box.add({xtype:'container',html:'Status: Unsubmitted'});
                 }
+                status_box.add({xtype:'container',html:'Status: ' + statusValue});
+                
                 if ( week_lock_prefs.length > 0 ) {
                     var value = week_lock_prefs[0].get('Value');
                     var status_object = Ext.JSON.decode(value);

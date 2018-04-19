@@ -1,10 +1,10 @@
-Ext.define('Rally.technicalservices.ApproveMenuItem', {
+Ext.define('Rally.technicalservices.ProcessMenuItem', {
     extend: 'Rally.ui.menu.item.RecordMenuItem',
-    alias: 'widget.tsapprovemenuitem',
+    alias: 'widget.tsprocessmenuitem',
 
 
     config: {
-        text: 'Approve',
+        text: 'Process',
         records: null
     },
 
@@ -12,7 +12,7 @@ Ext.define('Rally.technicalservices.ApproveMenuItem', {
         config = config || {};
 
         config.predicate = config.predicate || this.shouldShowMenuItem;
-        config.handler   = config.handler || this._approveRecords;
+        config.handler   = config.handler || this._processRecords;
         
         this.initConfig(config);
         this.callParent([config]);
@@ -22,27 +22,27 @@ Ext.define('Rally.technicalservices.ApproveMenuItem', {
     },
     
     shouldShowMenuItem: function(record) {
-        return Ext.Array.every(this.records, function(r){
-            return this._isApprovable(r);
+        return TSUtilities._currentUserCanProcess() && Ext.Array.every(this.records, function(r){
+            return this._isProcessable(r);
         },this);
     },
     
-    _isApprovable: function(record) {
-        return ( record.get('__Status') && record.get('__Status') === TSTimesheet.STATUS.SUBMITTED );
+    _isProcessable: function(record) {
+        return ( record.get('__Status') && record.get('__Status') == TSTimesheet.STATUS.APPROVED );
     },
     
-    _approveRecord: function(record) {
+    _processRecord: function(record) {
         if ( !record ) {
-            Ext.Msg.alert("Problem approving record", "Can't find record");
+            Ext.Msg.alert("Problem processing record", "Can't find record");
             return;
         }
         
-        record.approve();
+        record.process();
     },
     
-    _approveRecords: function() {
+    _processRecords: function() {
         Ext.Array.each(this.records, function(r) {
-            this._approveRecord(r);
+            this._processRecord(r);
         },this);
     }
 });

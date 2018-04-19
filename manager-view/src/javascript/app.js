@@ -91,7 +91,7 @@ Ext.define("TSTimeSheetApproval", {
                 {displayName:'Not Submitted', value: TSTimesheet.STATUS.NOT_SUBMITTED},
                 {displayName:'Submitted', value: TSTimesheet.STATUS.SUBMITTED},
                 {displayName:'Approved', value: TSTimesheet.STATUS.APPROVED},
-                // TODO (tj) {displayName:'Processed', value: TSTimesheet.STATUS.PROCESSED}
+                {displayName:'Processed', value: TSTimesheet.STATUS.PROCESSED}
             ]
         });
 
@@ -504,7 +504,7 @@ Ext.define("TSTimeSheetApproval", {
         var me = this;
         var columns = [{
             xtype: 'tsrowactioncolumn',
-            canUnapprove: TSUtilities._currentUserCanUnapprove()
+            //canUnapprove: TSUtilities._currentUserCanUnapprove()
         }];
         
         columns.push({

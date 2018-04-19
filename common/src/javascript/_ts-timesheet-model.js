@@ -7,7 +7,8 @@ Ext.define('TSTimesheet',{
             ALL: 'ALL',
             NOT_SUBMITTED: 'Not Submitted',
             SUBMITTED: 'Submitted',
-            APPROVED: 'Approved'  
+            APPROVED: 'Approved',
+            PROCESSED: 'Processed'
         }
     },
         
@@ -89,6 +90,14 @@ Ext.define('TSTimesheet',{
     
     unapprove: function() {
         return this._setStatus(TSTimesheet.STATUS.NOT_SUBMITTED);
+    },
+    
+    process: function() {
+        return this._setStatus(TSTimesheet.STATUS.PROCESSED);
+    },
+    
+    unprocess: function() {
+        return this._setStatus(TSTimesheet.STATUS.APPROVED);
     },
     
     _archivePreferences: function(key) {

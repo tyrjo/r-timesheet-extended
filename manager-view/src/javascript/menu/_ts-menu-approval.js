@@ -27,42 +27,38 @@ Ext.define('Rally.technicalservices.TimeApprovalRecordMenu', {
 
     _getMenuItems: function() {
         var record = this.getRecord(),
-            records = this.records || [],
+            records = this.records || [record],
             items = [],
             popoverPlacement = this.popoverPlacement || Rally.ui.popover.Popover.DEFAULT_PLACEMENT;
 
-        if ( records && records.length > 0 ) {
-            // bulk edit
-            items.push({
-                xtype: 'tsapprovemenuitem',
-                view: this.view,
-                record: record,
-                records: records
-            });
-           
-            if ( this.canUnapprove ) {
-                items.push({
-                    xtype: 'tsunapprovemenuitem',
-                    view: this.view,
-                    record: record,
-                    records: records
-                });
-            }
-        } else {
-            items.push({
-                xtype: 'tsapprovemenuitem',
-                view: this.view,
-                record: record
-            });
-                    
-            if ( this.canUnapprove ) {
-                items.push({
-                    xtype: 'tsunapprovemenuitem',
-                    view: this.view,
-                    record: record
-                });
-            }
-        }
+        items.push({
+            xtype: 'tsapprovemenuitem',
+            view: this.view,
+            record: record,
+            records: records
+        });
+        
+        items.push({
+            xtype: 'tsunapprovemenuitem',
+            view: this.view,
+            record: record,
+            records: records
+        });
+        
+        items.push({
+            xtype: 'tsprocessmenuitem',
+            view: this.view,
+            record: record,
+            records: records
+        });
+        
+        items.push({
+            xtype: 'tsunprocessmenuitem',
+            view: this.view,
+            record: record,
+            records: records
+        });
+        
         return items;
     }
 });

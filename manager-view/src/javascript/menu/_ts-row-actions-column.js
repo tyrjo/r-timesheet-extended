@@ -66,9 +66,7 @@ Ext.define('Rally.technicalservices.grid.RowActionColumn', {
         /**
          * @cfg {Object} scope The scope that the rowActionsFn is called with
          */
-        scope: null,
-        
-        canUnapprove: false
+        scope: null
     },
 
     constructor: function() {
@@ -117,8 +115,7 @@ Ext.define('Rally.technicalservices.grid.RowActionColumn', {
             record: selectedRecord,
             records: checkedRecords,
             owningEl: el.parentElement,
-            popoverPlacement: ['bottom', 'top'],
-            canUnapprove: this.canUnapprove
+            popoverPlacement: ['bottom', 'top']
         };
 
         /*if (grid.enableBulkEdit && _.contains(checkedRecords, selectedRecord)) {
