@@ -270,25 +270,21 @@ Ext.define("TSExtendedTimesheet", {
                 var status_prefs = results[0];
                 var week_lock_prefs = results[1];
                 
-                var editable = true;
+                var editable = false;
                 if ( status_prefs.length > 0 ) {
                     var value = status_prefs[0].get('Value');
                     var status_object = Ext.JSON.decode(value);
                     statusValue = status_object.status;
-                    if ( statusValue === TSTimesheet.STATUS.SUBMITTED ) { 
-                        editable = false;
-                        status_box.add({xtype:'container',html:'Status: Submitted'});
-                    } else if ( statusValue === TSTimesheet.STATUS.APPROVED ) { 
-                        editable = false;
-                        status_box.add({xtype:'container',html:'Status: Approved'});
-                    } else { 
+                    // Check for any status that allows edit
+                    if ( statusValue === TSTimesheet.STATUS.NOT_SUBMITTED || statusValue === TSTimesheet.STATUS.UNKNOWN  ) { 
                         editable = true;
-                        status_box.add({xtype:'container',html:'Status: Unsubmitted'});
                     }
                 } else {
+                    // No current status, is currently not submitted
                     editable = true;
-                    status_box.add({xtype:'container',html:'Status: Unsubmitted'});
                 }
+                status_box.add({xtype:'container',html:'Status: ' + statusValue});
+                
                 if ( week_lock_prefs.length > 0 ) {
                     var value = week_lock_prefs[0].get('Value');
                     var status_object = Ext.JSON.decode(value);

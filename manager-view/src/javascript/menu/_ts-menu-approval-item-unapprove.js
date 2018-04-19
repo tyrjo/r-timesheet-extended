@@ -1,11 +1,11 @@
-Ext.define('Rally.technicalservices.UnlockMenuItem', {
+Ext.define('Rally.technicalservices.UnapproveMenuItem', {
     extend: 'Rally.ui.menu.item.RecordMenuItem',
     alias: 'widget.tsunapprovemenuitem',
 
 
     config: {
         text: 'Unapprove',
-        records: []
+        records: null
     },
 
     constructor: function(config) {
@@ -16,23 +16,19 @@ Ext.define('Rally.technicalservices.UnlockMenuItem', {
         
         this.initConfig(config);
         this.callParent([config]);
+        if ( !this.records || this.records.length == 0 ) {
+            this.records = [this.record];    // Handle 1 or more items
+        }
     },
     
     shouldShowMenuItem: function(record) {
-        if ( this.records && this.records.length > 0 ) {
-            var should_show = true;
-            Ext.Array.each(this.records, function(r){
-                if ( !this._isUnapprovable(r) ) {
-                    should_show = false;
-                }
-            },this);
-            return should_show;
-        }
-        return this._isUnapprovable(record);
+        return TSUtilities._currentUserCanUnapprove() && Ext.Array.every(this.records, function(r){
+            return this._isUnapprovable(r);
+        },this);
     },
     
     _isUnapprovable: function(record) {
-        return ( record.get('__Status') && record.get('__Status') == "Approved" );
+        return ( record.get('__Status') && record.get('__Status') == TSTimesheet.STATUS.APPROVED );
     },
     
     _unapproveRecord: function(record) {
@@ -45,15 +41,8 @@ Ext.define('Rally.technicalservices.UnlockMenuItem', {
     },
     
     _unapproveRecords: function() {
-        var record = this.record;
-        var records = this.records;
-                
-        if ( records.length === 0 ) {
-            records = [record];
-        }
-        var me = this;
-        Ext.Array.each(records, function(r) {
-            me._unapproveRecord(r);
-        });
+        Ext.Array.each(this.records, function(r) {
+            this._unapproveRecord(r);
+        }, this);
     }
 });

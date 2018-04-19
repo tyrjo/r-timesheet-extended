@@ -7,13 +7,13 @@
             2.0.1
     </title>
     <!--  (c) 2017 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Thu Apr 19 2018 16:49:39 GMT+0000 (UTC) -->
+    <!--  Build Date: Thu Apr 19 2018 20:53:03 GMT+0000 (UTC) -->
 
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Thu Apr 19 2018 16:49:39 GMT+0000 (UTC)";
+        var APP_BUILD_DATE = "Thu Apr 19 2018 20:53:03 GMT+0000 (UTC)";
         var ARTIFACT = "";
         var BUILDER = "ec2-user";
-        var CHECKSUM = "782048388098";
+        var CHECKSUM = "806802742320";
     </script>
 
     <script type="text/javascript" src="https://us1.rallydev.com/apps/2.1/sdk-debug.js"></script>
@@ -243,6 +243,14 @@ Ext.define('TSUtilities', {
     },
     
     _currentUserCanUnapprove: function() {
+        return this.currentUserIsAdmin();
+    },
+    
+    _currentUserCanProcess: function() {
+        return this.currentUserIsAdmin();
+    },
+    
+    _currentUserCanUnprocess: function() {
         return this.currentUserIsAdmin();
     }
 });
@@ -4679,7 +4687,8 @@ Ext.define('TSTimesheet',{
             ALL: 'ALL',
             NOT_SUBMITTED: 'Not Submitted',
             SUBMITTED: 'Submitted',
-            APPROVED: 'Approved'  
+            APPROVED: 'Approved',
+            PROCESSED: 'Processed'
         }
     },
         
@@ -4761,6 +4770,14 @@ Ext.define('TSTimesheet',{
     
     unapprove: function() {
         return this._setStatus(TSTimesheet.STATUS.NOT_SUBMITTED);
+    },
+    
+    process: function() {
+        return this._setStatus(TSTimesheet.STATUS.PROCESSED);
+    },
+    
+    unprocess: function() {
+        return this._setStatus(TSTimesheet.STATUS.APPROVED);
     },
     
     _archivePreferences: function(key) {
@@ -4864,7 +4881,7 @@ Ext.define('Rally.technicalservices.ApproveMenuItem', {
 
     config: {
         text: 'Approve',
-        records: []
+        records: null
     },
 
     constructor: function(config) {
@@ -4875,24 +4892,19 @@ Ext.define('Rally.technicalservices.ApproveMenuItem', {
         
         this.initConfig(config);
         this.callParent([config]);
+        if ( !this.records || this.records.length == 0 ) {
+            this.records = [this.record];    // Handle 1 or more items
+        }
     },
     
     shouldShowMenuItem: function(record) {
-
-        if ( this.records && this.records.length > 0 ) {
-            var should_show = true;
-            Ext.Array.each(this.records, function(r){
-                if ( !this._isApprovable(r) ) {
-                    should_show = false;
-                }
-            },this);
-            return should_show;
-        }
-        return this._isApprovable(record);
+        return Ext.Array.every(this.records, function(r){
+            return this._isApprovable(r);
+        },this);
     },
     
     _isApprovable: function(record) {
-        return ( record.get('__Status') && record.get('__Status') != TSTimesheet.STATUS.APPROVED );
+        return ( record.get('__Status') && record.get('__Status') === TSTimesheet.STATUS.SUBMITTED );
     },
     
     _approveRecord: function(record) {
@@ -4905,26 +4917,67 @@ Ext.define('Rally.technicalservices.ApproveMenuItem', {
     },
     
     _approveRecords: function() {
-        var record = this.record;
-        var records = this.records;
-        
-        if ( records.length === 0 ) {
-            records = [record];
-        }
-                
-        Ext.Array.each(records, function(r) {
+        Ext.Array.each(this.records, function(r) {
             this._approveRecord(r);
         },this);
     }
 });
-Ext.define('Rally.technicalservices.UnlockMenuItem', {
+Ext.define('Rally.technicalservices.ProcessMenuItem', {
+    extend: 'Rally.ui.menu.item.RecordMenuItem',
+    alias: 'widget.tsprocessmenuitem',
+
+
+    config: {
+        text: 'Process',
+        records: null
+    },
+
+    constructor: function(config) {
+        config = config || {};
+
+        config.predicate = config.predicate || this.shouldShowMenuItem;
+        config.handler   = config.handler || this._processRecords;
+        
+        this.initConfig(config);
+        this.callParent([config]);
+        if ( !this.records || this.records.length == 0 ) {
+            this.records = [this.record];    // Handle 1 or more items
+        }
+    },
+    
+    shouldShowMenuItem: function(record) {
+        return TSUtilities._currentUserCanProcess() && Ext.Array.every(this.records, function(r){
+            return this._isProcessable(r);
+        },this);
+    },
+    
+    _isProcessable: function(record) {
+        return ( record.get('__Status') && record.get('__Status') == TSTimesheet.STATUS.APPROVED );
+    },
+    
+    _processRecord: function(record) {
+        if ( !record ) {
+            Ext.Msg.alert("Problem processing record", "Can't find record");
+            return;
+        }
+        
+        record.process();
+    },
+    
+    _processRecords: function() {
+        Ext.Array.each(this.records, function(r) {
+            this._processRecord(r);
+        },this);
+    }
+});
+Ext.define('Rally.technicalservices.UnapproveMenuItem', {
     extend: 'Rally.ui.menu.item.RecordMenuItem',
     alias: 'widget.tsunapprovemenuitem',
 
 
     config: {
         text: 'Unapprove',
-        records: []
+        records: null
     },
 
     constructor: function(config) {
@@ -4935,23 +4988,19 @@ Ext.define('Rally.technicalservices.UnlockMenuItem', {
         
         this.initConfig(config);
         this.callParent([config]);
+        if ( !this.records || this.records.length == 0 ) {
+            this.records = [this.record];    // Handle 1 or more items
+        }
     },
     
     shouldShowMenuItem: function(record) {
-        if ( this.records && this.records.length > 0 ) {
-            var should_show = true;
-            Ext.Array.each(this.records, function(r){
-                if ( !this._isUnapprovable(r) ) {
-                    should_show = false;
-                }
-            },this);
-            return should_show;
-        }
-        return this._isUnapprovable(record);
+        return TSUtilities._currentUserCanUnapprove() && Ext.Array.every(this.records, function(r){
+            return this._isUnapprovable(r);
+        },this);
     },
     
     _isUnapprovable: function(record) {
-        return ( record.get('__Status') && record.get('__Status') == "Approved" );
+        return ( record.get('__Status') && record.get('__Status') == TSTimesheet.STATUS.APPROVED );
     },
     
     _unapproveRecord: function(record) {
@@ -4964,16 +5013,57 @@ Ext.define('Rally.technicalservices.UnlockMenuItem', {
     },
     
     _unapproveRecords: function() {
-        var record = this.record;
-        var records = this.records;
-                
-        if ( records.length === 0 ) {
-            records = [record];
+        Ext.Array.each(this.records, function(r) {
+            this._unapproveRecord(r);
+        }, this);
+    }
+});
+Ext.define('Rally.technicalservices.UnprocessMenuItem', {
+    extend: 'Rally.ui.menu.item.RecordMenuItem',
+    alias: 'widget.tsunprocessmenuitem',
+
+
+    config: {
+        text: 'Unprocess',
+        records: null
+    },
+
+    constructor: function(config) {
+        config = config || {};
+
+        config.predicate = config.predicate || this.shouldShowMenuItem;
+        config.handler   = config.handler || this._unprocessRecords;
+        
+        this.initConfig(config);
+        this.callParent([config]);
+        if ( !this.records || this.records.length == 0 ) {
+            this.records = [this.record];    // Handle 1 or more items
         }
-        var me = this;
-        Ext.Array.each(records, function(r) {
-            me._unapproveRecord(r);
-        });
+    },
+    
+    shouldShowMenuItem: function(record) {
+        return TSUtilities._currentUserCanUnprocess() && Ext.Array.every(this.records, function(r){
+            return this._isUnprocessable(r);
+        },this);
+    },
+    
+    _isUnprocessable: function(record) {
+        return ( record.get('__Status') && record.get('__Status') == TSTimesheet.STATUS.PROCESSED );
+    },
+    
+    _unprocessRecord: function(record) {
+        if ( !record ) {
+            Ext.Msg.alert("Problem unprocessing record", "Can't find record");
+            return;
+        }
+        
+        record.unprocess();
+    },
+    
+    _unprocessRecords: function() {
+        Ext.Array.each(this.records, function(r) {
+            this._unprocessRecord(r);
+        }, this);
     }
 });
 
@@ -5005,42 +5095,38 @@ Ext.define('Rally.technicalservices.TimeApprovalRecordMenu', {
 
     _getMenuItems: function() {
         var record = this.getRecord(),
-            records = this.records || [],
+            records = this.records || [record],
             items = [],
             popoverPlacement = this.popoverPlacement || Rally.ui.popover.Popover.DEFAULT_PLACEMENT;
 
-        if ( records && records.length > 0 ) {
-            // bulk edit
-            items.push({
-                xtype: 'tsapprovemenuitem',
-                view: this.view,
-                record: record,
-                records: records
-            });
-           
-            if ( this.canUnapprove ) {
-                items.push({
-                    xtype: 'tsunapprovemenuitem',
-                    view: this.view,
-                    record: record,
-                    records: records
-                });
-            }
-        } else {
-            items.push({
-                xtype: 'tsapprovemenuitem',
-                view: this.view,
-                record: record
-            });
-                    
-            if ( this.canUnapprove ) {
-                items.push({
-                    xtype: 'tsunapprovemenuitem',
-                    view: this.view,
-                    record: record
-                });
-            }
-        }
+        items.push({
+            xtype: 'tsapprovemenuitem',
+            view: this.view,
+            record: record,
+            records: records
+        });
+        
+        items.push({
+            xtype: 'tsunapprovemenuitem',
+            view: this.view,
+            record: record,
+            records: records
+        });
+        
+        items.push({
+            xtype: 'tsprocessmenuitem',
+            view: this.view,
+            record: record,
+            records: records
+        });
+        
+        items.push({
+            xtype: 'tsunprocessmenuitem',
+            view: this.view,
+            record: record,
+            records: records
+        });
+        
         return items;
     }
 });
@@ -5117,9 +5203,7 @@ Ext.define('Rally.technicalservices.grid.RowActionColumn', {
         /**
          * @cfg {Object} scope The scope that the rowActionsFn is called with
          */
-        scope: null,
-        
-        canUnapprove: false
+        scope: null
     },
 
     constructor: function() {
@@ -5168,8 +5252,7 @@ Ext.define('Rally.technicalservices.grid.RowActionColumn', {
             record: selectedRecord,
             records: checkedRecords,
             owningEl: el.parentElement,
-            popoverPlacement: ['bottom', 'top'],
-            canUnapprove: this.canUnapprove
+            popoverPlacement: ['bottom', 'top']
         };
 
         /*if (grid.enableBulkEdit && _.contains(checkedRecords, selectedRecord)) {
@@ -5689,7 +5772,7 @@ Ext.define("TSTimeSheetApproval", {
                 {displayName:'Not Submitted', value: TSTimesheet.STATUS.NOT_SUBMITTED},
                 {displayName:'Submitted', value: TSTimesheet.STATUS.SUBMITTED},
                 {displayName:'Approved', value: TSTimesheet.STATUS.APPROVED},
-                // TODO (tj) {displayName:'Processed', value: TSTimesheet.STATUS.PROCESSED}
+                {displayName:'Processed', value: TSTimesheet.STATUS.PROCESSED}
             ]
         });
 
@@ -6102,7 +6185,7 @@ Ext.define("TSTimeSheetApproval", {
         var me = this;
         var columns = [{
             xtype: 'tsrowactioncolumn',
-            canUnapprove: TSUtilities._currentUserCanUnapprove()
+            //canUnapprove: TSUtilities._currentUserCanUnapprove()
         }];
         
         columns.push({

@@ -217,5 +217,13 @@ Ext.define('TSUtilities', {
     
     _currentUserCanUnapprove: function() {
         return this.currentUserIsAdmin();
+    },
+    
+    _currentUserCanProcess: function() {
+        return this.currentUserIsAdmin();
+    },
+    
+    _currentUserCanUnprocess: function() {
+        return this.currentUserIsAdmin();
     }
 });
