@@ -12,7 +12,7 @@ Ext.define("TSFinanceReport", {
     
     layout: 'border', 
     
-    stateFilterValue: 'ALL',
+    stateFilterValue: TSTimesheet.STATUS.ALL,
     
     items: [
         {xtype:'container', itemId:'selector_box', region: 'north',  layout: { type:'hbox' }},
@@ -551,12 +551,12 @@ Ext.define("TSFinanceReport", {
                         
                         var status_object = Ext.JSON.decode(value);
 
-                        timesheet.set('__Status', status_object.status || "Open");
+                        timesheet.set('__Status', status_object.status || TSTimesheet.STATUS.NOT_SUBMITTED);
                         timesheet.set('__LastUpdateBy', status_object.status_owner._refObjectName || "");
                         timesheet.set('__LastUpdateDate', status_object.status_date);
                         
                     } else { 
-                        timesheet.set('__Status', 'Open');
+                        timesheet.set('__Status', TSTimesheet.STATUS.NOT_SUBMITTED);
                     }
                 });
 
@@ -585,7 +585,7 @@ Ext.define("TSFinanceReport", {
                 timesheets[key] = Ext.Object.merge( item.getData(), { 
                     __UserName: item.get('User').UserName,
                     __Hours: 0,
-                    __Status: "Unknown",
+                    __Status: TSTimesheet.STATUS.UNKNOWN,
                     __TimeEntryItems: []
                 });
             }

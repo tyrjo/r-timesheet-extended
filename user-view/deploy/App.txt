@@ -4,16 +4,16 @@
 <head>
     <title>CATS-
         timesheet-with-approval (user-view)-
-            2.0.0
+            2.0.1
     </title>
     <!--  (c) 2017 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Tue Apr 17 2018 22:58:33 GMT+0000 (UTC) -->
+    <!--  Build Date: Thu Apr 19 2018 16:39:48 GMT+0000 (UTC) -->
 
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Tue Apr 17 2018 22:58:33 GMT+0000 (UTC)";
+        var APP_BUILD_DATE = "Thu Apr 19 2018 16:39:48 GMT+0000 (UTC)";
         var ARTIFACT = "";
         var BUILDER = "ec2-user";
-        var CHECKSUM = "624479068744";
+        var CHECKSUM = "681252131808";
     </script>
 
     <script type="text/javascript" src="https://us1.rallydev.com/apps/2.1/sdk-debug.js"></script>
@@ -518,7 +518,7 @@ Ext.define('TSDateUtils', {
                 var value = preference[0].get('Value');
                 if ( /{/.test(value) ) {
                     var status_object = Ext.JSON.decode(value);
-                    if ( status_object.status == "Approved" ) { 
+                    if ( status_object.status == TSTimesheet.STATUS.APPROVED ) { 
                         deferred.resolve(true);
                         return;
                     }
@@ -4215,6 +4215,193 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
 
 });
 
+Ext.define('TSTimesheet',{
+    extend: 'Ext.data.Model',
+    
+    statics: {
+        STATUS: {
+            UNKNOWN: 'Unknown',
+            ALL: 'ALL',
+            NOT_SUBMITTED: 'Not Submitted',
+            SUBMITTED: 'Submitted',
+            APPROVED: 'Approved'  
+        }
+    },
+        
+    fields: [
+        { name: '__UserName', type:'object' },
+        { name: '__Hours',  type: 'float',  defaultValue: 0 },
+        { name: '__Status', type: 'string', defaultValue: 'Unknown' }, // See TSTimesheet.STATUS.*
+        { name: 'User', type: 'object' },
+        { name: 'WeekStartDate', type: 'date' },
+        { name: '__LastUpdateBy', type: 'object' },
+        { name: '__LastUpdateDate', type: 'date' },
+        { name: '__Comments', type: 'object' }
+    ],
+    
+    isSelectable: function() {
+        return true;
+    },
+    
+    getPreferenceKey: function() {
+        // get or create and then update pref
+        return Ext.String.format("{0}.{1}.{2}.{3}", 
+            TSUtilities.approvalKeyPrefix,
+            TSDateUtils.getBeginningOfWeekISOForLocalDate(this.get('WeekStartDate')),
+            this.get('User').ObjectID,
+            new Date().getTime()
+        );
+    },
+    
+    getShortPreferenceKey: function() {
+        // get or create and then update pref
+        return Ext.String.format("{0}.{1}.{2}", 
+            TSUtilities.approvalKeyPrefix,
+            TSDateUtils.getBeginningOfWeekISOForLocalDate(this.get('WeekStartDate')),
+            this.get('User').ObjectID
+        );
+    },
+    
+    _setStatus: function(status) {
+        var deferred = Ext.create('Deft.Deferred');
+        var current_user = Rally.getApp().getContext().getUser();
+        var status_owner = { _type: 'User', '_ref': current_user._ref, '_refObjectName': current_user._refObjectName }
+        
+        this.set('__Status', status);
+        this.set('__LastUpdateBy', status_owner._refObjectName);
+        
+        var pref_key = this.getPreferenceKey();
+        var status_object = {
+            status: status,
+            status_date: new Date(),
+            status_owner: status_owner
+        };
+        
+        Deft.Chain.sequence([
+            function() { return this._archivePreferences(this.getShortPreferenceKey()); },
+            function() { return this._makePreference(pref_key,Ext.JSON.encode(status_object)); }
+        ],this).then({
+            scope: this,
+            success: function(results) {
+                deferred.resolve(results[0]);
+            },
+            failure: function(msg) {
+                Ext.Msg.alert("Failed to save week lock state to " + pref_key, msg);
+            }
+        });
+        return deferred.promise;
+    },
+    
+    submit: function() {
+        return this._setStatus(TSTimesheet.STATUS.SUBMITTED);
+    },
+    
+    unsubmit: function() {
+        return this._setStatus(TSTimesheet.STATUS.NOT_SUBMITTED);
+    },
+    
+    approve: function() {
+        return this._setStatus(TSTimesheet.STATUS.APPROVED);
+    },
+    
+    unapprove: function() {
+        return this._setStatus(TSTimesheet.STATUS.NOT_SUBMITTED);
+    },
+    
+    _archivePreferences: function(key) {
+        var deferred = Ext.create('Deft.Deferred'),
+            me = this;
+        
+        var filters = [
+            {property:'Name',operator:'contains', value:key},
+            {property:'Name',operator:'!contains',value:TSUtilities.archiveSuffix }
+        ];
+        
+        var config = {
+            model:'Preference',
+            limit: Infinity,
+            filters: filters,
+            fetch: ['Name','Value']
+        };
+        
+        TSUtilities.loadWsapiRecords(config).then({
+            scope: this,
+            success: function(preferences) {
+                var promises = [];
+                Ext.Array.each(preferences, function(preference) {
+                    preference.set('Project',Rally.getApp().getSetting('preferenceProjectRef'));
+                    preference.set('Name', preference.get('Name') + '.' + TSUtilities.archiveSuffix );
+                    promises.push( function() { return me._savePreference(preference); });
+                },this);
+                
+                Deft.Chain.sequence(promises).then({
+                    success: function(result) {
+                        deferred.resolve(result);
+                    },
+                    failure: function(msg) {
+                        deferred.reject(msg);
+                    }
+                
+                });
+            },
+            failure: function(msg) {
+                deferred.reject(msg);
+            }
+        });
+        
+        return deferred.promise;
+    },
+    
+    _savePreference: function(preference) {
+        var deferred = Ext.create('Deft.Deferred');
+        
+        preference.save({
+            callback: function(result, operation) {
+                if(operation.wasSuccessful()) {
+                    deferred.resolve(result);
+                } else {
+                    console.log('Problem saving ', preference, operation);
+                    deferred.reject("Could not archive old status");
+                }
+            }
+        });
+        return deferred.promise;
+    },
+    
+    /* leave prefs is null or empty array to create a pref because
+     * this is pipelined from the search for a pref.  So we might have
+     * gotten something and just want to pass it through
+     */
+    _makePreference: function(key, value) {
+        var deferred = Ext.create('Deft.Deferred');
+        
+        Rally.data.ModelFactory.getModel({
+            type: 'Preference',
+            success: function(model) {
+                var pref_config = {
+                    Name: key,
+                    Value: value
+                };
+                
+                pref_config.Project = Rally.getApp().getSetting('preferenceProjectRef');
+                
+                var pref = Ext.create(model, pref_config);
+                
+                pref.save({
+                    callback: function(result, operation) {
+                        if(operation.wasSuccessful()) {
+                            deferred.resolve([result]);
+                        } else {
+                            deferred.reject(operation.error.errors.join('. '));
+                        }
+                    }
+                });
+            }
+        });
+        return deferred.promise;
+    }
+    
+});
 Ext.define('Rally.technicalservices.AbsorbTimeEntryMenuItem', {
     extend: 'Rally.ui.menu.item.RecordMenuItem',
     alias: 'widget.tsabsorbtimeentrymenuitem',
@@ -4897,9 +5084,50 @@ Ext.define("TSExtendedTimesheet", {
 
     layout: { type: 'border' },
     
-    items: [
-        {xtype:'container', itemId:'selector_box', region: 'north',  layout: { type:'hbox' }, minHeight: 25}
-    ],
+    items: [{
+        xtype:'container',
+        itemId:'selector_box',
+        region: 'north',
+        layout: {
+            type:'hbox',
+        },
+        minHeight: 20,
+        items: [
+            {
+                xtype:'container',
+                itemId: 'button_box'
+            }, 
+             // Padding to allow the following to be right justified
+            {
+                xtype:'container',
+                flex: 1
+            },
+            {
+                xtype:'rallydatefield',
+                itemId:'date_selector',
+                fieldLabel: 'Week Starting',
+            },
+            {
+                xtype:'container',
+                itemId:'status_box',
+                padding: '0 10 0 10'
+            },
+            {
+                xtype: 'container',
+                itemId: 'statusControls'
+            },
+            /*
+            {
+                type:'container',
+                html: '&nbsp;&nbsp;&nbsp;',
+                border: 0,
+                padding: 10
+            }
+            */
+        //}
+            
+        ]
+    }],
 
     integrationHeaders : {
         name : "TSExtendedTimesheet"
@@ -4936,7 +5164,8 @@ Ext.define("TSExtendedTimesheet", {
                     Ext.Msg.alert('Contact your Administrator', 'This app requires the lowest level Portfolio Item Type Name to be set.');
                 }
                 else {
-                    this._addSelectors(this.down('#selector_box'));
+                    this._addEventListeners();
+                    this.updateData();
                 }
             },
             failure: function(msg) {
@@ -4945,37 +5174,18 @@ Ext.define("TSExtendedTimesheet", {
         });
     },
     
-    _addSelectors: function(container) {
-        container.add({
-            xtype:'container',
-            itemId: 'button_box'
-        });
-        
-        container.add({ xtype:'container', itemId:'status_box'});
-        
-        container.add({xtype:'container',flex: 1});
-        
-        container.add({
-            xtype:'rallydatefield',
-            itemId:'date_selector',
-            fieldLabel: 'Week Starting',
-            listeners: {
-                scope: this,
-                change: function(dp, new_value) {
-                    var week_start = TSDateUtils.getBeginningOfWeekForLocalDate(new_value);
-                    if ( week_start !== new_value ) {
-                        dp.setValue(week_start);
-                    }
-                    if ( new_value.getDay() === 0 ) {
-                        this.updateData();
-                    }
-                }
+    _addEventListeners: function(container) {
+        var dateSelector = this.down('#date_selector');
+        dateSelector.setValue(new Date());
+        dateSelector.on('change', function(dp, new_value) {
+            var week_start = TSDateUtils.getBeginningOfWeekForLocalDate(new_value);
+            if ( week_start !== new_value ) {
+                dp.setValue(week_start);
             }
-        }).setValue(new Date());
-        
-        //if ( this.isExternal() ) {
-            container.add({type:'container', html: '&nbsp;&nbsp;&nbsp;', border: 0, padding: 10});
-        //}
+            if ( new_value.getDay() === 0 ) {
+                this.updateData();
+            }
+        }, this);
     },
     
     _addButtons: function(container) {
@@ -5059,12 +5269,58 @@ Ext.define("TSExtendedTimesheet", {
         });
     },
     
+    _addStatusControls: function(statusValue) {
+        var container = this.down('#statusControls');
+        container.removeAll();
+        
+        switch(statusValue) {
+            case TSTimesheet.STATUS.NOT_SUBMITTED:
+                container.add({
+                    xtype: 'rallybutton',
+                    text: 'Submit',
+                    listeners: {
+                        scope: this,
+                        click: function() {
+                            var statusPref = Ext.create('TSTimesheet', {
+                                User: this.getContext().getUser(),
+                                WeekStartDate: this.startDate
+                            });
+                            statusPref.submit().then({
+                                scope: this,
+                                success: this.updateData
+                            });
+                        }
+                    }
+                });
+                break;
+            case TSTimesheet.STATUS.SUBMITTED:
+                container.add({
+                    xtype: 'rallybutton',
+                    text: 'Unsubmit',
+                    listeners: {
+                        scope: this,
+                        click: function() {
+                            var statusPref = Ext.create('TSTimesheet', {
+                                User: this.getContext().getUser(),
+                                WeekStartDate: this.startDate
+                            });
+                            statusPref.unsubmit().then({
+                                scope: this,
+                                success: this.updateData
+                            });
+                        }
+                    }
+                });
+                break;
+            default:
+                break;
+        }
+    },
+    
     updateData: function()  { 
         var me = this;
         
-        Ext.Array.each( this.query('rallybutton'), function(button) {
-            button.setDisabled(true);
-        });
+        this._disableButtons();
                                 
         var timetable  = this.down('tstimetable');
         var button_box = this.down('#button_box');
@@ -5088,7 +5344,7 @@ Ext.define("TSExtendedTimesheet", {
         ],this).then({
             scope: this,
             success: function(results) {
-
+                var statusValue = TSTimesheet.STATUS.NOT_SUBMITTED;
                 var status_prefs = results[0];
                 var week_lock_prefs = results[1];
                 
@@ -5096,10 +5352,20 @@ Ext.define("TSExtendedTimesheet", {
                 if ( status_prefs.length > 0 ) {
                     var value = status_prefs[0].get('Value');
                     var status_object = Ext.JSON.decode(value);
-                    if ( status_object.status == "Approved" ) { 
+                    statusValue = status_object.status;
+                    if ( statusValue === TSTimesheet.STATUS.SUBMITTED ) { 
                         editable = false;
-                        status_box.add({xtype:'container',html:'Approved'});
+                        status_box.add({xtype:'container',html:'Status: Submitted'});
+                    } else if ( statusValue === TSTimesheet.STATUS.APPROVED ) { 
+                        editable = false;
+                        status_box.add({xtype:'container',html:'Status: Approved'});
+                    } else { 
+                        editable = true;
+                        status_box.add({xtype:'container',html:'Status: Unsubmitted'});
                     }
+                } else {
+                    editable = true;
+                    status_box.add({xtype:'container',html:'Status: Unsubmitted'});
                 }
                 if ( week_lock_prefs.length > 0 ) {
                     var value = week_lock_prefs[0].get('Value');
@@ -5107,7 +5373,7 @@ Ext.define("TSExtendedTimesheet", {
 
                     if ( status_object.status == "Locked" ) { 
                         editable = false;
-                        status_box.add({xtype:'container',html:'Week Locked'});
+                        status_box.add({xtype:'container',html:'Status: Week Locked'});
                     }
                 }
 
@@ -5123,17 +5389,28 @@ Ext.define("TSExtendedTimesheet", {
                         gridReady: function() {
                             this._addButtons(button_box);
                             if ( editable ) {
-                                Ext.Array.each( this.query('rallybutton'), function(button) {
-                                    button.setDisabled(false);
-                                });
+                                this._enableButtons();
                             }
+                            this._addStatusControls(statusValue);
                         }
                     }
                 });
             },
             failure: function(msg) {
-                Ext.Msg.alert("Problem loaing approval information", msg);
+                Ext.Msg.alert("Problem loading approval information", msg);
             }
+        });
+    },
+    
+    _disableButtons() {
+        Ext.Array.each( this.query('rallybutton'), function(button) {
+            button.setDisabled(true);
+        });
+    },
+    
+    _enableButtons() {
+        Ext.Array.each( this.query('rallybutton'), function(button) {
+            button.setDisabled(false);
         });
     },
     
@@ -5238,7 +5515,7 @@ Ext.define("TSExtendedTimesheet", {
                 var timetable = Ext.create('Rally.technicalservices.TimeTable',{
                     startDate: Ext.Date.parse(week_start,'Y-m-d'),
                     editable: false,
-                    timesheet_status: 'Approved',
+                    timesheet_status: TSTimesheet.STATUS.APPROVED,
                     timesheet_user: this.getContext().getUser(),
                     listeners: {
                         scope: this,
@@ -5313,19 +5590,7 @@ Ext.define("TSExtendedTimesheet", {
         );
         this.logger.log('finding by key',key);
         
-        var config = {
-            model:'Preference',
-            limit: 1,
-            pageSize: 1,
-            filters: [
-                {property:'Name',operator: 'contains', value:key},
-                {property:'Name',operator:'!contains',value: TSUtilities.archiveSuffix}
-            ],
-            fetch: ['Name','Value'],
-            sorters: [{property:'CreationDate', direction: 'DESC'}]
-        };
-        
-        return TSUtilities.loadWsapiRecords(config);
+        return TSDateUtils._loadWeekStatusPreference(key);
     },
     
     _loadWeekLockPreference: function() {

@@ -71,7 +71,7 @@ Ext.define('TSDateUtils', {
                 var value = preference[0].get('Value');
                 if ( /{/.test(value) ) {
                     var status_object = Ext.JSON.decode(value);
-                    if ( status_object.status == "Approved" ) { 
+                    if ( status_object.status == TSTimesheet.STATUS.APPROVED ) { 
                         deferred.resolve(true);
                         return;
                     }

@@ -1,10 +1,20 @@
 Ext.define('TSTimesheet',{
     extend: 'Ext.data.Model',
+    
+    statics: {
+        STATUS: {
+            UNKNOWN: 'Unknown',
+            ALL: 'ALL',
+            NOT_SUBMITTED: 'Not Submitted',
+            SUBMITTED: 'Submitted',
+            APPROVED: 'Approved'  
+        }
+    },
         
     fields: [
         { name: '__UserName', type:'object' },
         { name: '__Hours',  type: 'float',  defaultValue: 0 },
-        { name: '__Status', type: 'string', defaultValue: 'Unknown' }, // Open, Approved, Locked
+        { name: '__Status', type: 'string', defaultValue: 'Unknown' }, // See TSTimesheet.STATUS.*
         { name: 'User', type: 'object' },
         { name: 'WeekStartDate', type: 'date' },
         { name: '__LastUpdateBy', type: 'object' },
@@ -65,12 +75,20 @@ Ext.define('TSTimesheet',{
         return deferred.promise;
     },
     
+    submit: function() {
+        return this._setStatus(TSTimesheet.STATUS.SUBMITTED);
+    },
+    
+    unsubmit: function() {
+        return this._setStatus(TSTimesheet.STATUS.NOT_SUBMITTED);
+    },
+    
     approve: function() {
-        return this._setStatus('Approved');
+        return this._setStatus(TSTimesheet.STATUS.APPROVED);
     },
     
     unapprove: function() {
-        return this._setStatus('Open');
+        return this._setStatus(TSTimesheet.STATUS.NOT_SUBMITTED);
     },
     
     _archivePreferences: function(key) {

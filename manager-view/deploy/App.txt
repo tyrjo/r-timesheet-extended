@@ -4,16 +4,16 @@
 <head>
     <title>CATS-
         timesheet-with-approval (manager-view)-
-            2.0.0
+            2.0.1
     </title>
     <!--  (c) 2017 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Tue Apr 17 2018 22:58:33 GMT+0000 (UTC) -->
+    <!--  Build Date: Thu Apr 19 2018 16:49:39 GMT+0000 (UTC) -->
 
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Tue Apr 17 2018 22:58:33 GMT+0000 (UTC)";
+        var APP_BUILD_DATE = "Thu Apr 19 2018 16:49:39 GMT+0000 (UTC)";
         var ARTIFACT = "";
         var BUILDER = "ec2-user";
-        var CHECKSUM = "773805525437";
+        var CHECKSUM = "782048388098";
     </script>
 
     <script type="text/javascript" src="https://us1.rallydev.com/apps/2.1/sdk-debug.js"></script>
@@ -518,7 +518,7 @@ Ext.define('TSDateUtils', {
                 var value = preference[0].get('Value');
                 if ( /{/.test(value) ) {
                     var status_object = Ext.JSON.decode(value);
-                    if ( status_object.status == "Approved" ) { 
+                    if ( status_object.status == TSTimesheet.STATUS.APPROVED ) { 
                         deferred.resolve(true);
                         return;
                     }
@@ -4670,6 +4670,193 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
 
 });
 
+Ext.define('TSTimesheet',{
+    extend: 'Ext.data.Model',
+    
+    statics: {
+        STATUS: {
+            UNKNOWN: 'Unknown',
+            ALL: 'ALL',
+            NOT_SUBMITTED: 'Not Submitted',
+            SUBMITTED: 'Submitted',
+            APPROVED: 'Approved'  
+        }
+    },
+        
+    fields: [
+        { name: '__UserName', type:'object' },
+        { name: '__Hours',  type: 'float',  defaultValue: 0 },
+        { name: '__Status', type: 'string', defaultValue: 'Unknown' }, // See TSTimesheet.STATUS.*
+        { name: 'User', type: 'object' },
+        { name: 'WeekStartDate', type: 'date' },
+        { name: '__LastUpdateBy', type: 'object' },
+        { name: '__LastUpdateDate', type: 'date' },
+        { name: '__Comments', type: 'object' }
+    ],
+    
+    isSelectable: function() {
+        return true;
+    },
+    
+    getPreferenceKey: function() {
+        // get or create and then update pref
+        return Ext.String.format("{0}.{1}.{2}.{3}", 
+            TSUtilities.approvalKeyPrefix,
+            TSDateUtils.getBeginningOfWeekISOForLocalDate(this.get('WeekStartDate')),
+            this.get('User').ObjectID,
+            new Date().getTime()
+        );
+    },
+    
+    getShortPreferenceKey: function() {
+        // get or create and then update pref
+        return Ext.String.format("{0}.{1}.{2}", 
+            TSUtilities.approvalKeyPrefix,
+            TSDateUtils.getBeginningOfWeekISOForLocalDate(this.get('WeekStartDate')),
+            this.get('User').ObjectID
+        );
+    },
+    
+    _setStatus: function(status) {
+        var deferred = Ext.create('Deft.Deferred');
+        var current_user = Rally.getApp().getContext().getUser();
+        var status_owner = { _type: 'User', '_ref': current_user._ref, '_refObjectName': current_user._refObjectName }
+        
+        this.set('__Status', status);
+        this.set('__LastUpdateBy', status_owner._refObjectName);
+        
+        var pref_key = this.getPreferenceKey();
+        var status_object = {
+            status: status,
+            status_date: new Date(),
+            status_owner: status_owner
+        };
+        
+        Deft.Chain.sequence([
+            function() { return this._archivePreferences(this.getShortPreferenceKey()); },
+            function() { return this._makePreference(pref_key,Ext.JSON.encode(status_object)); }
+        ],this).then({
+            scope: this,
+            success: function(results) {
+                deferred.resolve(results[0]);
+            },
+            failure: function(msg) {
+                Ext.Msg.alert("Failed to save week lock state to " + pref_key, msg);
+            }
+        });
+        return deferred.promise;
+    },
+    
+    submit: function() {
+        return this._setStatus(TSTimesheet.STATUS.SUBMITTED);
+    },
+    
+    unsubmit: function() {
+        return this._setStatus(TSTimesheet.STATUS.NOT_SUBMITTED);
+    },
+    
+    approve: function() {
+        return this._setStatus(TSTimesheet.STATUS.APPROVED);
+    },
+    
+    unapprove: function() {
+        return this._setStatus(TSTimesheet.STATUS.NOT_SUBMITTED);
+    },
+    
+    _archivePreferences: function(key) {
+        var deferred = Ext.create('Deft.Deferred'),
+            me = this;
+        
+        var filters = [
+            {property:'Name',operator:'contains', value:key},
+            {property:'Name',operator:'!contains',value:TSUtilities.archiveSuffix }
+        ];
+        
+        var config = {
+            model:'Preference',
+            limit: Infinity,
+            filters: filters,
+            fetch: ['Name','Value']
+        };
+        
+        TSUtilities.loadWsapiRecords(config).then({
+            scope: this,
+            success: function(preferences) {
+                var promises = [];
+                Ext.Array.each(preferences, function(preference) {
+                    preference.set('Project',Rally.getApp().getSetting('preferenceProjectRef'));
+                    preference.set('Name', preference.get('Name') + '.' + TSUtilities.archiveSuffix );
+                    promises.push( function() { return me._savePreference(preference); });
+                },this);
+                
+                Deft.Chain.sequence(promises).then({
+                    success: function(result) {
+                        deferred.resolve(result);
+                    },
+                    failure: function(msg) {
+                        deferred.reject(msg);
+                    }
+                
+                });
+            },
+            failure: function(msg) {
+                deferred.reject(msg);
+            }
+        });
+        
+        return deferred.promise;
+    },
+    
+    _savePreference: function(preference) {
+        var deferred = Ext.create('Deft.Deferred');
+        
+        preference.save({
+            callback: function(result, operation) {
+                if(operation.wasSuccessful()) {
+                    deferred.resolve(result);
+                } else {
+                    console.log('Problem saving ', preference, operation);
+                    deferred.reject("Could not archive old status");
+                }
+            }
+        });
+        return deferred.promise;
+    },
+    
+    /* leave prefs is null or empty array to create a pref because
+     * this is pipelined from the search for a pref.  So we might have
+     * gotten something and just want to pass it through
+     */
+    _makePreference: function(key, value) {
+        var deferred = Ext.create('Deft.Deferred');
+        
+        Rally.data.ModelFactory.getModel({
+            type: 'Preference',
+            success: function(model) {
+                var pref_config = {
+                    Name: key,
+                    Value: value
+                };
+                
+                pref_config.Project = Rally.getApp().getSetting('preferenceProjectRef');
+                
+                var pref = Ext.create(model, pref_config);
+                
+                pref.save({
+                    callback: function(result, operation) {
+                        if(operation.wasSuccessful()) {
+                            deferred.resolve([result]);
+                        } else {
+                            deferred.reject(operation.error.errors.join('. '));
+                        }
+                    }
+                });
+            }
+        });
+        return deferred.promise;
+    }
+    
+});
 Ext.define('Rally.technicalservices.ApproveMenuItem', {
     extend: 'Rally.ui.menu.item.RecordMenuItem',
     alias: 'widget.tsapprovemenuitem',
@@ -4705,7 +4892,7 @@ Ext.define('Rally.technicalservices.ApproveMenuItem', {
     },
     
     _isApprovable: function(record) {
-        return ( record.get('__Status') && record.get('__Status') != "Approved" );
+        return ( record.get('__Status') && record.get('__Status') != TSTimesheet.STATUS.APPROVED );
     },
     
     _approveRecord: function(record) {
@@ -5052,175 +5239,6 @@ Ext.override(Ext.selection.CheckboxModel,{
     }
 });
 
-Ext.define('TSTimesheet',{
-    extend: 'Ext.data.Model',
-        
-    fields: [
-        { name: '__UserName', type:'object' },
-        { name: '__Hours',  type: 'float',  defaultValue: 0 },
-        { name: '__Status', type: 'string', defaultValue: 'Unknown' }, // Open, Approved, Locked
-        { name: 'User', type: 'object' },
-        { name: 'WeekStartDate', type: 'date' },
-        { name: '__LastUpdateBy', type: 'object' },
-        { name: '__LastUpdateDate', type: 'date' },
-        { name: '__Comments', type: 'object' }
-    ],
-    
-    isSelectable: function() {
-        return true;
-    },
-    
-    getPreferenceKey: function() {
-        // get or create and then update pref
-        return Ext.String.format("{0}.{1}.{2}.{3}", 
-            TSUtilities.approvalKeyPrefix,
-            TSDateUtils.getBeginningOfWeekISOForLocalDate(this.get('WeekStartDate')),
-            this.get('User').ObjectID,
-            new Date().getTime()
-        );
-    },
-    
-    getShortPreferenceKey: function() {
-        // get or create and then update pref
-        return Ext.String.format("{0}.{1}.{2}", 
-            TSUtilities.approvalKeyPrefix,
-            TSDateUtils.getBeginningOfWeekISOForLocalDate(this.get('WeekStartDate')),
-            this.get('User').ObjectID
-        );
-    },
-    
-    _setStatus: function(status) {
-        var deferred = Ext.create('Deft.Deferred');
-        var current_user = Rally.getApp().getContext().getUser();
-        var status_owner = { _type: 'User', '_ref': current_user._ref, '_refObjectName': current_user._refObjectName }
-        
-        this.set('__Status', status);
-        this.set('__LastUpdateBy', status_owner._refObjectName);
-        
-        var pref_key = this.getPreferenceKey();
-        var status_object = {
-            status: status,
-            status_date: new Date(),
-            status_owner: status_owner
-        };
-        
-        Deft.Chain.sequence([
-            function() { return this._archivePreferences(this.getShortPreferenceKey()); },
-            function() { return this._makePreference(pref_key,Ext.JSON.encode(status_object)); }
-        ],this).then({
-            scope: this,
-            success: function(results) {
-                deferred.resolve(results[0]);
-            },
-            failure: function(msg) {
-                Ext.Msg.alert("Failed to save week lock state to " + pref_key, msg);
-            }
-        });
-        return deferred.promise;
-    },
-    
-    approve: function() {
-        return this._setStatus('Approved');
-    },
-    
-    unapprove: function() {
-        return this._setStatus('Open');
-    },
-    
-    _archivePreferences: function(key) {
-        var deferred = Ext.create('Deft.Deferred'),
-            me = this;
-        
-        var filters = [
-            {property:'Name',operator:'contains', value:key},
-            {property:'Name',operator:'!contains',value:TSUtilities.archiveSuffix }
-        ];
-        
-        var config = {
-            model:'Preference',
-            limit: Infinity,
-            filters: filters,
-            fetch: ['Name','Value']
-        };
-        
-        TSUtilities.loadWsapiRecords(config).then({
-            scope: this,
-            success: function(preferences) {
-                var promises = [];
-                Ext.Array.each(preferences, function(preference) {
-                    preference.set('Project',Rally.getApp().getSetting('preferenceProjectRef'));
-                    preference.set('Name', preference.get('Name') + '.' + TSUtilities.archiveSuffix );
-                    promises.push( function() { return me._savePreference(preference); });
-                },this);
-                
-                Deft.Chain.sequence(promises).then({
-                    success: function(result) {
-                        deferred.resolve(result);
-                    },
-                    failure: function(msg) {
-                        deferred.reject(msg);
-                    }
-                
-                });
-            },
-            failure: function(msg) {
-                deferred.reject(msg);
-            }
-        });
-        
-        return deferred.promise;
-    },
-    
-    _savePreference: function(preference) {
-        var deferred = Ext.create('Deft.Deferred');
-        
-        preference.save({
-            callback: function(result, operation) {
-                if(operation.wasSuccessful()) {
-                    deferred.resolve(result);
-                } else {
-                    console.log('Problem saving ', preference, operation);
-                    deferred.reject("Could not archive old status");
-                }
-            }
-        });
-        return deferred.promise;
-    },
-    
-    /* leave prefs is null or empty array to create a pref because
-     * this is pipelined from the search for a pref.  So we might have
-     * gotten something and just want to pass it through
-     */
-    _makePreference: function(key, value) {
-        var deferred = Ext.create('Deft.Deferred');
-        
-        Rally.data.ModelFactory.getModel({
-            type: 'Preference',
-            success: function(model) {
-                var pref_config = {
-                    Name: key,
-                    Value: value
-                };
-                
-                pref_config.Project = Rally.getApp().getSetting('preferenceProjectRef');
-                
-                var pref = Ext.create(model, pref_config);
-                
-                pref.save({
-                    callback: function(result, operation) {
-                        if(operation.wasSuccessful()) {
-                            deferred.resolve([result]);
-                        } else {
-                            deferred.reject(operation.error.errors.join('. '));
-                        }
-                    }
-                });
-            }
-        });
-        return deferred.promise;
-    }
-    
-});
 Ext.define('Rally.technicalservices.ManagerDetailDialog', {
     extend: 'Rally.ui.dialog.Dialog',
     autoShow : true,
@@ -5308,7 +5326,7 @@ Ext.define('Rally.technicalservices.ManagerDetailDialog', {
         left_box.add({
             xtype:'rallybutton',
             text: '+<span class="icon-task"> </span>',
-            disabled: (status == "Approved" || locked),
+            disabled: (status == TSTimesheet.STATUS.APPROVED || locked),
             toolTipText: "Search and add Tasks",
             listeners: {
                 scope: this,
@@ -5320,7 +5338,7 @@ Ext.define('Rally.technicalservices.ManagerDetailDialog', {
             xtype:'rallybutton',
             text: '+<span class="icon-story"> </span>',
             toolTipText: "Search and add User Stories",
-            disabled: (status == "Approved" || locked),
+            disabled: (status == TSTimesheet.STATUS.APPROVED || locked),
             listeners: {
                 scope: this,
                 click: this._findAndAddStory
@@ -5336,7 +5354,7 @@ Ext.define('Rally.technicalservices.ManagerDetailDialog', {
         this.down('#popup_right_box').add({
             xtype:'rallybutton', 
             text:'Unapprove',
-            disabled: (status != "Approved" || !TSUtilities._currentUserCanUnapprove()),
+            disabled: (status != TSTimesheet.STATUS.APPROVED || !TSUtilities._currentUserCanUnapprove()),
             listeners: {
                 scope: this,
                 click: function() {
@@ -5349,7 +5367,7 @@ Ext.define('Rally.technicalservices.ManagerDetailDialog', {
         this.down('#popup_right_box').add({
             xtype:'rallybutton', 
             text:'Approve',
-            disabled: (status == "Approved"),
+            disabled: (status != TSTimesheet.STATUS.SUBMITTED),
             listeners: {
                 scope: this,
                 click: function() {
@@ -5597,7 +5615,7 @@ Ext.define("TSTimeSheetApproval", {
         name : "TSTimeSheetApproval"
     },
     
-    stateFilterValue: 'Open',
+    stateFilterValue: TSTimesheet.STATUS.SUBMITTED,
     
     config: {
         defaultSettings: {
@@ -5667,9 +5685,11 @@ Ext.define("TSTimeSheetApproval", {
         var state_store = Ext.create('Ext.data.Store',{
             fields: ['displayName','value'],
             data: [
-                {displayName:'All',  value:'ALL'},
-                {displayName:'Open', value:'Open'},
-                {displayName:'Approved', value:'Approved'}
+                {displayName:'All',  value: TSTimesheet.STATUS.ALL},
+                {displayName:'Not Submitted', value: TSTimesheet.STATUS.NOT_SUBMITTED},
+                {displayName:'Submitted', value: TSTimesheet.STATUS.SUBMITTED},
+                {displayName:'Approved', value: TSTimesheet.STATUS.APPROVED},
+                // TODO (tj) {displayName:'Processed', value: TSTimesheet.STATUS.PROCESSED}
             ]
         });
 
@@ -5847,7 +5867,7 @@ Ext.define("TSTimeSheetApproval", {
                         timesheets[key] = Ext.Object.merge( item.getData(), { 
                             __UserName: item.get('User').UserName,
                             __Hours: 0,
-                            __Status: "Unknown"
+                            __Status: TSTimesheet.STATUS.UNKNOWN
                         });
                     }
                     
@@ -5919,20 +5939,20 @@ Ext.define("TSTimeSheetApproval", {
                             }
                         }
 
-                        timesheet.set('__Status', status_object.status || "Open");
+                        timesheet.set('__Status', status_object.status || TSTimesheet.STATUS.NOT_SUBMITTED);
                         timesheet.set('__LastUpdateBy', status_object.status_owner._refObjectName || "");
 
                     } else { 
-                        timesheet.set('__Status', 'Open');
+                        timesheet.set('__Status', TSTimesheet.STATUS.NOT_SUBMITTED);
                     }
                 },this);
                                 
                 var filtered_timesheets = Ext.Array.filter(timesheets, function(timesheet){
-                    if (stateFilter == "ALL") {
+                    if (stateFilter === TSTimesheet.STATUS.ALL) {
                         return true;
                     }
                     
-                    return ( timesheet.get('__Status') == stateFilter );
+                    return ( timesheet.get('__Status') === stateFilter );
                 });
                 
                 this.setLoading(false);
