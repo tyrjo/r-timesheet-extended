@@ -17,7 +17,7 @@ Ext.define("TSTimeSheetApproval", {
         name : "TSTimeSheetApproval"
     },
     
-    stateFilterValue: 'Open',
+    stateFilterValue: TSTimesheet.STATUS.SUBMITTED,
     
     config: {
         defaultSettings: {
@@ -87,9 +87,11 @@ Ext.define("TSTimeSheetApproval", {
         var state_store = Ext.create('Ext.data.Store',{
             fields: ['displayName','value'],
             data: [
-                {displayName:'All',  value:'ALL'},
-                {displayName:'Open', value:'Open'},
-                {displayName:'Approved', value:'Approved'}
+                {displayName:'All',  value: TSTimesheet.STATUS.ALL},
+                {displayName:'Not Submitted', value: TSTimesheet.STATUS.NOT_SUBMITTED},
+                {displayName:'Submitted', value: TSTimesheet.STATUS.SUBMITTED},
+                {displayName:'Approved', value: TSTimesheet.STATUS.APPROVED},
+                // TODO (tj) {displayName:'Processed', value: TSTimesheet.STATUS.PROCESSED}
             ]
         });
 
@@ -267,7 +269,7 @@ Ext.define("TSTimeSheetApproval", {
                         timesheets[key] = Ext.Object.merge( item.getData(), { 
                             __UserName: item.get('User').UserName,
                             __Hours: 0,
-                            __Status: "Unknown"
+                            __Status: TSTimesheet.STATUS.UNKNOWN
                         });
                     }
                     
@@ -339,20 +341,20 @@ Ext.define("TSTimeSheetApproval", {
                             }
                         }
 
-                        timesheet.set('__Status', status_object.status || "Open");
+                        timesheet.set('__Status', status_object.status || TSTimesheet.STATUS.NOT_SUBMITTED);
                         timesheet.set('__LastUpdateBy', status_object.status_owner._refObjectName || "");
 
                     } else { 
-                        timesheet.set('__Status', 'Open');
+                        timesheet.set('__Status', TSTimesheet.STATUS.NOT_SUBMITTED);
                     }
                 },this);
                                 
                 var filtered_timesheets = Ext.Array.filter(timesheets, function(timesheet){
-                    if (stateFilter == "ALL") {
+                    if (stateFilter === TSTimesheet.STATUS.ALL) {
                         return true;
                     }
                     
-                    return ( timesheet.get('__Status') == stateFilter );
+                    return ( timesheet.get('__Status') === stateFilter );
                 });
                 
                 this.setLoading(false);

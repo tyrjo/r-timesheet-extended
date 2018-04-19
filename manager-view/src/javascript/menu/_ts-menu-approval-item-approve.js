@@ -33,7 +33,7 @@ Ext.define('Rally.technicalservices.ApproveMenuItem', {
     },
     
     _isApprovable: function(record) {
-        return ( record.get('__Status') && record.get('__Status') != "Approved" );
+        return ( record.get('__Status') && record.get('__Status') != TSTimesheet.STATUS.APPROVED );
     },
     
     _approveRecord: function(record) {

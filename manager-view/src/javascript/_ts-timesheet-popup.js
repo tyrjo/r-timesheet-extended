@@ -85,7 +85,7 @@ Ext.define('Rally.technicalservices.ManagerDetailDialog', {
         left_box.add({
             xtype:'rallybutton',
             text: '+<span class="icon-task"> </span>',
-            disabled: (status == "Approved" || locked),
+            disabled: (status == TSTimesheet.STATUS.APPROVED || locked),
             toolTipText: "Search and add Tasks",
             listeners: {
                 scope: this,
@@ -97,7 +97,7 @@ Ext.define('Rally.technicalservices.ManagerDetailDialog', {
             xtype:'rallybutton',
             text: '+<span class="icon-story"> </span>',
             toolTipText: "Search and add User Stories",
-            disabled: (status == "Approved" || locked),
+            disabled: (status == TSTimesheet.STATUS.APPROVED || locked),
             listeners: {
                 scope: this,
                 click: this._findAndAddStory
@@ -113,7 +113,7 @@ Ext.define('Rally.technicalservices.ManagerDetailDialog', {
         this.down('#popup_right_box').add({
             xtype:'rallybutton', 
             text:'Unapprove',
-            disabled: (status != "Approved" || !TSUtilities._currentUserCanUnapprove()),
+            disabled: (status != TSTimesheet.STATUS.APPROVED || !TSUtilities._currentUserCanUnapprove()),
             listeners: {
                 scope: this,
                 click: function() {
@@ -126,7 +126,7 @@ Ext.define('Rally.technicalservices.ManagerDetailDialog', {
         this.down('#popup_right_box').add({
             xtype:'rallybutton', 
             text:'Approve',
-            disabled: (status == "Approved"),
+            disabled: (status != TSTimesheet.STATUS.SUBMITTED),
             listeners: {
                 scope: this,
                 click: function() {
