@@ -4,16 +4,16 @@
 <head>
     <title>CATS-
         timesheet-with-approval (manager-view)-
-            2.0.1
+            2.0.2
     </title>
     <!--  (c) 2017 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Thu Apr 19 2018 20:53:03 GMT+0000 (UTC) -->
+    <!--  Build Date: Mon Apr 23 2018 20:08:20 GMT+0000 (UTC) -->
 
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Thu Apr 19 2018 20:53:03 GMT+0000 (UTC)";
+        var APP_BUILD_DATE = "Mon Apr 23 2018 20:08:20 GMT+0000 (UTC)";
         var ARTIFACT = "";
         var BUILDER = "ec2-user";
-        var CHECKSUM = "806802742320";
+        var CHECKSUM = "829700656558";
     </script>
 
     <script type="text/javascript" src="https://us1.rallydev.com/apps/2.1/sdk-debug.js"></script>
@@ -41,6 +41,17 @@ Ext.define('TSUtilities', {
         xtype: 'rallyportfolioitemtypecombobox',
         fieldLabel: "Lowest Level Portfolio Item Type Name",
         valueField: 'Name'
+    },
+    fetchPortfolioItemFields: [],
+    fetchPortfolioItemFieldsSettingField: {
+        name: 'fetchPortfolioItemFields',
+        xtype: 'rallyfieldcombobox',
+        //multiSelect: true,    // This is buggy if enabled, when 2 or more values selected, setting control shows blank value
+        //allowClear: true,
+        allowBlank: true,
+        allowNoEntry: true,
+        //model: null, // Set to TSUtilities lowestPortfolioItemTypeName once it is known
+        fieldLabel: "Extra Portfolio Item Fields",
     },
     
     loadWsapiRecords: function(config,returnOperation){
@@ -3453,7 +3464,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
     stateId: 'ca.technicalservices.extended.timesheet.columns',
     stateful: true,
     stateEvents: ['columnresize'],
-    
+
     getState: function() {
         var me = this,
             state = null;
@@ -3507,7 +3518,8 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
         
         Deft.Chain.sequence([
             me._getTEIModel,
-            function() { return Rally.technicalservices.TimeModelBuilder.build('TimeEntryItem','TSTableRow'); }
+            function() { return Rally.technicalservices.TimeModelBuilder.build('TimeEntryItem','TSTableRow'); },
+            me._loadPortfolioItemModel,
         ],this).then({
             scope: this,
             success: function(model) {
@@ -3541,7 +3553,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
             this._loadTimeEntryValues,
             this._loadTimeEntryAppends,
             this._loadTimeEntryAmends,
-            this._loadDefaultPreference
+            this._loadDefaultPreference,
         ],this).then({
             scope: this,
             success: function(results) {
@@ -3612,6 +3624,16 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
         
     },
     
+    _loadPortfolioItemModel: function() {
+        return Rally.data.ModelFactory.getModel({
+            type: 'PortfolioItem/' + TSUtilities.lowestPortfolioItemTypeName,
+            success: function(model) {
+                this.portfolio_item_model = model;
+            },
+            scope: this
+        })    
+    },
+    
     _getAppendedRowsFromPreferences: function(prefs) {
         // TODO (tj) extra columns from preferences?
         return Ext.Array.map(prefs, function(pref){
@@ -3670,7 +3692,8 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
             },
             fetch: Ext.Array.merge(Rally.technicalservices.TimeModelBuilder.getFetchFields(), 
                 this.time_entry_item_fetch,
-                [this.manager_field]
+                [this.manager_field],
+                TSUtilities.fetchPortfolioItemFields
             ),
             filters: [
                 {property:'WeekStartDate',value:this.startDateString},
@@ -4317,7 +4340,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                 forModification: isForModification,
                 _exportHide: true
             });
-        } 
+        }
             
         Ext.Array.push(columns, [
             {
@@ -4430,8 +4453,27 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                     if ( Ext.isEmpty(value) ) { return ""; }
                     return value._refObjectName
                 }
-            },
-            {
+            }],
+            Ext.Array.map(TSUtilities.fetchPortfolioItemFields, function( fieldName ) {
+                var displayName = fieldName;
+                if ( this.portfolio_item_model ) {
+                    var modelField = this.portfolio_item_model.getField(fieldName);
+                    if ( modelField ) {
+                        displayName = modelField.displayName;
+                    }
+                }
+
+                return {
+                    text: TSUtilities.lowestPortfolioItemTypeName + ' ' + displayName,
+                    xtype: 'templatecolumn',
+                    sortable: false,
+                    tpl: '{__Feature.' + fieldName + '}',
+                    flex: 1,
+                    editor: null,
+                    _selectable: true
+                }
+            }, this),
+            [{
                 dataIndex: 'WorkProduct',
                 text:  'Work Product',
                 flex: 1,
@@ -5704,12 +5746,23 @@ Ext.define("TSTimeSheetApproval", {
         defaultSettings: {
             managerField: 'DisplayName',
             showAllForAdmins: true,
-            preferenceProjectRef: '/project/51712374295'
+            preferenceProjectRef: '/project/51712374295',
+            fetchPortfolioItemFields: undefined
         }
     },
     
     launch: function() {
         var preference_project_ref = this.getSetting('preferenceProjectRef');
+        
+        var fetchPortfolioItemFields = this.getSetting('fetchPortfolioItemFields');
+        // this value is from a rallyfieldcombobox which doesn't behave predictably when multi-select enabled.
+        // Sometimes an array of strings, sometimes a CSV string. Normalize to array of strings
+        if ( Ext.typeOf(fetchPortfolioItemFields) === 'string') {
+            TSUtilities.fetchPortfolioItemFields = fetchPortfolioItemFields != '' ? fetchPortfolioItemFields.split(',') : []
+        } else if ( Ext.typeOf(fetchPortfolioItemFields) === 'array') {
+            TSUtilities.fetchPortfolioItemFields = fetchPortfolioItemFields;
+        }
+        
         TSUtilities.lowestPortfolioItemTypeName = this.getSetting('lowestPortfolioItemTypeName');
         if ( !  TSUtilities.isEditableProjectForCurrentUser(preference_project_ref,this) ) {
             Ext.Msg.alert('Contact your Administrator', 'This app requires editor access to the preference project.');
@@ -6440,6 +6493,16 @@ Ext.define("TSTimeSheetApproval", {
                 margin: 10
             },
             TSUtilities.lowestPortfolioItemTypeNameSettingField
+        ),
+        Ext.merge(
+            {
+                labelWidth: 75,
+                labelAlign: 'left',
+                minWidth: 200,
+                margin: 10,
+                model: 'PortfolioItem/' + TSUtilities.lowestPortfolioItemTypeName
+            },
+            TSUtilities.fetchPortfolioItemFieldsSettingField
         )];
     },
     

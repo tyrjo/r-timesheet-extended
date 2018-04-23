@@ -15,6 +15,17 @@ Ext.define('TSUtilities', {
         fieldLabel: "Lowest Level Portfolio Item Type Name",
         valueField: 'Name'
     },
+    fetchPortfolioItemFields: [],
+    fetchPortfolioItemFieldsSettingField: {
+        name: 'fetchPortfolioItemFields',
+        xtype: 'rallyfieldcombobox',
+        //multiSelect: true,    // This is buggy if enabled, when 2 or more values selected, setting control shows blank value
+        //allowClear: true,
+        allowBlank: true,
+        allowNoEntry: true,
+        //model: null, // Set to TSUtilities lowestPortfolioItemTypeName once it is known
+        fieldLabel: "Extra Portfolio Item Fields",
+    },
     
     loadWsapiRecords: function(config,returnOperation){
         var deferred = Ext.create('Deft.Deferred');

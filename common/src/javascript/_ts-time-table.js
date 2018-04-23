@@ -37,7 +37,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
     stateId: 'ca.technicalservices.extended.timesheet.columns',
     stateful: true,
     stateEvents: ['columnresize'],
-    
+
     getState: function() {
         var me = this,
             state = null;
@@ -91,7 +91,8 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
         
         Deft.Chain.sequence([
             me._getTEIModel,
-            function() { return Rally.technicalservices.TimeModelBuilder.build('TimeEntryItem','TSTableRow'); }
+            function() { return Rally.technicalservices.TimeModelBuilder.build('TimeEntryItem','TSTableRow'); },
+            me._loadPortfolioItemModel,
         ],this).then({
             scope: this,
             success: function(model) {
@@ -125,7 +126,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
             this._loadTimeEntryValues,
             this._loadTimeEntryAppends,
             this._loadTimeEntryAmends,
-            this._loadDefaultPreference
+            this._loadDefaultPreference,
         ],this).then({
             scope: this,
             success: function(results) {
@@ -196,6 +197,16 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
         
     },
     
+    _loadPortfolioItemModel: function() {
+        return Rally.data.ModelFactory.getModel({
+            type: 'PortfolioItem/' + TSUtilities.lowestPortfolioItemTypeName,
+            success: function(model) {
+                this.portfolio_item_model = model;
+            },
+            scope: this
+        })    
+    },
+    
     _getAppendedRowsFromPreferences: function(prefs) {
         // TODO (tj) extra columns from preferences?
         return Ext.Array.map(prefs, function(pref){
@@ -254,7 +265,8 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
             },
             fetch: Ext.Array.merge(Rally.technicalservices.TimeModelBuilder.getFetchFields(), 
                 this.time_entry_item_fetch,
-                [this.manager_field]
+                [this.manager_field],
+                TSUtilities.fetchPortfolioItemFields
             ),
             filters: [
                 {property:'WeekStartDate',value:this.startDateString},
@@ -901,7 +913,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                 forModification: isForModification,
                 _exportHide: true
             });
-        } 
+        }
             
         Ext.Array.push(columns, [
             {
@@ -1014,8 +1026,27 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                     if ( Ext.isEmpty(value) ) { return ""; }
                     return value._refObjectName
                 }
-            },
-            {
+            }],
+            Ext.Array.map(TSUtilities.fetchPortfolioItemFields, function( fieldName ) {
+                var displayName = fieldName;
+                if ( this.portfolio_item_model ) {
+                    var modelField = this.portfolio_item_model.getField(fieldName);
+                    if ( modelField ) {
+                        displayName = modelField.displayName;
+                    }
+                }
+
+                return {
+                    text: TSUtilities.lowestPortfolioItemTypeName + ' ' + displayName,
+                    xtype: 'templatecolumn',
+                    sortable: false,
+                    tpl: '{__Feature.' + fieldName + '}',
+                    flex: 1,
+                    editor: null,
+                    _selectable: true
+                }
+            }, this),
+            [{
                 dataIndex: 'WorkProduct',
                 text:  'Work Product',
                 flex: 1,
