@@ -252,7 +252,11 @@ Ext.define("TSTimeSheetApproval", {
         
         if ( ! this.getSetting('showAllForAdmins') || !TSUtilities.currentUserIsAdmin() ){
             var current_user_name = this.getContext().getUser().UserName;
-            filters.push({property:'User.' + this.getSetting('managerField'), value: current_user_name});
+            filters.push({
+                property:'User.' + this.getSetting('managerField'),
+                operator: 'contains',
+                value: current_user_name}
+            );
         }
         
         var config = {
