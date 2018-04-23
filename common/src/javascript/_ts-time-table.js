@@ -911,7 +911,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
             columns.push({
                 xtype: 'tstimetablerowactioncolumn',
                 forModification: isForModification,
-                _exportHide: true
+                _csvIgnoreRender: true
             });
         }
             
