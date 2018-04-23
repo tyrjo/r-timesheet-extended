@@ -7,13 +7,13 @@
             2.0.2
     </title>
     <!--  (c) 2017 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Mon Apr 23 2018 20:56:52 GMT+0000 (UTC) -->
+    <!--  Build Date: Mon Apr 23 2018 20:58:22 GMT+0000 (UTC) -->
 
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Mon Apr 23 2018 20:56:52 GMT+0000 (UTC)";
+        var APP_BUILD_DATE = "Mon Apr 23 2018 20:58:22 GMT+0000 (UTC)";
         var ARTIFACT = "";
         var BUILDER = "ec2-user";
-        var CHECKSUM = "829627051876";
+        var CHECKSUM = "829406928623";
     </script>
 
     <script type="text/javascript" src="https://us1.rallydev.com/apps/2.1/sdk-debug.js"></script>
@@ -4338,7 +4338,6 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
             columns.push({
                 xtype: 'tstimetablerowactioncolumn',
                 forModification: isForModification,
-                _exportHide: true,
                 _csvIgnoreRender: true
             });
         }
