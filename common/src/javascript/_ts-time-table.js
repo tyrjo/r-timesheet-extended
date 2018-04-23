@@ -910,8 +910,10 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
         if ( this.editable ||  isForModification ) {
             columns.push({
                 xtype: 'tstimetablerowactioncolumn',
+                dataIndex: null,    // To force exclusion from CSV output
                 forModification: isForModification,
-                _exportHide: true
+                _exportHide: true,
+                _csvIgnoreRender: true
             });
         }
             
