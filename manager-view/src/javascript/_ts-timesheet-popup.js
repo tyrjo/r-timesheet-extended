@@ -95,6 +95,17 @@ Ext.define('Rally.technicalservices.ManagerDetailDialog', {
         
         left_box.add({
             xtype:'rallybutton',
+            text: '+<span class="icon-defect"> </span>',
+            disabled: (status == TSTimesheet.STATUS.APPROVED || locked),
+            toolTipText: "Search and add Defects",
+            listeners: {
+                scope: this,
+                click: this._findAndAddDefect
+            }
+        });
+        
+        left_box.add({
+            xtype:'rallybutton',
             text: '+<span class="icon-story"> </span>',
             toolTipText: "Search and add User Stories",
             disabled: (status == TSTimesheet.STATUS.APPROVED || locked),
@@ -113,7 +124,7 @@ Ext.define('Rally.technicalservices.ManagerDetailDialog', {
         this.down('#popup_right_box').add({
             xtype:'rallybutton', 
             text:'Unapprove',
-            disabled: (status != TSTimesheet.STATUS.APPROVED || !TSUtilities._currentUserCanUnapprove()),
+            disabled: (status != TSTimesheet.STATUS.APPROVED || locked),
             listeners: {
                 scope: this,
                 click: function() {
@@ -188,7 +199,85 @@ Ext.define('Rally.technicalservices.ManagerDetailDialog', {
         
         var fetch_fields = Ext.Array.merge(
             Rally.technicalservices.TimeModelBuilder.getFetchFields(),
+            // TODO (tj) Feature rename
             ['WorkProduct','Feature','Project']
+        );
+        
+        if (timetable) {
+            Ext.create('Rally.technicalservices.ChooserDialog', {
+                artifactTypes: ['task'],
+                autoShow: true,
+                multiple: true,
+                title: 'Choose Task(s)',
+                filterableFields: [
+                    {
+                        displayName: 'Formatted ID',
+                        attributeName: 'FormattedID'
+                    },
+                    {
+                        displayName: 'Name',
+                        attributeName: 'Name'
+                    },
+                    {
+                        displayName:'WorkProduct',
+                        attributeName: 'WorkProduct.Name'
+                    },
+                    {
+                        displayName:'Release',
+                        attributeName: 'Release.Name'
+                    },
+                    {
+                        displayName:'Project',
+                        attributeName: 'Project.Name'
+                    },
+                    {
+                        displayName:'Owner',
+                        attributeName: 'Owner'
+                    },
+                    {
+                        displayName: 'State',
+                        attributeName: 'State'
+                    }
+                ],
+                columns: [
+                    {
+                        text: 'ID',
+                        dataIndex: 'FormattedID'
+                    },
+                    'Name',
+                    'WorkProduct',
+                    'Release',
+                    'Project',
+                    'Owner',
+                    'State'
+                ],
+                storeConfig: {
+                    filters: [{property:'Release.' + Rally.technicalservices.TimeModelBuilder.deploy_field, operator: '!=', value: true }]
+                },
+                fetchFields: fetch_fields,
+                listeners: {
+                    artifactchosen: function(dialog, selectedRecords){
+                        if ( !Ext.isArray(selectedRecords) ) {
+                            selectedRecords = [selectedRecords];
+                        }
+                        
+                        Ext.Array.each(selectedRecords, function(selectedRecord){
+                            timetable.addRowForItem(selectedRecord);
+                        });
+                    },
+                    scope: this
+                }
+             });
+        }
+    },
+    
+    _findAndAddTask: function() {
+        var timetable = this.down('tstimetable');
+        
+        var fetch_fields = Ext.Array.merge(
+            Rally.technicalservices.TimeModelBuilder.getFetchFields(),
+            // TODO (tj) Feature rename
+            ['WorkProduct','Requirement','Feature','Project']
         );
         
         if (timetable) {
@@ -277,7 +366,7 @@ Ext.define('Rally.technicalservices.ManagerDetailDialog', {
                         attributeName: 'Name'
                     },
                     {
-                        displayName:'Feature',
+                        displayName:'Feature',  // TODO (tj) Feature rename
                         attributeName: 'Feature.Name'
                     },
                     {
@@ -312,6 +401,7 @@ Ext.define('Rally.technicalservices.ManagerDetailDialog', {
         
                 fetchFields: Ext.Array.merge(
                     Rally.technicalservices.TimeModelBuilder.getFetchFields(),
+                    // TODO (tj) Feature rename
                     ['WorkProduct','Feature','Project', 'ObjectID', 'Name', 'Release']
                 ),
                 listeners: {

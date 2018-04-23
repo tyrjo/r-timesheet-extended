@@ -518,8 +518,7 @@ Ext.define("TSTimeSheetApproval", {
     _getColumns: function() {
         var me = this;
         var columns = [{
-            xtype: 'tsrowactioncolumn',
-            //canUnapprove: TSUtilities._currentUserCanUnapprove()
+            xtype: 'tsrowactioncolumn'
         }];
         
         columns.push({

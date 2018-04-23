@@ -226,10 +226,6 @@ Ext.define('TSUtilities', {
         return can_unlock;
     },
     
-    _currentUserCanUnapprove: function() {
-        return this.currentUserIsAdmin();
-    },
-    
     _currentUserCanProcess: function() {
         return this.currentUserIsAdmin();
     },

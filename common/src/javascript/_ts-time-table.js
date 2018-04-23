@@ -765,6 +765,21 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                     _ref: item.get('WorkProduct')._ref,
                     ObjectID: item.get('WorkProduct').ObjectID
                 };
+            } else if ( item_type == "defect" ) {
+                config.TaskDisplayString = item.get('FormattedID') + ":" + item.get('Name');
+                config.Task = { 
+                    _ref: item.get('_ref'),
+                    _refObjectName: config.TaskDisplayString,
+                    ObjectID: item.get('ObjectID')
+                };
+                
+                config.WorkProductDisplayString = item.get('Requirement').FormattedID + ":" + item.get('Requirement').Name;
+                
+                config.WorkProduct = {
+                    _refObjectName: item.get('Requirement').Name,
+                    _ref: item.get('Requirement')._ref,
+                    ObjectID: item.get('Requirement').ObjectID
+                };
             }
             
             if ( !this._isForCurrentUser() ) {
