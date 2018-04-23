@@ -23,12 +23,23 @@ Ext.define("TSTimeSheetApproval", {
         defaultSettings: {
             managerField: 'DisplayName',
             showAllForAdmins: true,
-            preferenceProjectRef: '/project/51712374295'
+            preferenceProjectRef: '/project/51712374295',
+            fetchPortfolioItemFields: undefined
         }
     },
     
     launch: function() {
         var preference_project_ref = this.getSetting('preferenceProjectRef');
+        
+        var fetchPortfolioItemFields = this.getSetting('fetchPortfolioItemFields');
+        // this value is from a rallyfieldcombobox which doesn't behave predictably when multi-select enabled.
+        // Sometimes an array of strings, sometimes a CSV string. Normalize to array of strings
+        if ( Ext.typeOf(fetchPortfolioItemFields) === 'string') {
+            TSUtilities.fetchPortfolioItemFields = fetchPortfolioItemFields != '' ? fetchPortfolioItemFields.split(',') : []
+        } else if ( Ext.typeOf(fetchPortfolioItemFields) === 'array') {
+            TSUtilities.fetchPortfolioItemFields = fetchPortfolioItemFields;
+        }
+        
         TSUtilities.lowestPortfolioItemTypeName = this.getSetting('lowestPortfolioItemTypeName');
         if ( !  TSUtilities.isEditableProjectForCurrentUser(preference_project_ref,this) ) {
             Ext.Msg.alert('Contact your Administrator', 'This app requires editor access to the preference project.');
@@ -759,6 +770,16 @@ Ext.define("TSTimeSheetApproval", {
                 margin: 10
             },
             TSUtilities.lowestPortfolioItemTypeNameSettingField
+        ),
+        Ext.merge(
+            {
+                labelWidth: 75,
+                labelAlign: 'left',
+                minWidth: 200,
+                margin: 10,
+                model: 'PortfolioItem/' + TSUtilities.lowestPortfolioItemTypeName
+            },
+            TSUtilities.fetchPortfolioItemFieldsSettingField
         )];
     },
     
