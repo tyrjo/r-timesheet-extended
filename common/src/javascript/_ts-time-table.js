@@ -54,7 +54,6 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
             Ext.apply(this, state);
         }
     },
-
     
     constructor: function (config) {
         this.time_entry_item_fetch = ['WeekStartDate','WorkProductDisplayString','WorkProduct','Requirement', 'Task',
