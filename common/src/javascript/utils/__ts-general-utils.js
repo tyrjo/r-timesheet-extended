@@ -15,9 +15,9 @@ Ext.define('TSUtilities', {
         fieldLabel: "Lowest Level Portfolio Item Type Name",
         valueField: 'Name'
     },
-    fetchPortfolioItemFields: [],
-    fetchPortfolioItemFieldsSettingField: {
-        name: 'fetchPortfolioItemFields',
+    fetchManagerPortfolioItemFields: [],
+    fetchManagerPortfolioItemFieldsSettingField: {
+        name: 'fetchManagerPortfolioItemFields',
         xtype: 'rallyfieldcombobox',
         //multiSelect: true,    // This is buggy if enabled, when 2 or more values selected, setting control shows blank value
         //allowClear: true,

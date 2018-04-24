@@ -24,20 +24,20 @@ Ext.define("TSTimeSheetApproval", {
             managerField: 'DisplayName',
             showAllForAdmins: true,
             preferenceProjectRef: '/project/51712374295',
-            fetchPortfolioItemFields: undefined
+            fetchManagerPortfolioItemFields: undefined
         }
     },
     
     launch: function() {
         var preference_project_ref = this.getSetting('preferenceProjectRef');
         
-        var fetchPortfolioItemFields = this.getSetting('fetchPortfolioItemFields');
+        var fetchManagerPortfolioItemFields = this.getSetting('fetchManagerPortfolioItemFields');
         // this value is from a rallyfieldcombobox which doesn't behave predictably when multi-select enabled.
         // Sometimes an array of strings, sometimes a CSV string. Normalize to array of strings
-        if ( Ext.typeOf(fetchPortfolioItemFields) === 'string') {
-            TSUtilities.fetchPortfolioItemFields = fetchPortfolioItemFields != '' ? fetchPortfolioItemFields.split(',') : []
-        } else if ( Ext.typeOf(fetchPortfolioItemFields) === 'array') {
-            TSUtilities.fetchPortfolioItemFields = fetchPortfolioItemFields;
+        if ( Ext.typeOf(fetchManagerPortfolioItemFields) === 'string') {
+            TSUtilities.fetchManagerPortfolioItemFields = fetchManagerPortfolioItemFields != '' ? fetchManagerPortfolioItemFields.split(',') : []
+        } else if ( Ext.typeOf(fetchManagerPortfolioItemFields) === 'array') {
+            TSUtilities.fetchManagerPortfolioItemFields = fetchManagerPortfolioItemFields;
         }
         
         TSUtilities.lowestPortfolioItemTypeName = this.getSetting('lowestPortfolioItemTypeName');
@@ -782,7 +782,7 @@ Ext.define("TSTimeSheetApproval", {
                 margin: 10,
                 model: 'PortfolioItem/' + TSUtilities.lowestPortfolioItemTypeName
             },
-            TSUtilities.fetchPortfolioItemFieldsSettingField
+            TSUtilities.fetchManagerPortfolioItemFieldsSettingField
         )];
     },
     

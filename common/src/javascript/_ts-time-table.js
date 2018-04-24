@@ -37,7 +37,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
     stateId: 'ca.technicalservices.extended.timesheet.columns',
     stateful: true,
     stateEvents: ['columnresize'],
-
+    /*
     getState: function() {
         var me = this,
             state = null;
@@ -54,9 +54,10 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
             Ext.apply(this, state);
         }
     },
+    */
     
     constructor: function (config) {
-        this.time_entry_item_fetch = ['WeekStartDate','WorkProductDisplayString','WorkProduct','Task',
+        this.time_entry_item_fetch = ['WeekStartDate','WorkProductDisplayString','WorkProduct','Requirement', 'Task',
         'TaskDisplayString', TSUtilities.lowestPortfolioItemTypeName, 'Project', 'ObjectID', 'Name', 'Release'];
         
         this.mergeConfig(config);
@@ -153,8 +154,19 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                     
                     if ( !Ext.isEmpty(workproduct) ) {
                         product = workproduct.Project;
+                        
+                        var portfolioItem;
                         if ( workproduct[TSUtilities.lowestPortfolioItemTypeName] ) {
-                            feature = workproduct[TSUtilities.lowestPortfolioItemTypeName];
+                            // User stories have a direct reference to a portfolio item
+                            portfolioItem = workproduct[TSUtilities.lowestPortfolioItemTypeName];
+                        } else if (workproduct['Requirement']) {
+                            // For defects, first get the `Requirement` story, then use that to get the portfolio item.
+                            var requirement = workproduct['Requirement'];
+                            portfolioItem = requirement[TSUtilities.lowestPortfolioItemTypeName];
+                        }
+                        
+                        if ( portfolioItem ) {
+                            feature = portfolioItem;
                             product = feature.Project;
                         }
                         
@@ -266,7 +278,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
             fetch: Ext.Array.merge(Rally.technicalservices.TimeModelBuilder.getFetchFields(), 
                 this.time_entry_item_fetch,
                 [this.manager_field],
-                TSUtilities.fetchPortfolioItemFields
+                TSUtilities.fetchManagerPortfolioItemFields
             ),
             filters: [
                 {property:'WeekStartDate',value:this.startDateString},
@@ -765,21 +777,25 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                     _ref: item.get('WorkProduct')._ref,
                     ObjectID: item.get('WorkProduct').ObjectID
                 };
-            } else if ( item_type == "defect" ) {
+            } else if ( item_type == 'defect' ) {
+                /*
                 config.TaskDisplayString = item.get('FormattedID') + ":" + item.get('Name');
                 config.Task = { 
                     _ref: item.get('_ref'),
                     _refObjectName: config.TaskDisplayString,
                     ObjectID: item.get('ObjectID')
                 };
-                
-                config.WorkProductDisplayString = item.get('Requirement').FormattedID + ":" + item.get('Requirement').Name;
-                
-                config.WorkProduct = {
-                    _refObjectName: item.get('Requirement').Name,
-                    _ref: item.get('Requirement')._ref,
-                    ObjectID: item.get('Requirement').ObjectID
-                };
+                */
+                var requirement = item.get('Requirement');
+                if ( requirement ) {
+                    config.WorkProductDisplayString = requirement.FormattedID + ":" + requirement.Name;
+                    
+                    config.WorkProduct = {
+                        _refObjectName: requirement.Name,
+                        _ref: requirement._ref,
+                        ObjectID: requirement.ObjectID
+                    };
+                }
             }
             
             if ( !this._isForCurrentUser() ) {
@@ -1042,7 +1058,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                     return value._refObjectName
                 }
             }],
-            Ext.Array.map(TSUtilities.fetchPortfolioItemFields, function( fieldName ) {
+            Ext.Array.map(TSUtilities.fetchManagerPortfolioItemFields, function( fieldName ) {
                 var displayName = fieldName;
                 if ( this.portfolio_item_model ) {
                     var modelField = this.portfolio_item_model.getField(fieldName);

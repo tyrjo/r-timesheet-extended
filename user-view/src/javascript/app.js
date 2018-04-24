@@ -605,11 +605,12 @@ Ext.define("TSExtendedTimesheet", {
         }
         
         Deft.Chain.sequence([ 
-            function() { return me._addPinnedItemsByType('hierarchicalrequirement', this.story_fetch_fields); },
-            function() { return me._addPinnedItemsByType('defect', this.defect_fetch_fields); },
-            function() { return me._addPinnedItemsByType('task', this.task_fetch_fields); }
+            function() { return this._addPinnedItemsByType('hierarchicalrequirement', this.story_fetch_fields); },
+            function() { return this._addPinnedItemsByType('defect', this.defect_fetch_fields); },
+            function() { return this._addPinnedItemsByType('task', this.task_fetch_fields); }
             
-        ]).then({
+        ], this)
+        .then({
             scope: this,
             success: function() {
                 this.setLoading(false);
