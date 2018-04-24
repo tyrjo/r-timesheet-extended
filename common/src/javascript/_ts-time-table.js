@@ -37,7 +37,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
     stateId: 'ca.technicalservices.extended.timesheet.columns',
     stateful: true,
     stateEvents: ['columnresize'],
-    /*
+
     getState: function() {
         var me = this,
             state = null;
@@ -54,7 +54,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
             Ext.apply(this, state);
         }
     },
-    */
+
     
     constructor: function (config) {
         this.time_entry_item_fetch = ['WeekStartDate','WorkProductDisplayString','WorkProduct','Requirement', 'Task',
@@ -778,14 +778,6 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                     ObjectID: item.get('WorkProduct').ObjectID
                 };
             } else if ( item_type == 'defect' ) {
-                /*
-                config.TaskDisplayString = item.get('FormattedID') + ":" + item.get('Name');
-                config.Task = { 
-                    _ref: item.get('_ref'),
-                    _refObjectName: config.TaskDisplayString,
-                    ObjectID: item.get('ObjectID')
-                };
-                */
                 var requirement = item.get('Requirement');
                 if ( requirement ) {
                     config.WorkProductDisplayString = requirement.FormattedID + ":" + requirement.Name;
