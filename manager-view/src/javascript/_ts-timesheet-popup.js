@@ -14,6 +14,12 @@ Ext.define('Rally.technicalservices.ManagerDetailDialog', {
         this.mergeConfig(config);
 
         this.callParent([this.config]);
+        
+        // TODO (tj) 'WorkProduct' needed in these three? Seems only needed for time entry items
+        this.task_fetch_fields = ['ObjectID','Name','FormattedID','WorkProduct','Project', TSUtilities.lowestPortfolioItemTypeName, 'State', 'Iteration', 'Estimate'];
+        this.defect_fetch_fields = ['ObjectID','Name','FormattedID','Requirement','Project', TSUtilities.lowestPortfolioItemTypeName, 'State', 'Iteration', 'Estimate'];
+        this.story_fetch_fields = ['WorkProduct', TSUtilities.lowestPortfolioItemTypeName, 'Project', 'ObjectID', 'Name', 'Release', 'PlanEstimate', 'ScheduleState'];
+
     },
 
     initComponent: function() {
@@ -199,8 +205,7 @@ Ext.define('Rally.technicalservices.ManagerDetailDialog', {
         
         var fetch_fields = Ext.Array.merge(
             Rally.technicalservices.TimeModelBuilder.getFetchFields(),
-            // TODO (tj) Feature rename
-            ['WorkProduct','Feature','Project']
+            this.task_fetch_fields
         );
         
         if (timetable) {
@@ -271,21 +276,20 @@ Ext.define('Rally.technicalservices.ManagerDetailDialog', {
         }
     },
     
-    _findAndAddTask: function() {
+    _findAndAddDefect: function() {
         var timetable = this.down('tstimetable');
         
         var fetch_fields = Ext.Array.merge(
             Rally.technicalservices.TimeModelBuilder.getFetchFields(),
-            // TODO (tj) Feature rename
-            ['WorkProduct','Requirement','Feature','Project']
+            this.defect_fetch_fields
         );
         
         if (timetable) {
             Ext.create('Rally.technicalservices.ChooserDialog', {
-                artifactTypes: ['task'],
+                artifactTypes: ['defect'],
                 autoShow: true,
                 multiple: true,
-                title: 'Choose Task(s)',
+                title: 'Choose Defect(s)',
                 filterableFields: [
                     {
                         displayName: 'Formatted ID',
@@ -296,8 +300,8 @@ Ext.define('Rally.technicalservices.ManagerDetailDialog', {
                         attributeName: 'Name'
                     },
                     {
-                        displayName:'WorkProduct',
-                        attributeName: 'WorkProduct.Name'
+                        displayName:'Requirement',
+                        attributeName: 'Requirement.Name'
                     },
                     {
                         displayName:'Release',
@@ -322,7 +326,7 @@ Ext.define('Rally.technicalservices.ManagerDetailDialog', {
                         dataIndex: 'FormattedID'
                     },
                     'Name',
-                    'WorkProduct',
+                    'Requirement',
                     'Release',
                     'Project',
                     'Owner',
@@ -366,8 +370,8 @@ Ext.define('Rally.technicalservices.ManagerDetailDialog', {
                         attributeName: 'Name'
                     },
                     {
-                        displayName:'Feature',  // TODO (tj) Feature rename
-                        attributeName: 'Feature.Name'
+                        displayName: TSUtilities.lowestPortfolioItemTypeName,
+                        attributeName: TSUtilities.lowestPortfolioItemTypeName + '.Name'
                     },
                     {
                         displayName:'Release',
@@ -401,8 +405,7 @@ Ext.define('Rally.technicalservices.ManagerDetailDialog', {
         
                 fetchFields: Ext.Array.merge(
                     Rally.technicalservices.TimeModelBuilder.getFetchFields(),
-                    // TODO (tj) Feature rename
-                    ['WorkProduct','Feature','Project', 'ObjectID', 'Name', 'Release']
+                    this.story_fetch_fields
                 ),
                 listeners: {
                     artifactchosen: function(dialog, selectedRecords){
