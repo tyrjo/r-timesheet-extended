@@ -22,7 +22,7 @@ Ext.define('Rally.technicalservices.UnapproveMenuItem', {
     },
     
     shouldShowMenuItem: function(record) {
-        return TSUtilities._currentUserCanUnapprove() && Ext.Array.every(this.records, function(r){
+        return Ext.Array.every(this.records, function(r){
             return this._isUnapprovable(r);
         },this);
     },

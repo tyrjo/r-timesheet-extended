@@ -7,13 +7,13 @@
             2.0.2
     </title>
     <!--  (c) 2017 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Mon Apr 23 2018 21:49:51 GMT+0000 (UTC) -->
+    <!--  Build Date: Tue Apr 24 2018 17:45:46 GMT+0000 (UTC) -->
 
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Mon Apr 23 2018 21:49:51 GMT+0000 (UTC)";
+        var APP_BUILD_DATE = "Tue Apr 24 2018 17:45:46 GMT+0000 (UTC)";
         var ARTIFACT = "";
         var BUILDER = "ec2-user";
-        var CHECKSUM = "829659116819";
+        var CHECKSUM = "862089865317";
     </script>
 
     <script type="text/javascript" src="https://us1.rallydev.com/apps/2.1/sdk-debug.js"></script>
@@ -42,9 +42,9 @@ Ext.define('TSUtilities', {
         fieldLabel: "Lowest Level Portfolio Item Type Name",
         valueField: 'Name'
     },
-    fetchPortfolioItemFields: [],
-    fetchPortfolioItemFieldsSettingField: {
-        name: 'fetchPortfolioItemFields',
+    fetchManagerPortfolioItemFields: [],
+    fetchManagerPortfolioItemFieldsSettingField: {
+        name: 'fetchManagerPortfolioItemFields',
         xtype: 'rallyfieldcombobox',
         //multiSelect: true,    // This is buggy if enabled, when 2 or more values selected, setting control shows blank value
         //allowClear: true,
@@ -251,10 +251,6 @@ Ext.define('TSUtilities', {
         }
         
         return can_unlock;
-    },
-    
-    _currentUserCanUnapprove: function() {
-        return this.currentUserIsAdmin();
     },
     
     _currentUserCanProcess: function() {
@@ -3483,7 +3479,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
     },
     
     constructor: function (config) {
-        this.time_entry_item_fetch = ['WeekStartDate','WorkProductDisplayString','WorkProduct','Task',
+        this.time_entry_item_fetch = ['WeekStartDate','WorkProductDisplayString','WorkProduct','Requirement', 'Task',
         'TaskDisplayString', TSUtilities.lowestPortfolioItemTypeName, 'Project', 'ObjectID', 'Name', 'Release'];
         
         this.mergeConfig(config);
@@ -3580,8 +3576,19 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                     
                     if ( !Ext.isEmpty(workproduct) ) {
                         product = workproduct.Project;
+                        
+                        var portfolioItem;
                         if ( workproduct[TSUtilities.lowestPortfolioItemTypeName] ) {
-                            feature = workproduct[TSUtilities.lowestPortfolioItemTypeName];
+                            // User stories have a direct reference to a portfolio item
+                            portfolioItem = workproduct[TSUtilities.lowestPortfolioItemTypeName];
+                        } else if (workproduct['Requirement']) {
+                            // For defects, first get the `Requirement` story, then use that to get the portfolio item.
+                            var requirement = workproduct['Requirement'];
+                            portfolioItem = requirement[TSUtilities.lowestPortfolioItemTypeName];
+                        }
+                        
+                        if ( portfolioItem ) {
+                            feature = portfolioItem;
                             product = feature.Project;
                         }
                         
@@ -3693,7 +3700,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
             fetch: Ext.Array.merge(Rally.technicalservices.TimeModelBuilder.getFetchFields(), 
                 this.time_entry_item_fetch,
                 [this.manager_field],
-                TSUtilities.fetchPortfolioItemFields
+                TSUtilities.fetchManagerPortfolioItemFields
             ),
             filters: [
                 {property:'WeekStartDate',value:this.startDateString},
@@ -4192,6 +4199,17 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                     _ref: item.get('WorkProduct')._ref,
                     ObjectID: item.get('WorkProduct').ObjectID
                 };
+            } else if ( item_type == 'defect' ) {
+                var requirement = item.get('Requirement');
+                if ( requirement ) {
+                    config.WorkProductDisplayString = requirement.FormattedID + ":" + requirement.Name;
+                    
+                    config.WorkProduct = {
+                        _refObjectName: requirement.Name,
+                        _ref: requirement._ref,
+                        ObjectID: requirement.ObjectID
+                    };
+                }
             }
             
             if ( !this._isForCurrentUser() ) {
@@ -4454,7 +4472,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                     return value._refObjectName
                 }
             }],
-            Ext.Array.map(TSUtilities.fetchPortfolioItemFields, function( fieldName ) {
+            Ext.Array.map(TSUtilities.fetchManagerPortfolioItemFields, function( fieldName ) {
                 var displayName = fieldName;
                 if ( this.portfolio_item_model ) {
                     var modelField = this.portfolio_item_model.getField(fieldName);
@@ -4994,7 +5012,9 @@ Ext.define('Rally.technicalservices.ProcessMenuItem', {
     },
     
     _isProcessable: function(record) {
-        return ( record.get('__Status') && record.get('__Status') == TSTimesheet.STATUS.APPROVED );
+        return ( record.get('__Status') &&
+            (record.get('__Status') == TSTimesheet.STATUS.APPROVED || record.get('__Status') == TSTimesheet.STATUS.SUBMITTED )
+        );
     },
     
     _processRecord: function(record) {
@@ -5036,7 +5056,7 @@ Ext.define('Rally.technicalservices.UnapproveMenuItem', {
     },
     
     shouldShowMenuItem: function(record) {
-        return TSUtilities._currentUserCanUnapprove() && Ext.Array.every(this.records, function(r){
+        return Ext.Array.every(this.records, function(r){
             return this._isUnapprovable(r);
         },this);
     },
@@ -5380,6 +5400,12 @@ Ext.define('Rally.technicalservices.ManagerDetailDialog', {
         this.mergeConfig(config);
 
         this.callParent([this.config]);
+        
+        // TODO (tj) 'WorkProduct' needed in these three? Seems only needed for time entry items
+        this.task_fetch_fields = ['ObjectID','Name','FormattedID','WorkProduct','Project', TSUtilities.lowestPortfolioItemTypeName, 'State', 'Iteration', 'Estimate'];
+        this.defect_fetch_fields = ['ObjectID','Name','FormattedID','Requirement','Project', TSUtilities.lowestPortfolioItemTypeName, 'State', 'Iteration', 'Estimate'];
+        this.story_fetch_fields = ['WorkProduct', TSUtilities.lowestPortfolioItemTypeName, 'Project', 'ObjectID', 'Name', 'Release', 'PlanEstimate', 'ScheduleState'];
+
     },
 
     initComponent: function() {
@@ -5461,6 +5487,17 @@ Ext.define('Rally.technicalservices.ManagerDetailDialog', {
         
         left_box.add({
             xtype:'rallybutton',
+            text: '+<span class="icon-defect"> </span>',
+            disabled: (status == TSTimesheet.STATUS.APPROVED || locked),
+            toolTipText: "Search and add Defects",
+            listeners: {
+                scope: this,
+                click: this._findAndAddDefect
+            }
+        });
+        
+        left_box.add({
+            xtype:'rallybutton',
             text: '+<span class="icon-story"> </span>',
             toolTipText: "Search and add User Stories",
             disabled: (status == TSTimesheet.STATUS.APPROVED || locked),
@@ -5479,7 +5516,7 @@ Ext.define('Rally.technicalservices.ManagerDetailDialog', {
         this.down('#popup_right_box').add({
             xtype:'rallybutton', 
             text:'Unapprove',
-            disabled: (status != TSTimesheet.STATUS.APPROVED || !TSUtilities._currentUserCanUnapprove()),
+            disabled: (status != TSTimesheet.STATUS.APPROVED || locked),
             listeners: {
                 scope: this,
                 click: function() {
@@ -5554,7 +5591,7 @@ Ext.define('Rally.technicalservices.ManagerDetailDialog', {
         
         var fetch_fields = Ext.Array.merge(
             Rally.technicalservices.TimeModelBuilder.getFetchFields(),
-            ['WorkProduct','Feature','Project']
+            this.task_fetch_fields
         );
         
         if (timetable) {
@@ -5625,6 +5662,82 @@ Ext.define('Rally.technicalservices.ManagerDetailDialog', {
         }
     },
     
+    _findAndAddDefect: function() {
+        var timetable = this.down('tstimetable');
+        
+        var fetch_fields = Ext.Array.merge(
+            Rally.technicalservices.TimeModelBuilder.getFetchFields(),
+            this.defect_fetch_fields
+        );
+        
+        if (timetable) {
+            Ext.create('Rally.technicalservices.ChooserDialog', {
+                artifactTypes: ['defect'],
+                autoShow: true,
+                multiple: true,
+                title: 'Choose Defect(s)',
+                filterableFields: [
+                    {
+                        displayName: 'Formatted ID',
+                        attributeName: 'FormattedID'
+                    },
+                    {
+                        displayName: 'Name',
+                        attributeName: 'Name'
+                    },
+                    {
+                        displayName:'Requirement',
+                        attributeName: 'Requirement.Name'
+                    },
+                    {
+                        displayName:'Release',
+                        attributeName: 'Release.Name'
+                    },
+                    {
+                        displayName:'Project',
+                        attributeName: 'Project.Name'
+                    },
+                    {
+                        displayName:'Owner',
+                        attributeName: 'Owner'
+                    },
+                    {
+                        displayName: 'State',
+                        attributeName: 'State'
+                    }
+                ],
+                columns: [
+                    {
+                        text: 'ID',
+                        dataIndex: 'FormattedID'
+                    },
+                    'Name',
+                    'Requirement',
+                    'Release',
+                    'Project',
+                    'Owner',
+                    'State'
+                ],
+                storeConfig: {
+                    filters: [{property:'Release.' + Rally.technicalservices.TimeModelBuilder.deploy_field, operator: '!=', value: true }]
+                },
+                fetchFields: fetch_fields,
+                listeners: {
+                    artifactchosen: function(dialog, selectedRecords){
+                        if ( !Ext.isArray(selectedRecords) ) {
+                            selectedRecords = [selectedRecords];
+                        }
+                        
+                        Ext.Array.each(selectedRecords, function(selectedRecord){
+                            timetable.addRowForItem(selectedRecord);
+                        });
+                    },
+                    scope: this
+                }
+             });
+        }
+    },
+    
     _findAndAddStory: function() {
         var timetable = this.down('tstimetable');
         if (timetable) {
@@ -5643,8 +5756,8 @@ Ext.define('Rally.technicalservices.ManagerDetailDialog', {
                         attributeName: 'Name'
                     },
                     {
-                        displayName:'Feature',
-                        attributeName: 'Feature.Name'
+                        displayName: TSUtilities.lowestPortfolioItemTypeName,
+                        attributeName: TSUtilities.lowestPortfolioItemTypeName + '.Name'
                     },
                     {
                         displayName:'Release',
@@ -5678,7 +5791,7 @@ Ext.define('Rally.technicalservices.ManagerDetailDialog', {
         
                 fetchFields: Ext.Array.merge(
                     Rally.technicalservices.TimeModelBuilder.getFetchFields(),
-                    ['WorkProduct','Feature','Project', 'ObjectID', 'Name', 'Release']
+                    this.story_fetch_fields
                 ),
                 listeners: {
                     artifactchosen: function(dialog, selectedRecords){
@@ -5747,20 +5860,20 @@ Ext.define("TSTimeSheetApproval", {
             managerField: 'DisplayName',
             showAllForAdmins: true,
             preferenceProjectRef: '/project/51712374295',
-            fetchPortfolioItemFields: undefined
+            fetchManagerPortfolioItemFields: undefined
         }
     },
     
     launch: function() {
         var preference_project_ref = this.getSetting('preferenceProjectRef');
         
-        var fetchPortfolioItemFields = this.getSetting('fetchPortfolioItemFields');
+        var fetchManagerPortfolioItemFields = this.getSetting('fetchManagerPortfolioItemFields');
         // this value is from a rallyfieldcombobox which doesn't behave predictably when multi-select enabled.
         // Sometimes an array of strings, sometimes a CSV string. Normalize to array of strings
-        if ( Ext.typeOf(fetchPortfolioItemFields) === 'string') {
-            TSUtilities.fetchPortfolioItemFields = fetchPortfolioItemFields != '' ? fetchPortfolioItemFields.split(',') : []
-        } else if ( Ext.typeOf(fetchPortfolioItemFields) === 'array') {
-            TSUtilities.fetchPortfolioItemFields = fetchPortfolioItemFields;
+        if ( Ext.typeOf(fetchManagerPortfolioItemFields) === 'string') {
+            TSUtilities.fetchManagerPortfolioItemFields = fetchManagerPortfolioItemFields != '' ? fetchManagerPortfolioItemFields.split(',') : []
+        } else if ( Ext.typeOf(fetchManagerPortfolioItemFields) === 'array') {
+            TSUtilities.fetchManagerPortfolioItemFields = fetchManagerPortfolioItemFields;
         }
         
         TSUtilities.lowestPortfolioItemTypeName = this.getSetting('lowestPortfolioItemTypeName');
@@ -6241,8 +6354,7 @@ Ext.define("TSTimeSheetApproval", {
     _getColumns: function() {
         var me = this;
         var columns = [{
-            xtype: 'tsrowactioncolumn',
-            //canUnapprove: TSUtilities._currentUserCanUnapprove()
+            xtype: 'tsrowactioncolumn'
         }];
         
         columns.push({
@@ -6506,7 +6618,7 @@ Ext.define("TSTimeSheetApproval", {
                 margin: 10,
                 model: 'PortfolioItem/' + TSUtilities.lowestPortfolioItemTypeName
             },
-            TSUtilities.fetchPortfolioItemFieldsSettingField
+            TSUtilities.fetchManagerPortfolioItemFieldsSettingField
         )];
     },
     

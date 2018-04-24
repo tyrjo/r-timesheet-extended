@@ -64,13 +64,16 @@ Ext.define("TSExtendedTimesheet", {
     _commentKeyPrefix: 'rally.technicalservices.timesheet.comment',
     
     task_fetch_fields: undefined,   // Set in launch once we know the name of the lowest level PI type
+    defect_fetch_fields: undefined,   // Set in launch once we know the name of the lowest level PI type
     story_fetch_fields: undefined,  // Set in launch once we know the name of the lowest level PI type
 
     launch: function() {
         var preference_project_ref = this.getSetting('preferenceProjectRef');
         TSUtilities.lowestPortfolioItemTypeName = this.getSetting('lowestPortfolioItemTypeName');
         
+        // TODO (tj) 'WorkProduct' needed in these three? Seems only needed for time entry items
         this.task_fetch_fields = ['ObjectID','Name','FormattedID','WorkProduct','Project', TSUtilities.lowestPortfolioItemTypeName, 'State', 'Iteration', 'Estimate'];
+        this.defect_fetch_fields = ['ObjectID','Name','FormattedID','Requirement','Project', TSUtilities.lowestPortfolioItemTypeName, 'State', 'Iteration', 'Estimate'];
         this.story_fetch_fields = ['WorkProduct', TSUtilities.lowestPortfolioItemTypeName, 'Project', 'ObjectID', 'Name', 'Release', 'PlanEstimate', 'ScheduleState'];
 
         this._absorbOldApprovedTimesheets().then({
@@ -133,6 +136,17 @@ Ext.define("TSExtendedTimesheet", {
             listeners: {
                 scope: this,
                 click: this._findAndAddTask
+            }
+        });
+        
+        container.add({
+            xtype:'rallybutton',
+            text: '+<span class="icon-defect"> </span>',
+            disabled: true,
+            toolTipText: "Search and add Defects", 
+            listeners: {
+                scope: this,
+                click: this._findAndAddDefect
             }
         });
         
@@ -591,11 +605,12 @@ Ext.define("TSExtendedTimesheet", {
         }
         
         Deft.Chain.sequence([ 
-            function() { return me._addPinnedItemsByType('hierarchicalrequirement', this.story_fetch_fields); },
-            // TODO (tj) seems unused?? function() { return me._addPinnedItemsByType('defect', ['ObjectID','Name','FormattedID','WorkProduct','Project','Release']); },
-            function() { return me._addPinnedItemsByType('task', this.task_fetch_fields); }
+            function() { return this._addPinnedItemsByType('hierarchicalrequirement', this.story_fetch_fields); },
+            function() { return this._addPinnedItemsByType('defect', this.defect_fetch_fields); },
+            function() { return this._addPinnedItemsByType('task', this.task_fetch_fields); }
             
-        ]).then({
+        ], this)
+        .then({
             scope: this,
             success: function() {
                 this.setLoading(false);
@@ -727,6 +742,87 @@ Ext.define("TSExtendedTimesheet", {
                     },
                     'Name',
                     'WorkProduct',
+                    'Release',
+                    'Project',
+                    'Owner',
+                    'State'
+                ],
+                fetchFields: fetch_fields,
+                listeners: {
+                    artifactchosen: function(dialog, selectedRecords){
+                        if ( !Ext.isArray(selectedRecords) ) {
+                            selectedRecords = [selectedRecords];
+                        }
+                        
+                        var new_item_count = selectedRecords.length;
+                        var current_count  = timetable.getGrid().getStore().getTotalCount();
+                        
+                        if ( current_count + new_item_count > 100 ) {
+                            Ext.Msg.alert('Problem Adding Tasks', 'Cannot add items to grid. Limit is 100 lines in the time sheet.');
+                        } else {
+                            
+                            Ext.Array.each(selectedRecords, function(selectedRecord){
+                                timetable.addRowForItem(selectedRecord);
+                            });
+                        }
+                    },
+                    scope: this
+                }
+             });
+        }
+    },
+    
+        _findAndAddDefect: function() {
+        var timetable = this.down('tstimetable');
+        
+        var fetch_fields = Ext.Array.merge(
+            Rally.technicalservices.TimeModelBuilder.getFetchFields(),
+            this.defect_fetch_fields
+        );
+                
+        if (timetable) {
+            Ext.create('Rally.technicalservices.ChooserDialog', {
+                artifactTypes: ['defect'],
+                autoShow: true,
+                multiple: true,
+                title: 'Choose Defect(s)',
+                filterableFields: [
+                    {
+                        displayName: 'Formatted ID',
+                        attributeName: 'FormattedID'
+                    },
+                    {
+                        displayName: 'Name',
+                        attributeName: 'Name'
+                    },
+                    {
+                        displayName:'Requirement',
+                        attributeName: 'Requirement.Name'
+                    },
+                    {
+                        displayName:'Release',
+                        attributeName: 'Release.Name'
+                    },
+                    {
+                        displayName:'Project',
+                        attributeName: 'Project.Name'
+                    },
+                    {
+                        displayName:'Owner',
+                        attributeName: 'Owner'
+                    },
+                    {
+                        displayName: 'State',
+                        attributeName: 'State'
+                    }
+                ],
+                columns: [
+                    {
+                        text: 'ID',
+                        dataIndex: 'FormattedID'
+                    },
+                    'Name',
+                    'Requirement',
                     'Release',
                     'Project',
                     'Owner',

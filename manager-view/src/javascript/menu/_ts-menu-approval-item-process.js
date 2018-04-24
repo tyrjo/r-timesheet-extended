@@ -28,7 +28,9 @@ Ext.define('Rally.technicalservices.ProcessMenuItem', {
     },
     
     _isProcessable: function(record) {
-        return ( record.get('__Status') && record.get('__Status') == TSTimesheet.STATUS.APPROVED );
+        return ( record.get('__Status') &&
+            (record.get('__Status') == TSTimesheet.STATUS.APPROVED || record.get('__Status') == TSTimesheet.STATUS.SUBMITTED )
+        );
     },
     
     _processRecord: function(record) {
