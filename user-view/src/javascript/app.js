@@ -1,3 +1,4 @@
+/* global Ext TSUtilities */
 Ext.define("TSExtendedTimesheet", {
     extend: 'Rally.app.App',
     componentCls: 'app',
@@ -334,13 +335,13 @@ Ext.define("TSExtendedTimesheet", {
         });
     },
     
-    _disableButtons() {
+    _disableButtons: function() {
         Ext.Array.each( this.query('rallybutton'), function(button) {
             button.setDisabled(true);
         });
     },
     
-    _enableButtons() {
+    _enableButtons: function() {
         Ext.Array.each( this.query('rallybutton'), function(button) {
             button.setDisabled(false);
         });
