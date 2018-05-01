@@ -17,21 +17,36 @@ Ext.define("TSTimeSheetApproval", {
         name : "TSTimeSheetApproval"
     },
     
-    stateFilterValue: 'Open',
+    stateFilterValue: TSTimesheet.STATUS.SUBMITTED,
     
     config: {
         defaultSettings: {
             managerField: 'DisplayName',
             showAllForAdmins: true,
-            preferenceProjectRef: '/project/51712374295'
+            preferenceProjectRef: '/project/51712374295',
+            fetchManagerPortfolioItemFields: undefined
         }
     },
     
     launch: function() {
         var preference_project_ref = this.getSetting('preferenceProjectRef');
+        
+        var fetchManagerPortfolioItemFields = this.getSetting('fetchManagerPortfolioItemFields');
+        // this value is from a rallyfieldcombobox which doesn't behave predictably when multi-select enabled.
+        // Sometimes an array of strings, sometimes a CSV string. Normalize to array of strings
+        if ( Ext.typeOf(fetchManagerPortfolioItemFields) === 'string') {
+            TSUtilities.fetchManagerPortfolioItemFields = fetchManagerPortfolioItemFields != '' ? fetchManagerPortfolioItemFields.split(',') : []
+        } else if ( Ext.typeOf(fetchManagerPortfolioItemFields) === 'array') {
+            TSUtilities.fetchManagerPortfolioItemFields = fetchManagerPortfolioItemFields;
+        }
+        
+        TSUtilities.lowestPortfolioItemTypeName = this.getSetting('lowestPortfolioItemTypeName');
         if ( !  TSUtilities.isEditableProjectForCurrentUser(preference_project_ref,this) ) {
             Ext.Msg.alert('Contact your Administrator', 'This app requires editor access to the preference project.');
-        } else {
+        } else if ( !TSUtilities.lowestPortfolioItemTypeName ) {
+            Ext.Msg.alert('Contact your Administrator', 'This app requires the lowest level Portfolio Item Type to be set.');
+        }
+        else {
             this._addSelectors(this.down('#selector_box'));
         }
     },
@@ -83,9 +98,11 @@ Ext.define("TSTimeSheetApproval", {
         var state_store = Ext.create('Ext.data.Store',{
             fields: ['displayName','value'],
             data: [
-                {displayName:'All',  value:'ALL'},
-                {displayName:'Open', value:'Open'},
-                {displayName:'Approved', value:'Approved'}
+                {displayName:'All',  value: TSTimesheet.STATUS.ALL},
+                {displayName:'Not Submitted', value: TSTimesheet.STATUS.NOT_SUBMITTED},
+                {displayName:'Submitted', value: TSTimesheet.STATUS.SUBMITTED},
+                {displayName:'Approved', value: TSTimesheet.STATUS.APPROVED},
+                {displayName:'Processed', value: TSTimesheet.STATUS.PROCESSED}
             ]
         });
 
@@ -235,7 +252,11 @@ Ext.define("TSTimeSheetApproval", {
         
         if ( ! this.getSetting('showAllForAdmins') || !TSUtilities.currentUserIsAdmin() ){
             var current_user_name = this.getContext().getUser().UserName;
-            filters.push({property:'User.' + this.getSetting('managerField'), value: current_user_name});
+            filters.push({
+                property:'User.' + this.getSetting('managerField'),
+                operator: 'contains',
+                value: current_user_name}
+            );
         }
         
         var config = {
@@ -263,7 +284,7 @@ Ext.define("TSTimeSheetApproval", {
                         timesheets[key] = Ext.Object.merge( item.getData(), { 
                             __UserName: item.get('User').UserName,
                             __Hours: 0,
-                            __Status: "Unknown"
+                            __Status: TSTimesheet.STATUS.UNKNOWN
                         });
                     }
                     
@@ -335,20 +356,20 @@ Ext.define("TSTimeSheetApproval", {
                             }
                         }
 
-                        timesheet.set('__Status', status_object.status || "Open");
+                        timesheet.set('__Status', status_object.status || TSTimesheet.STATUS.NOT_SUBMITTED);
                         timesheet.set('__LastUpdateBy', status_object.status_owner._refObjectName || "");
 
                     } else { 
-                        timesheet.set('__Status', 'Open');
+                        timesheet.set('__Status', TSTimesheet.STATUS.NOT_SUBMITTED);
                     }
                 },this);
                                 
                 var filtered_timesheets = Ext.Array.filter(timesheets, function(timesheet){
-                    if (stateFilter == "ALL") {
+                    if (stateFilter === TSTimesheet.STATUS.ALL) {
                         return true;
                     }
                     
-                    return ( timesheet.get('__Status') == stateFilter );
+                    return ( timesheet.get('__Status') === stateFilter );
                 });
                 
                 this.setLoading(false);
@@ -497,8 +518,7 @@ Ext.define("TSTimeSheetApproval", {
     _getColumns: function() {
         var me = this;
         var columns = [{
-            xtype: 'tsrowactioncolumn',
-            canUnapprove: TSUtilities._currentUserCanUnapprove()
+            xtype: 'tsrowactioncolumn'
         }];
         
         columns.push({
@@ -744,7 +764,26 @@ Ext.define("TSTimeSheetApproval", {
                 }
             },
             readyEvent: 'ready'
-        }];
+        },
+        Ext.merge(
+            {
+                labelWidth: 75,
+                labelAlign: 'left',
+                minWidth: 200,
+                margin: 10
+            },
+            TSUtilities.lowestPortfolioItemTypeNameSettingField
+        ),
+        Ext.merge(
+            {
+                labelWidth: 75,
+                labelAlign: 'left',
+                minWidth: 200,
+                margin: 10,
+                model: 'PortfolioItem/' + TSUtilities.lowestPortfolioItemTypeName
+            },
+            TSUtilities.fetchManagerPortfolioItemFieldsSettingField
+        )];
     },
     
     //onSettingsUpdate:  Override

@@ -40,6 +40,7 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
                     { name: '__TimeEntryItem', type:'object' },
                     { name: '__Feature',   type: 'object', sortType: oid_sort},
                     { name: '__Release',   type: 'object', sortType: name_sort },
+                    { name: '__Iteration', type: 'object', sortType: name_sort},    // Added to allow sorting
                     { name: '__Product',   type: 'object', sortType: name_sort },
                     { name: '__Total',     type: 'float', defaultValue: 0 },
                     { name: '__SecretKey', type:'auto', defaultValue: 1 },
@@ -82,7 +83,7 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
     },
     
     getFetchFields: function() {
-        return [ 'ObjectID', 'Name', 'Release', 'User', 'UserName', this.deploy_field ];
+        return [ 'ObjectID', 'Name', 'Release', 'User', 'UserName', 'Iteration', 'PlanEstimate', 'ScheduleState', 'Estimate', 'State', this.deploy_field ];
     },
     
     _isPinned: function() {

@@ -5,8 +5,27 @@ Ext.define('TSUtilities', {
     approvalKeyPrefix: 'rally.technicalservices.timesheet.status',
     deletionKeyPrefix: 'rally.technicalservices.timesheet.deletion',
     pinKeyPrefix     : 'rally.technicalservices.timesheet.pin',
-
     archiveSuffix: '~archived',
+    
+    // Must be set by app, preferably at launch using the `lowestPortfolioItemTypeSettingField` below
+    lowestPortfolioItemTypeName: undefined,
+    lowestPortfolioItemTypeNameSettingField: {
+        name: 'lowestPortfolioItemTypeName',
+        xtype: 'rallyportfolioitemtypecombobox',
+        fieldLabel: "Lowest Level Portfolio Item Type Name",
+        valueField: 'Name'
+    },
+    fetchManagerPortfolioItemFields: [],
+    fetchManagerPortfolioItemFieldsSettingField: {
+        name: 'fetchManagerPortfolioItemFields',
+        xtype: 'rallyfieldcombobox',
+        //multiSelect: true,    // This is buggy if enabled, when 2 or more values selected, setting control shows blank value
+        //allowClear: true,
+        allowBlank: true,
+        allowNoEntry: true,
+        //model: null, // Set to TSUtilities lowestPortfolioItemTypeName once it is known
+        fieldLabel: "Extra Portfolio Item Fields",
+    },
     
     loadWsapiRecords: function(config,returnOperation){
         var deferred = Ext.create('Deft.Deferred');
@@ -207,7 +226,11 @@ Ext.define('TSUtilities', {
         return can_unlock;
     },
     
-    _currentUserCanUnapprove: function() {
+    _currentUserCanProcess: function() {
+        return this.currentUserIsAdmin();
+    },
+    
+    _currentUserCanUnprocess: function() {
         return this.currentUserIsAdmin();
     }
 });

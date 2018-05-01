@@ -23,8 +23,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
      */
     cls: "tstimetable",
 
-    time_entry_item_fetch: ['WeekStartDate','WorkProductDisplayString','WorkProduct','Task',
-        'TaskDisplayString','Feature','Project', 'ObjectID', 'Name', 'Release'],
+    time_entry_item_fetch: undefined,   // set in constructor
         
     config: {
         startDate: null,
@@ -38,7 +37,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
     stateId: 'ca.technicalservices.extended.timesheet.columns',
     stateful: true,
     stateEvents: ['columnresize'],
-    
+
     getState: function() {
         var me = this,
             state = null;
@@ -57,6 +56,9 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
     },
     
     constructor: function (config) {
+        this.time_entry_item_fetch = ['WeekStartDate','WorkProductDisplayString','WorkProduct','Requirement', 'Task',
+        'TaskDisplayString', TSUtilities.lowestPortfolioItemTypeName, 'Project', 'ObjectID', 'Name', 'Release'];
+        
         this.mergeConfig(config);
         
         if (Ext.isEmpty(config.startDate) || !Ext.isDate(config.startDate)) {
@@ -89,7 +91,8 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
         
         Deft.Chain.sequence([
             me._getTEIModel,
-            function() { return Rally.technicalservices.TimeModelBuilder.build('TimeEntryItem','TSTableRow'); }
+            function() { return Rally.technicalservices.TimeModelBuilder.build('TimeEntryItem','TSTableRow'); },
+            me._loadPortfolioItemModel,
         ],this).then({
             scope: this,
             success: function(model) {
@@ -123,7 +126,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
             this._loadTimeEntryValues,
             this._loadTimeEntryAppends,
             this._loadTimeEntryAmends,
-            this._loadDefaultPreference
+            this._loadDefaultPreference,
         ],this).then({
             scope: this,
             success: function(results) {
@@ -146,27 +149,45 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                     var workproduct = item.get('WorkProduct');
                     var feature = null;
                     var release = null;
+                    var iteration = null;
                     
                     if ( !Ext.isEmpty(workproduct) ) {
                         product = workproduct.Project;
-                        if ( workproduct.Feature ) {
-                            feature = workproduct.Feature;
+                        
+                        var portfolioItem;
+                        if ( workproduct[TSUtilities.lowestPortfolioItemTypeName] ) {
+                            // User stories have a direct reference to a portfolio item
+                            portfolioItem = workproduct[TSUtilities.lowestPortfolioItemTypeName];
+                        } else if (workproduct['Requirement']) {
+                            // For defects, first get the `Requirement` story, then use that to get the portfolio item.
+                            var requirement = workproduct['Requirement'];
+                            portfolioItem = requirement[TSUtilities.lowestPortfolioItemTypeName];
+                        }
+                        
+                        if ( portfolioItem ) {
+                            feature = portfolioItem;
                             product = feature.Project;
                         }
-                    }
-                    
-                    if ( !Ext.isEmpty(workproduct) && workproduct.Release ) {
-                        release = workproduct.Release;
+                        
+                        if ( workproduct.Release ) {
+                            release = workproduct.Release;
+                        }
+                        
+                        if ( workproduct.Iteration ) {
+                            iteration = workproduct.Iteration;
+                        }
                     }
                     
                     var data = {
                         __TimeEntryItem:item,
                         __Feature: feature,
+                        __Iteration: iteration,
                         __Product: product,
                         __Release: release,
                         __Pinned: me._isItemPinned(item)
                     };
                     
+                    // TODO (tj) extra columns State, Estimate, Iteration
                     return Ext.create('TSTableRow',Ext.Object.merge(data, item.getData()));
                 });
                 
@@ -187,7 +208,18 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
         
     },
     
+    _loadPortfolioItemModel: function() {
+        return Rally.data.ModelFactory.getModel({
+            type: 'PortfolioItem/' + TSUtilities.lowestPortfolioItemTypeName,
+            success: function(model) {
+                this.portfolio_item_model = model;
+            },
+            scope: this
+        })    
+    },
+    
     _getAppendedRowsFromPreferences: function(prefs) {
+        // TODO (tj) extra columns from preferences?
         return Ext.Array.map(prefs, function(pref){
             var value = Ext.JSON.decode(pref.get('Value'));
             value.ObjectID = pref.get('ObjectID');
@@ -201,6 +233,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
     },
     
     _getAmendedRowsFromPreferences: function(prefs) {
+        // TODO (tj) extra columns from preferences?
         return Ext.Array.map(prefs, function(pref){
             var value = Ext.JSON.decode(pref.get('Value'));
             value.ObjectID = pref.get('ObjectID');
@@ -243,7 +276,8 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
             },
             fetch: Ext.Array.merge(Rally.technicalservices.TimeModelBuilder.getFetchFields(), 
                 this.time_entry_item_fetch,
-                [this.manager_field]
+                [this.manager_field],
+                TSUtilities.fetchManagerPortfolioItemFields
             ),
             filters: [
                 {property:'WeekStartDate',value:this.startDateString},
@@ -653,7 +687,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
             type: type,
             success: function(model) {
                 model.load(objectid, {
-                    fetch: ['Name', 'FormattedID', 'Project','ObjectID','WorkProduct','Feature'],
+                    fetch: ['Name', 'FormattedID', 'Project','ObjectID','WorkProduct',TSUtilities.lowestPortfolioItemTypeName],
                     callback: function(result, operation) {
                         if(operation.wasSuccessful()) {
                             result.set('__Amended', true);
@@ -742,6 +776,17 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                     _ref: item.get('WorkProduct')._ref,
                     ObjectID: item.get('WorkProduct').ObjectID
                 };
+            } else if ( item_type == 'defect' ) {
+                var requirement = item.get('Requirement');
+                if ( requirement ) {
+                    config.WorkProductDisplayString = requirement.FormattedID + ":" + requirement.Name;
+                    
+                    config.WorkProduct = {
+                        _refObjectName: requirement.Name,
+                        _ref: requirement._ref,
+                        ObjectID: requirement.ObjectID
+                    };
+                }
             }
             
             if ( !this._isForCurrentUser() ) {
@@ -754,6 +799,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                 var data = {
                     __TimeEntryItem: Ext.create(this.tei_model,config),
                     __Feature: null,
+                    __Iteration: config.WorkProduct.Iteration,  // TODO (tj) is Iteration available here?
                     __Product: config.Project,
                     __Release: config.WorkProduct.Release
                 };
@@ -788,25 +834,33 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                             var workproduct = result.get('WorkProduct');
                             var feature = null;
                             var release = null;
+                            var iteration = null;
                             
-                            if ( !Ext.isEmpty(workproduct) && workproduct.Feature ) {
-                                feature = workproduct.Feature;
-                                product = feature.Project;
-                            }
-                                                            
-                            if ( !Ext.isEmpty(workproduct) && workproduct.Release ) {
-                                release = workproduct.Release;
+                            if ( !Ext.isEmpty(workproduct) ) {
+                                if ( workproduct[TSUtilities.lowestPortfolioItemTypeName] ) {
+                                    feature = workproduct[TSUtilities.lowestPortfolioItemTypeName];
+                                    product = feature.Project;
+                                }
+                                
+                                if ( workproduct.Release ) {
+                                    release = workproduct.Release;
+                                }
+                                
+                                if ( workproduct.Iteration ) {
+                                    iteration = workproduct.Iteration;
+                                }
                             }
 
                             var data = {
                                 __TimeEntryItem:result,
                                 __Feature: feature,
+                                __Iteration: iteration,
                                 __Product: product,
                                 __Release: release,
                                 __Pinned: me._isItemPinned(result) || false
                             };
 
-                            
+                            // TODO (tj) get State, Iteration and Estimate here
                             var row = Ext.create('TSTableRow',Ext.Object.merge(data, time_entry_item.getData()));
 
                             
@@ -879,9 +933,9 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
             columns.push({
                 xtype: 'tstimetablerowactioncolumn',
                 forModification: isForModification,
-                _exportHide: true
+                _csvIgnoreRender: true
             });
-        } 
+        }
             
         Ext.Array.push(columns, [
             {
@@ -978,7 +1032,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
             },
             {
                 dataIndex: '__Feature',
-                text:  'Feature',
+                text:  TSUtilities.lowestPortfolioItemTypeName,
                 flex: 1,
                 editor: null,
                 _selectable: true,
@@ -994,8 +1048,27 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                     if ( Ext.isEmpty(value) ) { return ""; }
                     return value._refObjectName
                 }
-            },
-            {
+            }],
+            Ext.Array.map(TSUtilities.fetchManagerPortfolioItemFields, function( fieldName ) {
+                var displayName = fieldName;
+                if ( this.portfolio_item_model ) {
+                    var modelField = this.portfolio_item_model.getField(fieldName);
+                    if ( modelField ) {
+                        displayName = modelField.displayName;
+                    }
+                }
+
+                return {
+                    text: TSUtilities.lowestPortfolioItemTypeName + ' ' + displayName,
+                    xtype: 'templatecolumn',
+                    sortable: false,
+                    tpl: '{__Feature.' + fieldName + '}',
+                    flex: 1,
+                    editor: null,
+                    _selectable: true
+                }
+            }, this),
+            [{
                 dataIndex: 'WorkProduct',
                 text:  'Work Product',
                 flex: 1,
@@ -1016,15 +1089,22 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                 }
             },
             {
-                dataIndex: '__Release',
-                text: 'Release',
-                flext: 1,
-                editor: null,
+                text: 'Work Product Estimate',
+                xtype: 'templatecolumn',
+                sortable: false,
+                tpl: '{WorkProduct.PlanEstimate}',
                 _selectable: true,
-                renderer: function(v) {
-                    if ( Ext.isEmpty(v) ) { return ""; }
-                    return v._refObjectName;
-                }
+                flex: 1,
+                editor: null,
+            },
+            {
+                text: 'Work Product Schedule State',
+                xtype: 'templatecolumn',
+                sortable: false,
+                tpl: '{WorkProduct.ScheduleState}',
+                _selectable: true,
+                flex: 1,
+                editor: null,
             },
             {
                 dataIndex: 'Task',
@@ -1045,7 +1125,45 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                 exportRenderer: function(value,meta,record) {
                     return record.get('TaskDisplayString')
                 }
-            }
+            },
+            {
+                text: 'Task Estimate',
+                xtype: 'templatecolumn',
+                sortable: false,
+                tpl: '{Task.Estimate}',
+                _selectable: true,
+                flex: 1,
+                editor: null,
+            },
+            {
+                text: 'Task State',
+                xtype: 'templatecolumn',
+                sortable: false,
+                tpl: '{Task.State}',
+                _selectable: true,
+                flex: 1,
+                editor: null,
+            },
+            {
+                dataIndex: '__Release',
+                text: 'Release',
+                flex: 1,
+                editor: null,
+                _selectable: true,
+                renderer: function(v) {
+                    if ( Ext.isEmpty(v) ) { return ""; }
+                    return v._refObjectName;
+                }
+            },
+            {
+                text: 'Iteration',
+                xtype: 'templatecolumn',
+                dataIndex: '__Iteration',
+                tpl: '{WorkProduct.Iteration.Name}',
+                _selectable: true,
+                flex: 1,
+                editor: null
+            },
         ]);
         
         var day_width = 50;

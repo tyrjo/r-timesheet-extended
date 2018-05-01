@@ -1,12 +1,17 @@
 # Timesheet with Approval
 
 A collection of timesheet management applications including:
-* `admin-view` - description TBD
-* `audit-view` - description TBD
+* `admin-view` - __(1.x only)__ description TBD
+* `audit-view` - __(1.x only)__ description TBD
 * `common` - Utilities shared by two or more of the apps
-* `finance-view` - description TBD
+* `finance-view` - __(1.x only)__ description TBD
 * `manager-view` - Managers can 'approve' or commend on user timesheets.
 * `user-view` - Similar to the built-in timesheet application. Normal users enter time spent information for stories and tasks.
+
+## User View
+![user-view](./user-view.png "This is an example of the user view")
+## Manager View
+![manager-view](./manager-view.png "This is an example of the manager view")
 
 ## Versions
 * `1.x` branch- The original `r-timesheet-extended` set of applications. On April 12, 2018, this was moved into its own branch and tagged with `v1.0.0`

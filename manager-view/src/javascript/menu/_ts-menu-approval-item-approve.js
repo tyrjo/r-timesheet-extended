@@ -5,7 +5,7 @@ Ext.define('Rally.technicalservices.ApproveMenuItem', {
 
     config: {
         text: 'Approve',
-        records: []
+        records: null
     },
 
     constructor: function(config) {
@@ -16,24 +16,19 @@ Ext.define('Rally.technicalservices.ApproveMenuItem', {
         
         this.initConfig(config);
         this.callParent([config]);
+        if ( !this.records || this.records.length == 0 ) {
+            this.records = [this.record];    // Handle 1 or more items
+        }
     },
     
     shouldShowMenuItem: function(record) {
-
-        if ( this.records && this.records.length > 0 ) {
-            var should_show = true;
-            Ext.Array.each(this.records, function(r){
-                if ( !this._isApprovable(r) ) {
-                    should_show = false;
-                }
-            },this);
-            return should_show;
-        }
-        return this._isApprovable(record);
+        return Ext.Array.every(this.records, function(r){
+            return this._isApprovable(r);
+        },this);
     },
     
     _isApprovable: function(record) {
-        return ( record.get('__Status') && record.get('__Status') != "Approved" );
+        return ( record.get('__Status') && record.get('__Status') === TSTimesheet.STATUS.SUBMITTED );
     },
     
     _approveRecord: function(record) {
@@ -46,14 +41,7 @@ Ext.define('Rally.technicalservices.ApproveMenuItem', {
     },
     
     _approveRecords: function() {
-        var record = this.record;
-        var records = this.records;
-        
-        if ( records.length === 0 ) {
-            records = [record];
-        }
-                
-        Ext.Array.each(records, function(r) {
+        Ext.Array.each(this.records, function(r) {
             this._approveRecord(r);
         },this);
     }

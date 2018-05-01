@@ -336,7 +336,7 @@ Ext.define('Rally.technicalservices.FileUtilities', {
                 return;
             }
             
-            if ( column.hidden ) {
+            if ( column.hidden || column._csvIgnoreRender) {
                 return;
             }
             
@@ -345,7 +345,7 @@ Ext.define('Rally.technicalservices.FileUtilities', {
                 
                 var display_value = record.get(column_name);
 
-                if (!column._csvIgnoreRender && ( column.renderer || column.exportRenderer) ) {
+                if ( column.renderer || column.exportRenderer ) {
                     if (column.exportRenderer) {
                         display_value = column.exportRenderer(display_value, mock_meta_data, record, 0, 0, store, grid.getView());
                     } else {
@@ -355,7 +355,7 @@ Ext.define('Rally.technicalservices.FileUtilities', {
                 node_values.push(display_value);
             } else {
                 var display_value = null;
-                if (!column._csvIgnoreRender && column.renderer) {
+                if (column.renderer) {
                     if (column.exportRenderer) {
                         display_value = column.exportRenderer(display_value, mock_meta_data, record, record, 0, 0, store, grid.getView());
                     } else {
