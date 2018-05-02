@@ -1,3 +1,4 @@
+/* global Ext Rally */
 Ext.define('Rally.technicalservices.TimeModelBuilder',{
     singleton: true,
 
@@ -6,7 +7,7 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
     appendKeyPrefix: 'rally.technicalservices.timesheet.append',
     amendKeyPrefix: 'rally.technicalservices.timesheet.amend',
 
-    days: ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'],
+    days: ['Saturday','Sunday','Monday','Tuesday','Wednesday','Thursday','Friday'],
     
     build: function(modelType, newModelName) {
         var deferred = Ext.create('Deft.Deferred');
@@ -60,7 +61,7 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
                     fields: all_fields,
                     addTimeEntryValue: this._addTimeEntryValue,
                     _updateTotal: this._updateTotal,
-                    _days: this.days,
+                    _days: Rally.technicalservices.TimeModelBuilder.days,
                     save: this._save,
                     _saveAsPref: this._saveAsPref,
                     _savePreference: this._savePreference,
@@ -112,7 +113,10 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
     
     clearAndRemove: function() {        
         var timeentryitem = this.get('__TimeEntryItem');
-        var cells_to_clear = ['__Monday','__Tuesday','__Wednesday','__Thursday','__Friday','__Saturday','__Sunday','__Total'];
+        var cells_to_clear = _.map(Rally.technicalservices.TimeModelBuilder.days, function(day) {
+            return Ext.String.format('__{0}', day);
+        });
+        cells_to_clear.push('__Total');
         var me = this;
                 
         var key = Ext.String.format("{0}.{1}.{2}.{3}", 
@@ -448,7 +452,7 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
     
     _updateTotal: function() {
         var total = 0;
-        Ext.Array.each(this._days, function(day){
+        Ext.Array.each(Rally.technicalservices.TimeModelBuilder.days, function(day){
             var value = this.get(Ext.String.format('__{0}',day)) || 0;
             total += value;
         },this);
@@ -485,7 +489,7 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
     _getDayFields: function() {
         var me = this;
         
-        var day_number_fields =  Ext.Array.map(this.days, function(day,idx) {
+        var day_number_fields =  Ext.Array.map(Rally.technicalservices.TimeModelBuilder.days, function(day,idx) {
             return {
                 name: me._getDayNumberFieldName(day),
                 type: 'auto',
@@ -495,7 +499,7 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
             }
         });
         
-        var day_record_fields =  Ext.Array.map(this.days, function(day) {
+        var day_record_fields =  Ext.Array.map(Rally.technicalservices.TimeModelBuilder.days, function(day) {
             return {
                 name: me._getDayRecordFieldName(day),
                 type: 'object',

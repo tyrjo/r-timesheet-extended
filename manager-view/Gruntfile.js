@@ -23,7 +23,7 @@ module.exports = function(grunt) {
         config.ugly_files = grunt.file.expand(['deploy/app.min.*.js']);
 
         if (config.css) {
-            config.css_files = config.css;
+            config.css_files = grunt.file.expand(config.css);
         }
         else {
             config.css_files = grunt.file.expand('src/style/*.css');

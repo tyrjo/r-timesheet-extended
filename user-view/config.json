@@ -1,9 +1,13 @@
 {
     "name": "timesheet-with-approval (user-view)",
     "sdk": "2.1",
-    "version": "2.0.3",
+    "version": "2.0.4",
     "className": "TSExtendedTimesheet",
     "artifact": "",
+    "css": [
+        "../common/src/style/*.css",
+        "src/style/*.css"
+    ],
     "javascript": [
         "../common/src/javascript/utils/*.js",
         "../common/src/javascript/*.js",

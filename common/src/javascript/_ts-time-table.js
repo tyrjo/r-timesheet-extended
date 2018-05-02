@@ -527,7 +527,10 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
     _absorbAmended: function(clone) {
         var deferred = Ext.create('Deft.Deferred');
         
-        var days = ['__Monday','__Tuesday','__Wednesday','__Thursday','__Friday','__Saturday','__Sunday','__Total'];
+        var days = _.map(Rally.technicalservices.TimeModelBuilder.days, function(day) {
+            return Ext.String.format('__{0}', day);
+        });
+        days.push('__Total');
         var original_row = this.getRowForAmendedRow(clone);
 
         //var days = me._getDayValuesFromRow(clone);
@@ -570,7 +573,10 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                 me.addRowForItem(item,true).then({
                     scope:this,
                     success: function(row) {
-                        var days = ['__Monday','__Tuesday','__Wednesday','__Thursday','__Friday','__Saturday','__Sunday','__Total'];
+                        var days = _.map(Rally.technicalservices.TimeModelBuilder.days, function(day) {
+                            return Ext.String.format('__{0}', day);
+                        });
+                        days.push('__Total');
 
                         //var days = me._getDayValuesFromRow(clone);
                         Ext.Array.each(days, function(day) {
@@ -1203,37 +1209,22 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
             });
             
         };
+
+        _.each(Rally.technicalservices.TimeModelBuilder.days, function(day) {
+            columns.push({
+                dataIndex: Ext.String.format('__{0}', day),
+                width: day_width,
+                resizable: false,
+                _selectable: true,
+                text: day.substr(0, 3), // Sun, Mon, etc.
+                align: 'center',
+                getEditor: editor_config,
+                summaryType: 'sum',
+                field: {},
+                tdCls: day.toLowerCase()
+            });
+        });
         
-        var weekend_renderer = function(value, meta, record) {
-            meta.tdCls = "ts-weekend-cell";
-            return value;
-        };
-        var total_renderer = function(value, meta, record) {
-            meta.tdCls = "ts-total-cell";
-            return value;
-        }; 
-        
-        columns.push({dataIndex:'__Sunday',   width: day_width, resizable: false,
-            _selectable: true, text:'Sun',   align: 'center',
-            getEditor: editor_config, summaryType: 'sum', renderer: weekend_renderer, field: {}});
-        columns.push({dataIndex:'__Monday',   width: day_width, resizable: false,
-            _selectable: true, text:'Mon',   align: 'center',
-            getEditor: editor_config, summaryType: 'sum', field: {}});
-        columns.push({dataIndex:'__Tuesday',  width: day_width, resizable: false,
-            _selectable: true, text:'Tue',   align: 'center',
-            getEditor: editor_config, summaryType: 'sum', field: {}});
-        columns.push({dataIndex:'__Wednesday',width: day_width, resizable: false,
-            _selectable: true, text:'Wed',   align: 'center',
-            getEditor: editor_config, summaryType: 'sum', field: {}});
-        columns.push({dataIndex:'__Thursday', width: day_width, resizable: false,
-            _selectable: true, text:'Thur',  align: 'center',
-            getEditor: editor_config, summaryType: 'sum', field: {}});
-        columns.push({dataIndex:'__Friday',   width: day_width, resizable: false,
-            _selectable: true, text:'Fri',   align: 'center',
-            getEditor: editor_config, summaryType: 'sum', field: {}});
-        columns.push({dataIndex:'__Saturday', width: day_width, resizable: false,
-            _selectable: true, text:'Sat',   align: 'center',
-            getEditor: editor_config, summaryType: 'sum', renderer: weekend_renderer, field: {}});
         columns.push({
             dataIndex:'__Total',
             width: day_width, resizable: false, 
@@ -1244,12 +1235,12 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
             summaryType: 'sum',
             summaryRenderer: function(value,meta,record) {
                 if ( value < 40 ) {
-                    meta.style = 'background: #fec6cd;';
+                    meta.tdCls = 'total not-enough-hours'
                 }
                 return value;
             },
-            renderer: total_renderer});
-
+            tdCls: 'ts-total-cell'
+        });
 
         this.columns = this._applyUnsavableColumnAttributes(columns);
         
