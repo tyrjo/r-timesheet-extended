@@ -2,7 +2,7 @@
 Ext.define('TSDateUtils', {
     singleton: true,
     
-    startDayOfWeek: 'Wednesday',
+    startDayOfWeek: 'Sunday',
     
     /**
      * Return the days of the week, starting from the configured start day (e.g. Sat.).
@@ -21,9 +21,39 @@ Ext.define('TSDateUtils', {
             
             return days.slice(startIndex).concat(days.slice(0,startIndex));
         }),
+        
+    /**
+     * Given a start date, return an array of strings that represent the week(s) that contain
+     * the start date.
+     * 
+     * If the configured 'startDayOfWeek' is 'Sunday', then this will return
+     * and array containing one string, the Sunday immediately prior to the startDate.
+     * 
+     * Translate the requested startDate to the date of the immediately preceeding 'startDayOfWeek'.
+     * 
+     * If that day is a Sunday, we are done as that aligns with the native TimeEntryItem week start.
+     * 
+     * Otherwise, we must use two TimeEntryItems to hold the data. One for the Sunday week before
+     * the 'startDayOfWeek', another for the Sunday week after the 'startDayOfWeek'.
+     */
+    getWeekISOStartStrings: function(startDate) {
+        var dateOfWeekStart = this.getBeginningOfWeekForLocalDate(startDate);
+        if ( dateOfWeekStart.getDay() === 0 ) {
+            // Week starts on Sunday and fits into a native TimeEntryItem
+            return [this.getBeginningOfWeekISOForLocalDate(dateOfWeekStart, true)];
+        } else {
+            // Week starts on day other than Sunday. Two TimeEntryItems are needed to hold the data
+            var priorSunday = Ext.Date.add(startDate, Ext.Date.DAY, -1 * dateOfWeekStart.getDay());
+            var nextSunday = Ext.Date.add(startDate, Ext.Date.DAY, 7-dateOfWeekStart.getDay());
+            return [
+                this.getBeginningOfWeekISOForLocalDate(priorSunday, true),
+                this.getBeginningOfWeekISOForLocalDate(nextSunday, true)
+            ]
+        }
+    },
     
     getBeginningOfWeekForLocalDate: function(week_date) {
-        this.getDaysOfWeek(); // Ensure this.startDayOffset is set
+        this.getDaysOfWeek(); // Ensure this.startDayIndex is set TODO (tj) don't rely on side-effects
         var dayIndex = week_date.getDay();
         var offset;
         if ( dayIndex >= this.startDayIndex ) {
