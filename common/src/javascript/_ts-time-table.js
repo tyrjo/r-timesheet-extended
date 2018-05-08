@@ -830,12 +830,18 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                 
                 var fetch = Ext.Array.merge(Rally.technicalservices.TimeModelBuilder.getFetchFields(), this.time_entry_item_fetch);
                 // TODO (tj) If the startDate is not a Sunday, convert it into two TimeEntryItems
-                var baseTimeEntryItem = Ext.create(this.tei_model,config);
                 var savePromises = _.map(this.weekISOStartStrings, function(startDateString) {
                     config.WeekStartDate = startDateString;
                     var timeEntryItem = Ext.create(this.tei_model,config);
                     return timeEntryItem.save({
                         fetch: fetch
+                    }).then(function(result){
+                        // save() has side effects on the item (particularly on 'updatable'). return the saved result AND the original
+                        // item from the promise so that we can use the item late
+                        return {
+                            savedTimeEntryItem: result,
+                            origTimeEntryItem: timeEntryItem
+                        }
                     })
                 }, this);
                 
@@ -843,7 +849,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                 .then({
                     scope: this,
                     success: function(results) {
-                        var result = results[0];
+                        var result = results[0].savedTimeEntryItem;
                         result.set('WeekStartDate', this.origStartDateString);
                         
                         var product = result.get('Project');
@@ -876,8 +882,8 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                             __Pinned: me._isItemPinned(result) || false
                         };
 
-                        // TODO (tj) get State, Iteration and Estimate here
-                        var row = Ext.create('TSTableRow',Ext.Object.merge(data, baseTimeEntryItem.getData()));
+                        // TODO (tj) get State, Iteration and Estimate here?
+                        var row = Ext.create('TSTableRow',Ext.Object.merge(data, results[0].origTimeEntryItem.getData()));
 
                         
                         me.grid.getStore().loadRecords([row], { addRecords: true });
