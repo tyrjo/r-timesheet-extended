@@ -69,6 +69,7 @@ Ext.define("TSExtendedTimesheet", {
     story_fetch_fields: undefined,  // Set in launch once we know the name of the lowest level PI type
 
     launch: function() {
+        TSDateUtils.getDaysOfWeek();
         var preference_project_ref = this.getSetting('preferenceProjectRef');
         TSUtilities.lowestPortfolioItemTypeName = this.getSetting('lowestPortfolioItemTypeName');
         

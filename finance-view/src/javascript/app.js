@@ -747,7 +747,7 @@ Ext.define("TSFinanceReport", {
     _getRowsFromChangesInTimesheets: function(timesheets) {
         var rows = [],
             me = this;
-        var days = Rally.technicalservices.TimeModelBuilder.days;
+        var days = TSDateUtils.getDaysOfWeek();
         
         Ext.Object.each(timesheets, function(key,timesheet){
             var changes = timesheet.get('__TimeEntryChanges') || [];

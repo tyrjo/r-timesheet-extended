@@ -1,8 +1,37 @@
+/* global Ext _ TSDateUtils Rally */
 Ext.define('TSDateUtils', {
     singleton: true,
     
+    startDayOfWeek: 'Wednesday',
+    
+    /**
+     * Return the days of the week, starting from the configured start day (e.g. Sat.).
+     * Memoize because we don't need to recompute more than once.
+     */
+    getDaysOfWeek: _.memoize(function() {
+            var days = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+            var startIndex = _.findIndex(days, function(day) {
+                return day === this.startDayOfWeek;
+            }, this);
+        
+            if ( startIndex === -1 ) {
+                startIndex = 0;
+            }
+            this.startDayIndex = startIndex;
+            
+            return days.slice(startIndex).concat(days.slice(0,startIndex));
+        }),
+    
     getBeginningOfWeekForLocalDate: function(week_date) {
-        var start_of_week_here = Ext.Date.add(week_date, Ext.Date.DAY, -1 * week_date.getDay());
+        this.getDaysOfWeek(); // Ensure this.startDayOffset is set
+        var dayIndex = week_date.getDay();
+        var offset;
+        if ( dayIndex >= this.startDayIndex ) {
+            offset = dayIndex - this.startDayIndex;
+        } else {
+            offset = dayIndex + this.startDayIndex + 1;
+        }
+        var start_of_week_here = Ext.Date.add(week_date, Ext.Date.DAY, -1 * offset);
         return start_of_week_here;
     },
     

@@ -37,7 +37,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
     stateId: 'ca.technicalservices.extended.timesheet.columns',
     stateful: true,
     stateEvents: ['columnresize'],
-
+/*
     getState: function() {
         var me = this,
             state = null;
@@ -54,6 +54,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
             Ext.apply(this, state);
         }
     },
+    */
     
     constructor: function (config) {
         this.time_entry_item_fetch = ['WeekStartDate','WorkProductDisplayString','WorkProduct','Requirement', 'Task',
@@ -527,7 +528,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
     _absorbAmended: function(clone) {
         var deferred = Ext.create('Deft.Deferred');
         
-        var days = _.map(Rally.technicalservices.TimeModelBuilder.days, function(day) {
+        var days = _.map(TSDateUtils.getDaysOfWeek(), function(day) {
             return Ext.String.format('__{0}', day);
         });
         days.push('__Total');
@@ -573,7 +574,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                 me.addRowForItem(item,true).then({
                     scope:this,
                     success: function(row) {
-                        var days = _.map(Rally.technicalservices.TimeModelBuilder.days, function(day) {
+                        var days = _.map(TSDateUtils.getDaysOfWeek(), function(day) {
                             return Ext.String.format('__{0}', day);
                         });
                         days.push('__Total');
@@ -826,8 +827,6 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                 me.rows.push(row);
                 return row;
             } else {
-                var fields = this.tei_model.getFields();
-
                 var time_entry_item = Ext.create(this.tei_model,config);
                 
                 var fetch = Ext.Array.merge(Rally.technicalservices.TimeModelBuilder.getFetchFields(), this.time_entry_item_fetch);
@@ -896,7 +895,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
         
         var hasRow = false;
         var rows = [];
-        var store_count = this.grid.getStore().data.items.length;  // this.grid.getStore().getTotalCount();
+        var store_count = this.grid.getStore().data.items.length;
                 
         for ( var i=0; i<store_count; i++ ) {
             rows.push(this.grid.getStore().getAt(i));
@@ -1210,7 +1209,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
             
         };
 
-        _.each(Rally.technicalservices.TimeModelBuilder.days, function(day) {
+        _.each(TSDateUtils.getDaysOfWeek(), function(day) {
             columns.push({
                 dataIndex: Ext.String.format('__{0}', day),
                 width: day_width,
