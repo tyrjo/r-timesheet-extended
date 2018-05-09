@@ -146,7 +146,25 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                 }
                 this.logger.log('Time preference: ', this.timePreference);
                 
-                var rows = Ext.Array.map(time_entry_items, function(item){
+                var groupedTimeEntryItems = time_entry_items;
+                
+                // If the configured start day of the week is not Sunday, 2 time entry items
+                // were used to save all the time data, build a collection of the pairs.
+                // Group time entry items by their workproduct or task object ID.
+                // For simplicity, group the elements even if only 1 time entry item is used (Sunday week start) 
+                groupedTimeEntryItems = TSUtilities.groupTimeEntryItemsByWorkProduct(time_entry_items);
+                                
+                var rows = _.map(groupedTimeEntryItems, function(items){
+                    // Use the first item as the base for the TSTableRow data since both have the same
+                    // work prouct information
+                    var item = items[0];
+                    
+                    // Sort the pair by start date. The first entry in __TimeEntryItems is always the
+                    // earlier week date.
+                    var sortedItems = _.sortBy(items, function(a) {
+                        return a.WeekStartDate;
+                    });
+                    
                     var product = item.get('Project');
 
                     var workproduct = item.get('WorkProduct');
@@ -182,7 +200,8 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                     }
                     
                     var data = {
-                        __TimeEntryItem:item,
+                        __TimeEntryItem:item,   // TODO (tj) remove in favor of __TimeEntryItems
+                        __TimeEntryItems:sortedItems,
                         __Feature: feature,
                         __Iteration: iteration,
                         __Product: product,
@@ -192,7 +211,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                     
                     // TODO (tj) extra columns State, Estimate, Iteration
                     return Ext.create('TSTableRow',Ext.Object.merge(data, item.getData()));
-                });
+                }, this);
                 
                 var rows = this._addTimeEntryValues(rows, time_entry_values);
                 var appended_rows = this._getAppendedRowsFromPreferences(time_entry_appends);
@@ -875,12 +894,17 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
 
                         var data = {
                             __TimeEntryItem:result,
+                            __TimeEntryItems: _.pluck(results, 'savedTimeEntryItem'),
                             __Feature: feature,
                             __Iteration: iteration,
                             __Product: product,
                             __Release: release,
                             __Pinned: me._isItemPinned(result) || false
                         };
+                        
+                        if ( results.length > 1 ) {
+                            data.__TimeEntryItemAfterWeekStartDay = result[1].savedTimeEntryItem
+                        }
 
                         // TODO (tj) get State, Iteration and Estimate here?
                         var row = Ext.create('TSTableRow',Ext.Object.merge(data, results[0].origTimeEntryItem.getData()));

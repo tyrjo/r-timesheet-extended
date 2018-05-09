@@ -232,5 +232,22 @@ Ext.define('TSUtilities', {
     
     _currentUserCanUnprocess: function() {
         return this.currentUserIsAdmin();
+    },
+    
+    groupTimeEntryItemsByWorkProduct: function(items) {
+        return _.groupBy(items, function(record) {
+            var target_record_oid;
+            var task = record.get('Task');
+            var workproduct = record.get('WorkProduct');
+            
+            // deleted items don't have a workproduct
+            if ( !Ext.isEmpty(workproduct) ) {
+                var target_record_oid = workproduct.ObjectID;
+                if ( !Ext.isEmpty(task) ) {
+                    target_record_oid = task.ObjectID;
+                }
+            }
+            return target_record_oid;
+        });
     }
 });

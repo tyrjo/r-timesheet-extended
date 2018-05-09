@@ -9,18 +9,20 @@ Ext.define('TSDateUtils', {
      * Memoize because we don't need to recompute more than once.
      */
     getDaysOfWeek: _.memoize(function() {
-            var days = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
-            var startIndex = _.findIndex(days, function(day) {
-                return day === this.startDayOfWeek;
-            }, this);
+        var days = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+        var startIndex = _.findIndex(days, function(day) {
+            return day === this.startDayOfWeek;
+        }, this);
+    
+        if ( startIndex === -1 ) {
+            startIndex = 0;
+        }
         
-            if ( startIndex === -1 ) {
-                startIndex = 0;
-            }
-            this.startDayIndex = startIndex;
-            
-            return days.slice(startIndex).concat(days.slice(0,startIndex));
-        }),
+        return days.slice(startIndex).concat(days.slice(0,startIndex));
+    }, function() {
+        // memoization resolver to allow for unit tests to modify the startDayOfWeek
+        return this.startDayOfWeek;
+    }),
         
     /**
      * Given a start date, return an array of strings that represent the week(s) that contain
@@ -52,16 +54,12 @@ Ext.define('TSDateUtils', {
         }
     },
     
-    getBeginningOfWeekForLocalDate: function(week_date) {
-        this.getDaysOfWeek(); // Ensure this.startDayIndex is set TODO (tj) don't rely on side-effects
-        var dayIndex = week_date.getDay();
-        var offset;
-        if ( dayIndex >= this.startDayIndex ) {
-            offset = dayIndex - this.startDayIndex;
-        } else {
-            offset = dayIndex + this.startDayIndex + 1;
-        }
-        var start_of_week_here = Ext.Date.add(week_date, Ext.Date.DAY, -1 * offset);
+    getBeginningOfWeekForLocalDate: function(date) {
+        var dayName = Ext.Date.format(date, 'l');
+        var daysOfWeek = this.getDaysOfWeek();
+        var offset = daysOfWeek.indexOf(dayName);
+
+        var start_of_week_here = Ext.Date.add(date, Ext.Date.DAY, -1 * offset);
         return start_of_week_here;
     },
     
