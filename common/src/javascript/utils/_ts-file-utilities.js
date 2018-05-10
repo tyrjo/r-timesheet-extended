@@ -22,7 +22,7 @@ Ext.define('Rally.technicalservices.FileUtilities', {
     
     saveAs: function(textToWrite, fileName)
     {
-        this.logger.log('saveAs:', fileName);
+
         
         if (Ext.isIE9m){
             Rally.ui.notify.Notifier.showWarning({message: "Export is not supported for IE9 and below."});
@@ -34,7 +34,7 @@ Ext.define('Rally.technicalservices.FileUtilities', {
             textFileAsBlob = new Blob([textToWrite], {type:'text/plain'});
         }
         catch(e){
-            this.logger.log('Caught an error ', e);
+
             
             window.BlobBuilder = window.BlobBuilder ||
                         window.WebKitBlobBuilder ||
@@ -283,7 +283,7 @@ Ext.define('Rally.technicalservices.FileUtilities', {
      * have the column set _csvIgnoreRender: true
      */
     getCSVFromGrid:function(app, grid, skip_headers){
-        this.logger.log("Exporting grid with store type:", Ext.getClassName(grid.getStore()));
+
         
         if ( Ext.getClassName(grid.getStore()) != "Rally.data.custom.Store" ) {
             return this._getCSVFromWsapiBackedGrid(grid,skip_headers);
@@ -293,7 +293,7 @@ Ext.define('Rally.technicalservices.FileUtilities', {
     },
     loadStorePage: function(grid, store, columns, page, total_pages){
         var deferred = Ext.create('Deft.Deferred');
-        this.logger.log('loadStorePage',page, total_pages);
+
 
         store.loadPage(page, {
             callback: function (records) {
@@ -311,7 +311,7 @@ Ext.define('Rally.technicalservices.FileUtilities', {
     },
     
     _getCSVFromRecord: function(record, grid, store) {
-        //console.log('record:', record);
+        
         
         var mock_meta_data = {
             align: "right",

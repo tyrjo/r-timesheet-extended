@@ -78,7 +78,7 @@ Ext.define("TSAdmin", {
         TSUtilities.loadWsapiRecords(config).then({
             scope: this,
             success: function(preferences) {
-                this.logger.log('Found ', preferences.length, ' preferences', preferences);
+
                 
                 var statuses =  Ext.Array.map(preferences, function(preference){
                     var status_object = Ext.JSON.decode(preference.get('Value'));
@@ -249,7 +249,7 @@ Ext.define("TSAdmin", {
     
     //onSettingsUpdate:  Override
     onSettingsUpdate: function (settings){
-        this.logger.log('onSettingsUpdate',settings);
+
         // Ext.apply(this, settings);
         this.launch();
     }

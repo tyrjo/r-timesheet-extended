@@ -44,11 +44,11 @@ Ext.define('Rally.technicalservices.ManagerDetailDialog', {
                 }
                 this.record.set('__Locked',locked);
                 
-                this.add({ 
+                this.add({
                     xtype:  'tstimetable',
                     region: 'center',
                     layout: 'fit',
-                    startDate: this.record.get('WeekStartDate'),
+                    localWeekStartDate: this.record.get('WeekStartDate'),
                     week_locked: locked,
                     editable: false,
                     manager_field: this.manager_field,

@@ -131,7 +131,7 @@ Ext.define("TSFinanceReport", {
             success: function(timesheets) {
                 this.setLoading("Preparing Data...");
                 
-                this.logger.log("Prepare rows");
+
                 var time_rows = this._getRowsFromTimesheets(timesheets);
                 this._addGrid(this.down('#display_box'), time_rows);
             },
@@ -151,7 +151,7 @@ Ext.define("TSFinanceReport", {
         
         var selector_start_date = this.down('#from_date_selector').getValue();
         
-        var tei_start_date = TSDateUtils.getBeginningOfWeekISOForLocalDate(selector_start_date,true);
+        var tei_start_date = TSDateUtils.getUtcIsoForLocalDate(selector_start_date,true);
         var tev_start_date = Rally.util.DateTime.toIsoString(selector_start_date ,false).replace(/T.*$/,'T00:00:00.000Z');
         tei_filters.push({property:'WeekStartDate', operator: '>=', value:tei_start_date});
         tev_filters.push({property:'DateVal', operator: '>=', value:tev_start_date});
@@ -325,7 +325,7 @@ Ext.define("TSFinanceReport", {
                             }
                         });
                         
-                        me.logger.log('Found changes: ', changes.length);
+
                         deferred.resolve(changes);
                     },
                     failure: function(msg) { 
@@ -430,7 +430,7 @@ Ext.define("TSFinanceReport", {
                             }
                         });
                         
-                        me.logger.log('Found amends: ', changes.length);
+
                         deferred.resolve(changes);
                     },
                     failure: function(msg) { 
@@ -502,7 +502,7 @@ Ext.define("TSFinanceReport", {
             me = this;
         this.setLoading("Loading statuses...");
         
-        this.logger.log("_loadPreferences");
+
         
         var stateFilter = this.stateFilterValue;
         
@@ -522,7 +522,7 @@ Ext.define("TSFinanceReport", {
         TSUtilities.loadWsapiRecords(config).then({
             scope: this,
             success: function(preferences) {
-                this.logger.log("Found preferences ", preferences.length);
+
                 var preferences_by_key = {};
                 
                 Ext.Array.each(preferences, function(pref){
@@ -536,16 +536,16 @@ Ext.define("TSFinanceReport", {
                 Ext.Array.each(timesheets, function(timesheet){
                     var key = timesheet.getPreferenceKey();
                     if (preferences_by_key[key]) {
-                        //me.logger.log('pref for  ', key, preferences_by_key[key]);
+
 
                         var value = preferences_by_key[key].get('Value');
                         if ( Ext.isEmpty(value) ) {
-                            me.logger.log("value is empty ", preferences_by_key, key);
+
                             return;
                         }
                         
                         if ( !/\{/.test(value) ) {
-                            me.logger.log('! value is not a json string:', key, preferences_by_key[key]);
+
                             return;
                         }
                         
@@ -560,7 +560,7 @@ Ext.define("TSFinanceReport", {
                     }
                 });
 
-                this.logger.log('Made timesheets: ', timesheets.length);
+
                 
                 this.setLoading(false);
                 deferred.resolve(timesheets);
@@ -586,11 +586,11 @@ Ext.define("TSFinanceReport", {
                     __UserName: item.get('User').UserName,
                     __Hours: 0,
                     __Status: TSTimesheet.STATUS.UNKNOWN,
-                    __TimeEntryItems: []
+                    __AllTimeEntryItems: []
                 });
             }
             
-            timesheets[key].__TimeEntryItems.push(item);
+            timesheets[key].__AllTimeEntryItems.push(item);
         },this);
         
         
@@ -609,7 +609,7 @@ Ext.define("TSFinanceReport", {
         });
         
         Ext.Object.each(timesheets, function(key,timesheet){
-            var items = timesheet.__TimeEntryItems;
+            var items = timesheet.__AllTimeEntryItems;
             var timesheet_values = timesheet.__TimeEntryValues;
             if ( Ext.isEmpty(timesheet_values) ) { timesheet_values = []; }
             
@@ -667,7 +667,7 @@ Ext.define("TSFinanceReport", {
     },
     
     _getRowsFromTimesheets: function(timesheets){
-        this.logger.log("timesheets", timesheets);
+
         
         var rows = this._getRowsFromTimeValuesInTimesheets(timesheets);
         
@@ -754,7 +754,7 @@ Ext.define("TSFinanceReport", {
             var week_start = timesheet.get('WeekStartDate');
 
             Ext.Array.each(changes, function(change){
-                me.logger.log('change', change);
+
                 
                 var change_type = change.__Appended ? "Appended" : "Amended";
                 var isOpEx = false;
@@ -830,7 +830,7 @@ Ext.define("TSFinanceReport", {
     },
     
     _addGrid: function(container, timesheets) {
-        this.logger.log('_addGrid');
+
         
         this.rows = timesheets;
         
@@ -953,7 +953,7 @@ Ext.define("TSFinanceReport", {
     
     _export: function(){
         var me = this;
-        this.logger.log('_export');
+
         this.setLoading("Generating CSV");
         
         var grid = this.down('rallygrid');
@@ -963,14 +963,14 @@ Ext.define("TSFinanceReport", {
 
         var filename = Ext.String.format('project-report.csv');
 
-        this.logger.log('saving file:', filename);
+
         
         Deft.Chain.sequence([
             function() { return Rally.technicalservices.FileUtilities.getCSVFromRows(this,grid,rows); } 
         ]).then({
             scope: this,
             success: function(csv){
-                this.logger.log('got back csv ', csv.length);
+
                 if (csv && csv.length > 0){
                     Rally.technicalservices.FileUtilities.saveCSVToFile(csv,filename);
                 } else {
@@ -987,7 +987,7 @@ Ext.define("TSFinanceReport", {
     
     _filterOutExceptStrings: function(store) {
         var app = Rally.getApp();
-        app.logger.log('_filterOutExceptChoices');
+
         
         store.filter([{
             filterFn:function(field){ 
@@ -1011,7 +1011,7 @@ Ext.define("TSFinanceReport", {
     
     //onSettingsUpdate:  Override
     onSettingsUpdate: function (settings){
-        this.logger.log('onSettingsUpdate',settings);
+
         // Ext.apply(this, settings);
         this.launch();
     }

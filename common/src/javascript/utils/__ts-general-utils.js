@@ -117,7 +117,7 @@ Ext.define('TSUtilities', {
             return ( me._getOidFromRef(permission._ref) == project_oid );
         });
         
-        console.log(editor_permissions);
+        
         return ( editor_permissions.length > 0 );
     },
     
@@ -135,7 +135,7 @@ Ext.define('TSUtilities', {
             }
             var permission_oid = this._getOidFromRef(permission.Workspace);
 
-            //console.log('comparing ', workspace_oid, permission_oid, permission);
+            
             if (workspace_oid  !=  permission_oid) {
                 return false;
             }
@@ -159,7 +159,7 @@ Ext.define('TSUtilities', {
     currentUserIsAdmin: function(scope){
         var app = scope || Rally.getApp();
         
-        console.log('current user:', app.getContext().getUser());
+        
         if ( this.currentUserIsSubAdmin() ) {
             return true;
         }
@@ -200,7 +200,7 @@ Ext.define('TSUtilities', {
     _currentUserCanWrite: function() {
         var app = Rally.getApp();
         
-        //console.log('_currentUserCanWrite',app.getContext().getUser(), app.getContext().getUser().SubscriptionAdmin);
+        
         if ( app.getContext().getUser().SubscriptionAdmin ) {
             return true;
         }

@@ -52,7 +52,7 @@ Ext.define('Rally.technicalservices.grid.comments.RowActionColumn', {
          * Usage:
          *  rowActionsFn: function(record) {
          *      return [
-         *           {text: 'Remove', record: record, handler: function(){ console.log('record:', this.record); } }
+         *           {text: 'Remove', record: record, handler: function(){  } }
          *      ]
          *   }
          */

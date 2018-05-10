@@ -105,13 +105,13 @@ Ext.define('CA.technicalservices.ColumnPickerDialog',{
             allowDeselect: true
         });
         
-        console.log('++', this.pickableColumns);
+        
         
         var pickableColumns = Ext.Array.filter( this.pickableColumns, function(col) {
             return ( !Ext.isEmpty(col.text) && col._selectable );
         });
         
-        console.log('--', pickableColumns);
+        
         
         var store = Ext.create('Rally.data.custom.Store',{
             data: pickableColumns

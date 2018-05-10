@@ -6,7 +6,7 @@ describe("Rally.technicalservices.TimeModelBuilder", function() {
             timeModelBuilder = Rally.technicalservices.TimeModelBuilder
             timeModelBuilder.get = jasmine.createSpy().and.returnValue(['1', '2']);
             spyOn(_, 'memoize').and.callFake(function(){
-                console.log('FAKE');
+                
             });
         });
         

@@ -31,7 +31,7 @@ Ext.define('TSTimesheet',{
         // get or create and then update pref
         return Ext.String.format("{0}.{1}.{2}.{3}", 
             TSUtilities.approvalKeyPrefix,
-            TSDateUtils.getBeginningOfWeekISOForLocalDate(this.get('WeekStartDate')),
+            TSDateUtils.getUtcIsoForLocalDate(this.get('WeekStartDate')),
             this.get('User').ObjectID,
             new Date().getTime()
         );
@@ -41,7 +41,7 @@ Ext.define('TSTimesheet',{
         // get or create and then update pref
         return Ext.String.format("{0}.{1}.{2}", 
             TSUtilities.approvalKeyPrefix,
-            TSDateUtils.getBeginningOfWeekISOForLocalDate(this.get('WeekStartDate')),
+            TSDateUtils.getUtcIsoForLocalDate(this.get('WeekStartDate')),
             this.get('User').ObjectID
         );
     },
@@ -152,7 +152,7 @@ Ext.define('TSTimesheet',{
                 if(operation.wasSuccessful()) {
                     deferred.resolve(result);
                 } else {
-                    console.log('Problem saving ', preference, operation);
+                    
                     deferred.reject("Could not archive old status");
                 }
             }

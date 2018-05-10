@@ -26,7 +26,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
     time_entry_item_fetch: undefined,   // set in constructor
         
     config: {
-        startDate: null,
+        localWeekStartDate: null,    // The date of the week start in local time
         editable: true,
         timesheet_user: null,
         timesheet_status: null,
@@ -62,8 +62,8 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
         
         this.mergeConfig(config);
         
-        if (Ext.isEmpty(config.startDate) || !Ext.isDate(config.startDate)) {
-            throw "Rally.technicalservices.TimeTable requires startDate parameter (JavaScript Date)";
+        if (Ext.isEmpty(config.localWeekStartDate) || !Ext.isDate(config.localWeekStartDate)) {
+            window.alert("Rally.technicalservices.TimeTable requires localWeekStartDate parameter (JavaScript Date)");
         }
         this.callParent([this.config]);
     },
@@ -82,11 +82,11 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
             'gridReady'
         );
         
-        // If the startDate is not a Sunday (which is Agile Central's start day of week (and required
+        // If the localWeekStartDate is not a Sunday (which is Agile Central's start day of week (and required
         // by TimeEntryItem models), then we must create two TimeEntryItems. One is for the Sunday
         // prior to this start date, and one is for the Sunday after this start date.
-        this.weekISOStartStrings = TSDateUtils.getWeekISOStartStrings(this.startDate);
-        this.origStartDateString = TSDateUtils.getBeginningOfWeekISOForLocalDate(this.startDate, true);
+        this.utcWeekStartString = TSDateUtils.getUtcIsoForLocalDate(this.localWeekStartDate);
+        this.utcSundayWeekStartStrings = TSDateUtils.getUtcSundayWeekStartStrings(this.localWeekStartDate);
 
         if ( Ext.isEmpty(this.timesheet_user) ) {
             this.timesheet_user = Rally.getApp().getContext().getUser();
@@ -144,7 +144,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                 if ( time_default_preference.length > 0 ) {
                     this.timePreference = Ext.create('TSDefaultPreference', { '__Preference': time_default_preference[0] });
                 }
-                this.logger.log('Time preference: ', this.timePreference);
+
                 
                 var groupedTimeEntryItems = time_entry_items;
                 
@@ -159,7 +159,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                     // work prouct information
                     var item = items[0];
                     
-                    // Sort the pair by start date. The first entry in __TimeEntryItems is always the
+                    // Sort the pair by start date. The first entry in __AllTimeEntryItems is always the
                     // earlier week date.
                     var sortedItems = _.sortBy(items, function(a) {
                         return a.WeekStartDate;
@@ -200,8 +200,8 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                     }
                     
                     var data = {
-                        __TimeEntryItem:item,   // TODO (tj) remove in favor of __TimeEntryItems
-                        __TimeEntryItems:sortedItems,
+                        __WeekStartKey: this.utcWeekStartString,
+                        __AllTimeEntryItems:sortedItems,
                         __Feature: feature,
                         __Iteration: iteration,
                         __Product: product,
@@ -217,10 +217,10 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                 var appended_rows = this._getAppendedRowsFromPreferences(time_entry_appends);
                 var amended_rows = this._getAmendedRowsFromPreferences(time_entry_amends);
                 
-                this.logger.log('TEIs:', time_entry_items);
-                this.logger.log('Rows:', rows);
-                this.logger.log('Appended Rows:', appended_rows);
-                this.logger.log('Amended Rows:', amended_rows);
+
+
+
+
 
                 this.rows = Ext.Array.merge(rows,appended_rows,amended_rows);
                 this._makeGrid(this.rows);
@@ -289,7 +289,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
             user_oid = this.timesheet_user.ObjectID;
         }
         
-        var weekStartFilter = Rally.data.wsapi.Filter.or(_.map(this.weekISOStartStrings, function(startString){
+        var weekStartFilter = Rally.data.wsapi.Filter.or(_.map(this.utcSundayWeekStartStrings, function(startString){
             return {property:'WeekStartDate',value:startString}
         }));
         var userFilter = new Rally.data.wsapi.Filter({property:'User.ObjectID',value:user_oid});
@@ -302,7 +302,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
             user_oid = this.timesheet_user.ObjectID;
         }
         
-        var weekStartFilter = Rally.data.wsapi.Filter.or(_.map(this.weekISOStartStrings, function(startString){
+        var weekStartFilter = Rally.data.wsapi.Filter.or(_.map(this.utcSundayWeekStartStrings, function(startString){
             return {property:'TimeEntryItem.WeekStartDate',value:startString}
         }));
         var userFilter = new Rally.data.wsapi.Filter({property:'TimeEntryItem.User.ObjectID',value:user_oid});
@@ -340,7 +340,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
             filters: this._getTimeEntryValueFilter()
         };
         
-        return TSUtilities.loadWsapiRecords(config);    // TODO (tj) create single TimeEntryItem with app startDate from the two backend items
+        return TSUtilities.loadWsapiRecords(config); 
     },
     
     _getPreferenceFilter: function() {
@@ -350,7 +350,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
             user_oid = this.timesheet_user.ObjectID;
         }
         
-        var keyFilters = _.map(this.weekISOStartStrings, function(startString){
+        var keyFilters = _.map(this.utcSundayWeekStartStrings, function(startString){
             var key = Ext.String.format("{0}.{1}.{2}", 
                 Rally.technicalservices.TimeModelBuilder.appendKeyPrefix,
                 startString.replace(/T.*$/,''),
@@ -413,7 +413,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
             user_oid
         );
         
-        this.logger.log('finding by key',key);
+
 
         var config = {
             model: 'Preference',
@@ -456,7 +456,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
             viewConfig: {
                 listeners: {
                     itemupdate: function(row, row_index) {
-                        //me.logger.log('itemupdate', row);
+
                     },
                     viewready: me._addTooltip
                 }
@@ -628,9 +628,9 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
     
     pinTime: function(record) {
         if ( this.updatePinProcess && this.updatePinProcess.getState() === 'pending' ) {
-            console.log('pinning in process...');
+            
         } else {
-            console.log('-- ', this.updatePinProcess && this.updatePinProcess.getState());
+            
         }
         
         this.updatePinProcess = this.timePreference.addPin(record);
@@ -649,9 +649,9 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
         var deferred = Ext.create('Deft.Deferred');
         
         if ( this.updatePinProcess && this.updatePinProcess.getState() === 'pending' ) {
-            console.log('pinning in process...');
+            
         } else {
-            console.log('-- ', this.updatePinProcess && this.updatePinProcess.getState());
+            
         }
         
         this.updatePinProcess = this.timePreference.removePin(record);
@@ -668,7 +668,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
     },
     
     _isItemPinned: function(item) {
-        this.logger.log('is Item pinned?', item);
+
         if ( Ext.isEmpty(this.timePreference) ) { return false; }
         return this.timePreference.isPinned(item);
     },
@@ -726,7 +726,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
     },
     
     getRowForAmendedRow: function(amended_row) {
-        this.logger.log('getting item row for', amended_row);
+
         var work_item = amended_row.Task;
         if ( Ext.isEmpty(work_item) ) {
             work_item = amended_row.WorkProduct;
@@ -762,13 +762,13 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
         var me = this,
             deferred = Ext.create('Deft.Deferred');
 
-        this.logger.log('addRowForItem', item, force);
+
         
         if ( !force && this._hasRowForItem(item) ) {
-            this.logger.log('has row already:', item);
+
         } else {
             var item_type = item.get('_type');
-
+            
             var config = {
                 WorkProductDisplayString: item.get('FormattedID') + ":" + item.get('Name'),
                 WorkProduct: {
@@ -776,11 +776,10 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                     _ref: item.get('_ref'),
                     ObjectID: item.get('ObjectID')
                 },
-                WeekStartDate: this.origStartDateString,
                 User: { 
                     _ref: '/user/' + this.timesheet_user.ObjectID,
                     ObjectID: this.timesheet_user.ObjectID
-                }
+                },
             };
             
             if ( item.get('Project') ) {
@@ -822,8 +821,15 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
 
                 config._refObjectUUID = -1;
                 
+                var time_entry_items = _.map(this.utcSundayWeekStartStrings, function(startDateString) {
+                    config.WeekStartDate = startDateString;
+                    return Ext.create(this.tei_model,config)
+                });
+                
                 var data = {
-                    __TimeEntryItem: Ext.create(this.tei_model,config), // TODO (tj) can this remain the non-Sunday date?
+                    __WeekStartKey: this.utcWeekStartString,
+                    __FirstTimeEntryItem: time_entry_items[0],
+                    __AllTimeEntryItems: time_entry_items,
                     __Feature: null,
                     __Iteration: config.WorkProduct.Iteration,  // TODO (tj) is Iteration available here?
                     __Product: config.Project,
@@ -848,8 +854,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
             } else {
                 
                 var fetch = Ext.Array.merge(Rally.technicalservices.TimeModelBuilder.getFetchFields(), this.time_entry_item_fetch);
-                // TODO (tj) If the startDate is not a Sunday, convert it into two TimeEntryItems
-                var savePromises = _.map(this.weekISOStartStrings, function(startDateString) {
+                var savePromises = _.map(this.utcSundayWeekStartStrings, function(startDateString) {
                     config.WeekStartDate = startDateString;
                     var timeEntryItem = Ext.create(this.tei_model,config);
                     return timeEntryItem.save({
@@ -869,7 +874,6 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                     scope: this,
                     success: function(results) {
                         var result = results[0].savedTimeEntryItem;
-                        result.set('WeekStartDate', this.origStartDateString);
                         
                         var product = result.get('Project');
                         var workproduct = result.get('WorkProduct');
@@ -893,18 +897,15 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                         }
 
                         var data = {
-                            __TimeEntryItem:result,
-                            __TimeEntryItems: _.pluck(results, 'savedTimeEntryItem'),
+                            __WeekStartKey: this.utcWeekStartString,
+                            __FirstTimeEntryItem: result,
+                            __AllTimeEntryItems: _.pluck(results, 'savedTimeEntryItem'),
                             __Feature: feature,
                             __Iteration: iteration,
                             __Product: product,
                             __Release: release,
                             __Pinned: me._isItemPinned(result) || false
                         };
-                        
-                        if ( results.length > 1 ) {
-                            data.__TimeEntryItemAfterWeekStartDay = result[1].savedTimeEntryItem
-                        }
 
                         // TODO (tj) get State, Iteration and Estimate here?
                         var row = Ext.create('TSTableRow',Ext.Object.merge(data, results[0].origTimeEntryItem.getData()));
@@ -916,7 +917,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                         deferred.resolve(row);
                     },
                     failure: function() {
-                        console.log("ERROR:", operation);
+                        
                         Ext.Msg.alert("Problem saving time:", operation.error.errors.join(' '));
                         deferred.reject();
                     }
@@ -963,7 +964,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
     getColumns: function() {
         var me = this;
 
-        this.logger.log('saved columns:', this.columns);
+
         
         var columns = [];
         var isForModification = ! this._isForCurrentUser();
@@ -982,7 +983,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
             
         Ext.Array.push(columns, [
             {
-                dataIndex: '__TimeEntryItem',
+                dataIndex: '__FirstTimeEntryItem',
                 text: 'User',
                 editor: null,
                 hidden: true,
@@ -992,7 +993,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                 }
             },
             {
-                dataIndex: '__TimeEntryItem',
+                dataIndex: '__FirstTimeEntryItem',
                 text: 'Week Start',
                 editor: null,
                 hidden: true,
@@ -1002,7 +1003,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                 }
             },
             {
-                dataIndex: '__TimeEntryItem',
+                dataIndex: '__FirstTimeEntryItem',
                 text: 'Locked',
                 editor: null,
                 hidden: true,
@@ -1014,7 +1015,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
             
         if ( me.manager_field ) {
             columns.push({
-                dataIndex:'__TimeEntryItem', 
+                dataIndex:'__FirstTimeEntryItem', 
                 text:'Manager', 
                 align: 'center',
                 hidden: true,
@@ -1081,7 +1082,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                 _selectable: true,
                 renderer: function(value) {
                     if ( Ext.isEmpty(value) ) { return ""; }
-                    //console.log(value);
+                    
                     return Ext.String.format("<a target='_blank' href='{0}'>{1}</a>",
                         Rally.nav.Manager.getDetailUrl(value),
                         value._refObjectName
@@ -1285,7 +1286,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
     },
     
     _applyUnsavableColumnAttributes: function(columns) {
-        console.log('_applyUnsavableColumnAttributes', columns, this.columns);
+        
         if ( !Ext.isEmpty(this.columns) ) {
             // columns saved as state lose their renderer functions
             var columns_by_index = {};
@@ -1328,7 +1329,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
             
             });
             
-            console.log('-->', this.columns);
+            
             return this.columns;
         }
         

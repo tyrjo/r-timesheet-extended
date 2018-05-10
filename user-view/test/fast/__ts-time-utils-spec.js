@@ -44,7 +44,7 @@ describe("TSDateUtils", function() {
         });
     });
     
-    describe('getWeekISOStartStrings', function() {
+    describe('getUtcSundayWeekStartStrings', function() {
         var dateRange = _.range(6,13);
         
         describe('Sunday week start', function() {
@@ -55,7 +55,7 @@ describe("TSDateUtils", function() {
             it('Every day of week returns 1 week start string', function() {
                 _.each(dateRange, function(day) {
                     var startDate = new Date('5-' + day + '-2018');
-                    var weekStartStrings = TSDateUtils.getWeekISOStartStrings(startDate);
+                    var weekStartStrings = TSDateUtils.getUtcSundayWeekStartStrings(startDate);
                     expect(weekStartStrings.length).toEqual(1);
                 });
             });
@@ -69,7 +69,7 @@ describe("TSDateUtils", function() {
             it('Every day of week returns 2 week start strings', function() {
                 _.each(dateRange, function(day) {
                     var startDate = new Date('5-' + day + '-2018');
-                    var weekStartStrings = TSDateUtils.getWeekISOStartStrings(startDate);
+                    var weekStartStrings = TSDateUtils.getUtcSundayWeekStartStrings(startDate);
                     expect(weekStartStrings.length).toEqual(2);
                 });
             });
@@ -83,7 +83,7 @@ describe("TSDateUtils", function() {
             it('Every day of week returns 2 week start strings', function() {
                 _.each(dateRange, function(day) {
                     var startDate = new Date('5-' + day + '-2018');
-                    var weekStartStrings = TSDateUtils.getWeekISOStartStrings(startDate);
+                    var weekStartStrings = TSDateUtils.getUtcSundayWeekStartStrings(startDate);
                     expect(weekStartStrings.length).toEqual(2);
                 });
             });

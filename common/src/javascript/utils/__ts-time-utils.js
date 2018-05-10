@@ -38,18 +38,18 @@ Ext.define('TSDateUtils', {
      * Otherwise, we must use two TimeEntryItems to hold the data. One for the Sunday week before
      * the 'startDayOfWeek', another for the Sunday week after the 'startDayOfWeek'.
      */
-    getWeekISOStartStrings: function(startDate) {
-        var dateOfWeekStart = this.getBeginningOfWeekForLocalDate(startDate);
+    getUtcSundayWeekStartStrings: function(localStartDate) {
+        var dateOfWeekStart = this.getBeginningOfWeekForLocalDate(localStartDate);
         if ( dateOfWeekStart.getDay() === 0 ) {
             // Week starts on Sunday and fits into a native TimeEntryItem
-            return [this.getBeginningOfWeekISOForLocalDate(dateOfWeekStart, true)];
+            return [this.getUtcIsoForLocalDate(dateOfWeekStart, true)];
         } else {
             // Week starts on day other than Sunday. Two TimeEntryItems are needed to hold the data
-            var priorSunday = Ext.Date.add(startDate, Ext.Date.DAY, -1 * dateOfWeekStart.getDay());
-            var nextSunday = Ext.Date.add(startDate, Ext.Date.DAY, 7-dateOfWeekStart.getDay());
+            var priorSunday = Ext.Date.add(localStartDate, Ext.Date.DAY, -1 * dateOfWeekStart.getDay());
+            var nextSunday = Ext.Date.add(localStartDate, Ext.Date.DAY, 7-dateOfWeekStart.getDay());
             return [
-                this.getBeginningOfWeekISOForLocalDate(priorSunday, true),
-                this.getBeginningOfWeekISOForLocalDate(nextSunday, true)
+                this.getUtcIsoForLocalDate(priorSunday, true),
+                this.getUtcIsoForLocalDate(nextSunday, true)
             ]
         }
     },
@@ -63,26 +63,14 @@ Ext.define('TSDateUtils', {
         return start_of_week_here;
     },
     
-    getBeginningOfWeekISOForLocalDate: function(week_date,showShiftedTimeStamp) {
-        var offset = week_date.getTimezoneOffset();  // 480 is pacific, -330 is india
-        
-        var local_beginning = TSDateUtils.getBeginningOfWeekForLocalDate(week_date);
-        var shifted_time = Rally.util.DateTime.add(week_date,'minute',offset);
-                
-        if ( shifted_time.getUTCDay() === 0 && shifted_time.getHours() === 0  ) {
-            // this is already the beginning of the week
-            var shifted_string = this.formatShiftedDate(week_date, 'Y-m-d');
-            if ( showShiftedTimeStamp ) {
-                return shifted_string + 'T00:00:00.0Z';
-            }
-            return shifted_string;
+    getUtcIsoForLocalDate: function(date, showTimestamp) {
+        // Add the timezone offset to get to UTC
+        var utc = Ext.Date.add(date, Ext.Date.MINUTE, date.getTimezoneOffset());
+        var utcString = Ext.Date.format(utc, 'Y-m-d');
+        if ( showTimestamp ) {
+            utcString += 'T00:00:00.000Z';
         }
-        
-        if (showShiftedTimeStamp) {
-            return Rally.util.DateTime.toIsoString(local_beginning).replace(/T.*$/,'T00:00:00.0Z');
-        }
-        
-        return Rally.util.DateTime.toIsoString(local_beginning).replace(/T.*$/,'');
+        return utcString;
     },
     
     formatShiftedDate: function(jsdate,format) {
@@ -93,17 +81,6 @@ Ext.define('TSDateUtils', {
         }
 
         return Ext.util.Format.date(jsdate,format);
-    },
-    
-    pretendIMeantUTC: function(jsdate,asUTC) {
-        var offset = jsdate.getTimezoneOffset();
-        
-        if ( asUTC ) {
-            return Rally.util.DateTime.toIsoString(jsdate).replace(/T.*$/,'T00:00:00.000Z');
-        }
-        var shiftedDate = Rally.util.DateTime.add(jsdate,'minute',-1 * offset);
-        
-        return shiftedDate;
     },
     
     // returns a promise, fulfills with a boolean

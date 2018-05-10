@@ -36,8 +36,9 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
                 task.sortType = oid_sort;
                 
                 var related_fields = [
-                    { name: '__TimeEntryItem', type:'object' },
-                    { name: '__TimeEntryItems', type:'object' },    // In case a non-Sunday week start requires multiple TimeEntryItems to store data
+                    { name: '__FirstTimeEntryItem', type:'object' },    // To make it easier to pull common data
+                    { name: '__AllTimeEntryItems', type:'object' },    // In case a non-Sunday week start requires multiple TimeEntryItems to store data
+                    { name: '__WeekStartKey', type:'string' },     // In case a non-Sunday week, store the specific week start date string "Y-m-d" spanned by the 2 TimeEntryItems
                     { name: '__Feature',   type: 'object', sortType: oid_sort},
                     { name: '__Release',   type: 'object', sortType: name_sort },
                     { name: '__Iteration', type: 'object', sortType: name_sort},    // Added to allow sorting
@@ -111,8 +112,9 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
         return release[lock_field_name];
     },
     
-    clearAndRemove: function() {        
-        var timeentryitem = this.get('__TimeEntryItem');
+    clearAndRemove: function() {
+        var timeEntryItems = this.get('__AllTimeEntryItems');
+        
         var cells_to_clear = _.map(TSDateUtils.getDaysOfWeek(), function(day) {
             return Ext.String.format('__{0}', day);
         });
@@ -121,14 +123,14 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
                 
         var key = Ext.String.format("{0}.{1}.{2}.{3}", 
             TSUtilities.deletionKeyPrefix,
-            TSDateUtils.formatShiftedDate(this.get('WeekStartDate'),'Y-m-d'),
+            this.get('__WeekStartKey'),
             this.get('User').ObjectID,
             new Date().getTime()
         );
                 
         var data = this.getData();
         
-        delete data.__TimeEntryItem;
+        delete data.__AllTimeEntryItems;
         
         Ext.Array.each(cells_to_clear, function(cell_to_clear) {
             delete data[cell_to_clear + "_record"];
@@ -174,10 +176,12 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
                                 });
                                 
                             } else {
-                                console.log("Does not have an existing pref ID", this);
-                                if ( ! Ext.isEmpty(timeentryitem) && timeentryitem.data.ObjectID > 0 ){
-                                    timeentryitem.destroy();
-                                }
+                                
+                                _.each(timeEntryItems, function(item) {
+                                    if ( ! Ext.isEmpty(item) && item.data.ObjectID > 0 ) {
+                                        item.destroy();
+                                    }
+                                });
                             }
                             me.destroy();
                         } else {
@@ -198,7 +202,7 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
         }
         var key = Ext.String.format("{0}.{1}.{2}.{3}", 
             prefix,
-            TSDateUtils.formatShiftedDate(this.get('WeekStartDate'),'Y-m-d'),
+            this.get('__WeekStartKey'),
             this.get('User').ObjectID,
             item.ObjectID
         );
@@ -247,7 +251,7 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
                             result.save({
                                 callback: function(result, operation) {
                                     if(operation.wasSuccessful()) {
-                                        console.log('saved:', me);
+                                        
                                     } else {
                                         Ext.Msg.alert('Problem saving change', operation.error.errors[0]);
                                     }
@@ -308,7 +312,7 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
                 src = Ext.create(tev_model,{
                     Hours: value,
                     TimeEntryItem: { _ref: time_entry_item.get('_ref') },
-                    DateVal: TSDateUtils.pretendIMeantUTC(date_val,true)
+                    DateVal: TSDateUtils.getUtcIsoForLocalDate(date_val,true)
                 });
 
                 src.save({
@@ -320,7 +324,7 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
                             deferred.resolve();    
                         } else {
                             row.set(src_field_name, null);
-                            console.log('Operation:',operation);
+                            
                             throw 'Problem saving time entry value';
                             deferred.reject(operation.error && operation.error.errors.join('.'));
                         }
@@ -528,13 +532,13 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
         var result;
         if ( sundayIndex === 0 ) {
             // Start of week is Sunday. We always use 1 time entry item
-            result = this.get('__TimeEntryItems')[0]
+            result = this.get('__AllTimeEntryItems')[0]
         } else {
             // Otherwise, we need 2 time entry items.
             if ( dayIndex < sundayIndex ) {
-                result = this.get('__TimeEntryItems')[0]
+                result = this.get('__AllTimeEntryItems')[0]
             } else {
-                result = this.get('__TimeEntryItems')[1]
+                result = this.get('__AllTimeEntryItems')[1]
             }
         }
         

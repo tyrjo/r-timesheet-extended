@@ -17,7 +17,7 @@ Ext.define('TSLockedWeek',{
         // get or create and then update pref
         return Ext.String.format("{0}.{1}", 
             TSUtilities.timeLockKeyPrefix,
-            TSDateUtils.getBeginningOfWeekISOForLocalDate(this.get('WeekStartDate'))
+            TSDateUtils.getUtcIsoForLocalDate(this.get('WeekStartDate'))
         );
     },
     
@@ -44,7 +44,7 @@ Ext.define('TSLockedWeek',{
             status: status,
             status_date: new Date(),
             status_owner: status_owner,
-            week_start: TSDateUtils.getBeginningOfWeekISOForLocalDate(this.get('WeekStartDate'))
+            week_start: TSDateUtils.getUtcIsoForLocalDate(this.get('WeekStartDate'))
         };
         
         Deft.Chain.sequence([
@@ -78,7 +78,7 @@ Ext.define('TSLockedWeek',{
             status: status,
             status_date: new Date(),
             status_owner: status_owner,
-            week_start: TSDateUtils.getBeginningOfWeekISOForLocalDate(this.get('WeekStartDate'))
+            week_start: TSDateUtils.getUtcIsoForLocalDate(this.get('WeekStartDate'))
         };
         
         Deft.Chain.sequence([
@@ -149,7 +149,7 @@ Ext.define('TSLockedWeek',{
                 if(operation.wasSuccessful()) {
                     deferred.resolve(result);
                 } else {
-                    console.log('Problem saving ', preference, operation);
+                    
                     deferred.reject("Could not archive old status");
                 }
             }
