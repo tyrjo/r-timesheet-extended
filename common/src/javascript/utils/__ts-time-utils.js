@@ -39,7 +39,10 @@ Ext.define('TSDateUtils', {
      * the 'startDayOfWeek', another for the Sunday week after the 'startDayOfWeek'.
      */
     getUtcSundayWeekStartStrings: function(localStartDate) {
-        var dateOfWeekStart = this.getBeginningOfWeekForLocalDate(localStartDate);
+        // First convert to date in UTC. This is important to make sure that we get the UTC day name
+        var utc = Ext.Date.add(localStartDate, Ext.Date.MINUTE, localStartDate.getTimezoneOffset());
+
+        var dateOfWeekStart = this.getBeginningOfWeekForLocalDate(utc);
         if ( dateOfWeekStart.getDay() === 0 ) {
             // Week starts on Sunday and fits into a native TimeEntryItem
             return [this.getUtcIsoForLocalDate(dateOfWeekStart, true)];

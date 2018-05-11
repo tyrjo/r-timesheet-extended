@@ -141,12 +141,14 @@ Ext.define("TSTimeSheetApproval", {
             fieldLabel: 'From Week',
             listeners: {
                 scope: this,
-                change: function(dp, new_value) {
-                    var week_start = TSDateUtils.getBeginningOfWeekForLocalDate(new_value);
-                    if ( week_start !== new_value ) {
-                        dp.setValue(week_start);
+                change: function(cmp, newValue) {
+                    var weekStart = TSDateUtils.getBeginningOfWeekForLocalDate(newValue);
+                    if ( Ext.Date.isEqual(weekStart, newValue) ) {
+                        // Selected date is now aligned with week start
+                        this._enableGoButton();
+                    } else {
+                        cmp.setValue(weekStart);    // This will fire another change event
                     }
-                    this._enableGoButton();
                 }
             }
         }).setValue(week_start)
@@ -157,12 +159,14 @@ Ext.define("TSTimeSheetApproval", {
             fieldLabel: 'Through Week',
             listeners: {
                 scope: this,
-                change: function(dp, new_value) {
-                    var week_start = TSDateUtils.getBeginningOfWeekForLocalDate(new_value);
-                    if ( week_start !== new_value ) {
-                        dp.setValue(week_start);
+                change: function(cmp, newValue) {
+                    var weekStart = TSDateUtils.getBeginningOfWeekForLocalDate(newValue);
+                    if ( Ext.Date.isEqual(weekStart, newValue) ) {
+                        // Selected date is now aligned with week start
+                        this._enableGoButton();
+                    } else {
+                        cmp.setValue(weekStart);    // This will fire another change event
                     }
-                    this._enableGoButton();
                 }
             }
         }).setValue(Rally.util.DateTime.add(new Date(), 'week', -1));
