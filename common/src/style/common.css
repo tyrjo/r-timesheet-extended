@@ -18,6 +18,18 @@ td.ts-weekend-cell {
     background-color: #B0E0E6 !important;
 }
 
+td.sunday {
+    background-color: #B0E0E6 !important;
+}
+
+td.saturday {
+    background-color: #B0E0E6 !important;
+}
+
+td.not-enough-hours {
+     background-color: #fec6cd !important;;   
+}
+
 span.red {
     color: red;
 }

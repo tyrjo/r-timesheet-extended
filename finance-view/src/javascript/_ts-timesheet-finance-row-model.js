@@ -19,7 +19,7 @@ var TSTimesheetFinanceCalculators = {
             shifted_week_date = Rally.util.DateTime.add(week_date,'minute',1440);
         }
         
-        //console.log(offset, week_date, shifted_week_date);
+        
         
         return parseInt( Ext.Date.format(shifted_week_date, 'W', 10) );
     }
@@ -56,7 +56,7 @@ Ext.define('TSTimesheetFinanceRow',{
         // get or create and then update pref
         return Ext.String.format("{0}.{1}.{2}", 
             this._approvalKeyPrefix,
-            TSDateUtils.getBeginningOfWeekISOForLocalDate(this.get('WeekStartDate')),
+            TSDateUtils.getUtcIsoForLocalDate(this.get('WeekStartDate')),
             this.get('User').ObjectID
         );
     }

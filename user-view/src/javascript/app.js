@@ -69,6 +69,7 @@ Ext.define("TSExtendedTimesheet", {
     story_fetch_fields: undefined,  // Set in launch once we know the name of the lowest level PI type
 
     launch: function() {
+        TSDateUtils.getDaysOfWeek();
         var preference_project_ref = this.getSetting('preferenceProjectRef');
         TSUtilities.lowestPortfolioItemTypeName = this.getSetting('lowestPortfolioItemTypeName');
         
@@ -82,7 +83,7 @@ Ext.define("TSExtendedTimesheet", {
             success: function(results) {
                 this.setLoading(false);
                 
-                this.logger.log("Updated ", results, " timesheets");
+
                 
                 if ( !  TSUtilities.isEditableProjectForCurrentUser(preference_project_ref,this) ) {
                     Ext.Msg.alert('Contact your Administrator', 'This app requires editor access to the preference project.');
@@ -91,7 +92,6 @@ Ext.define("TSExtendedTimesheet", {
                 }
                 else {
                     this._addEventListeners();
-                    this.updateData();
                 }
             },
             failure: function(msg) {
@@ -102,16 +102,19 @@ Ext.define("TSExtendedTimesheet", {
     
     _addEventListeners: function(container) {
         var dateSelector = this.down('#date_selector');
+        dateSelector.on('change', this._onDateSelectorChange, this);
         dateSelector.setValue(new Date());
-        dateSelector.on('change', function(dp, new_value) {
-            var week_start = TSDateUtils.getBeginningOfWeekForLocalDate(new_value);
-            if ( week_start !== new_value ) {
-                dp.setValue(week_start);
-            }
-            if ( new_value.getDay() === 0 ) {
-                this.updateData();
-            }
-        }, this);
+    },
+    
+    _onDateSelectorChange: function(cmp, newValue) {
+        var weekStart = TSDateUtils.getBeginningOfWeekForLocalDate(newValue);
+        if ( Ext.Date.isEqual(weekStart, newValue) ) {
+            // Selected date is now aligned with week start
+            this.localWeekStartDate = newValue;
+            this.updateData();
+        } else {
+            cmp.setValue(weekStart);    // This will fire another change event
+        }
     },
     
     _addButtons: function(container) {
@@ -190,12 +193,9 @@ Ext.define("TSExtendedTimesheet", {
     },
     
     _addCommentButton: function(container) {
-        this.logger.log('_addCommentButton', this.startDateString);
-        var start_date = this.startDateString;
-        
         var comment_key = Ext.String.format("{0}.{1}.{2}", 
             this._commentKeyPrefix,
-            start_date,
+            TSDateUtils.getUtcIsoForLocalDate(this.localWeekStartDate),
             this.getContext().getUser().ObjectID
         );
         
@@ -220,7 +220,7 @@ Ext.define("TSExtendedTimesheet", {
                         click: function() {
                             var statusPref = Ext.create('TSTimesheet', {
                                 User: this.getContext().getUser(),
-                                WeekStartDate: this.startDate
+                                WeekStartDate: this.localWeekStartDate
                             });
                             statusPref.submit().then({
                                 scope: this,
@@ -239,7 +239,7 @@ Ext.define("TSExtendedTimesheet", {
                         click: function() {
                             var statusPref = Ext.create('TSTimesheet', {
                                 User: this.getContext().getUser(),
-                                WeekStartDate: this.startDate
+                                WeekStartDate: this.localWeekStartDate
                             });
                             statusPref.unsubmit().then({
                                 scope: this,
@@ -269,11 +269,6 @@ Ext.define("TSExtendedTimesheet", {
         
         button_box.removeAll();
         status_box.removeAll();
-        
-        this.startDate = this.down('#date_selector').getValue();
-        this.startDateString = TSDateUtils.getBeginningOfWeekISOForLocalDate(this.startDate);
-        
-        this.logger.log("Date changed to:", this.startDate, this.startDateString);
         
         Deft.Chain.sequence([
             this._loadWeekStatusPreference,
@@ -315,7 +310,7 @@ Ext.define("TSExtendedTimesheet", {
                     region: 'center',
                     layout: 'fit',
                     margin: 15,
-                    startDate: this.startDate,
+                    localWeekStartDate: this.localWeekStartDate,
                     editable: editable,
                     listeners: {
                         scope: this,
@@ -363,7 +358,7 @@ Ext.define("TSExtendedTimesheet", {
             me = this;
         this.setLoading('Reviewing Past Timesheets');
         
-        //var this_week_start = TSDateUtils.getBeginningOfWeekISOForLocalDate(new Date());
+        //var this_week_start = TSDateUtils.getUtcIsoForLocalDate(new Date());
         var this_week_start = TSDateUtils.formatShiftedDate(new Date(),'Y-m-d');
         
         var append_filters = Rally.data.wsapi.Filter.and([
@@ -438,7 +433,7 @@ Ext.define("TSExtendedTimesheet", {
             scope: this,
             success: function(result) {
                 if ( !result ) {
-                    this.logger.log("  Not approved; skipping");
+
                     deferred.resolve(0);
                     return;
                 }
@@ -446,7 +441,7 @@ Ext.define("TSExtendedTimesheet", {
                 this.setLoading('Absorbing Manager Change ' + week_start);
                 
                 var timetable = Ext.create('Rally.technicalservices.TimeTable',{
-                    startDate: Ext.Date.parse(week_start,'Y-m-d'),
+                    localWeekStartDate: Ext.Date.parse(week_start,'Y-m-d'),
                     editable: false,
                     timesheet_status: TSTimesheet.STATUS.APPROVED,
                     timesheet_user: this.getContext().getUser(),
@@ -457,7 +452,7 @@ Ext.define("TSExtendedTimesheet", {
                                 grid.getStore().on('load', function() {
                                     this._absorbChanges(t,changes).then({
                                         success: function(results) {
-                                            console.log('a');
+                                            
                                             deferred.resolve(1);
                                         },
                                         failure: function(msg) { 
@@ -468,7 +463,7 @@ Ext.define("TSExtendedTimesheet", {
                             } else {
                                 this._absorbChanges(t,changes).then({
                                     success: function(results) {
-                                        console.log('b');
+                                        
                                         deferred.resolve(1);
                                     },
                                     failure: function(msg) { 
@@ -505,7 +500,7 @@ Ext.define("TSExtendedTimesheet", {
                 
         Deft.Chain.sequence(promises).then({
             success: function(results) {
-                console.log('done _absorbChanges');
+                
                 deferred.resolve(results);
             },
             failure: function(msg) {
@@ -518,10 +513,10 @@ Ext.define("TSExtendedTimesheet", {
     _loadWeekStatusPreference: function() {        
         var key = Ext.String.format("{0}.{1}.{2}", 
             TSUtilities.approvalKeyPrefix,
-            this.startDateString,
+            TSDateUtils.getUtcIsoForLocalDate(this.localWeekStartDate),
             this.getContext().getUser().ObjectID
         );
-        this.logger.log('finding by key',key);
+
         
         return TSDateUtils._loadWeekStatusPreference(key);
     },
@@ -530,9 +525,9 @@ Ext.define("TSExtendedTimesheet", {
         
         var key = Ext.String.format("{0}.{1}", 
             TSUtilities.timeLockKeyPrefix,
-            this.startDateString
+            TSDateUtils.getUtcIsoForLocalDate(this.localWeekStartDate)
         );
-        this.logger.log('finding by key',key);
+
         
         var filters = [
             {property:'Name',operator:'contains', value:key},
@@ -661,7 +656,7 @@ Ext.define("TSExtendedTimesheet", {
                     Ext.Array.each(items, function(item){
     
                         if ( item.get('Release') && item.get('Release').c_IsDeployed == true ) {
-                            console.log('Cannot add item because it is locked');
+                            
                             
                             promises.push(function() { return timetable.unpinTime(item); });
                             
@@ -983,7 +978,7 @@ Ext.define("TSExtendedTimesheet", {
     
     //onSettingsUpdate:  Override
     onSettingsUpdate: function (settings){
-        this.logger.log('onSettingsUpdate',settings);
+
         // Ext.apply(this, settings);
         this.launch();
     }

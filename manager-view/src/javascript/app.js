@@ -141,12 +141,14 @@ Ext.define("TSTimeSheetApproval", {
             fieldLabel: 'From Week',
             listeners: {
                 scope: this,
-                change: function(dp, new_value) {
-                    var week_start = TSDateUtils.getBeginningOfWeekForLocalDate(new_value);
-                    if ( week_start !== new_value ) {
-                        dp.setValue(week_start);
+                change: function(cmp, newValue) {
+                    var weekStart = TSDateUtils.getBeginningOfWeekForLocalDate(newValue);
+                    if ( Ext.Date.isEqual(weekStart, newValue) ) {
+                        // Selected date is now aligned with week start
+                        this._enableGoButton();
+                    } else {
+                        cmp.setValue(weekStart);    // This will fire another change event
                     }
-                    this._enableGoButton();
                 }
             }
         }).setValue(week_start)
@@ -157,12 +159,14 @@ Ext.define("TSTimeSheetApproval", {
             fieldLabel: 'Through Week',
             listeners: {
                 scope: this,
-                change: function(dp, new_value) {
-                    var week_start = TSDateUtils.getBeginningOfWeekForLocalDate(new_value);
-                    if ( week_start !== new_value ) {
-                        dp.setValue(week_start);
+                change: function(cmp, newValue) {
+                    var weekStart = TSDateUtils.getBeginningOfWeekForLocalDate(newValue);
+                    if ( Ext.Date.isEqual(weekStart, newValue) ) {
+                        // Selected date is now aligned with week start
+                        this._enableGoButton();
+                    } else {
+                        cmp.setValue(weekStart);    // This will fire another change event
                     }
-                    this._enableGoButton();
                 }
             }
         }).setValue(Rally.util.DateTime.add(new Date(), 'week', -1));
@@ -234,21 +238,21 @@ Ext.define("TSTimeSheetApproval", {
         this.setLoading("Loading timesheets...");
         
         var filters = [
-            // TODO (tj) disabling until required {property:'User.NoTimesheet', value: false },
+            // TODO (tj) disabling until required --> {property:'User.NoTimesheet', value: false },
             {property:'User.Disabled', value: false }
         ];
         
         if (this.down('#from_date_selector') ) {
-            var start_date = TSDateUtils.getBeginningOfWeekISOForLocalDate(this.startDate,true);
+            var start_date = TSDateUtils.getUtcIsoForLocalDate(this.startDate,true);
             filters.push({property:'WeekStartDate', operator: '>=', value:start_date});
         }
         
         if (this.down('#to_date_selector') ) {
-            var start_date = TSDateUtils.getBeginningOfWeekISOForLocalDate(this.endDate,true);
+            var start_date = TSDateUtils.getUtcIsoForLocalDate(this.endDate,true);
             filters.push({property:'WeekStartDate', operator: '<=', value:start_date});
         }
         
-        console.log('IsAdmin:', TSUtilities.currentUserIsAdmin());
+        
         
         if ( ! this.getSetting('showAllForAdmins') || !TSUtilities.currentUserIsAdmin() ){
             var current_user_name = this.getContext().getUser().UserName;
@@ -329,7 +333,7 @@ Ext.define("TSTimeSheetApproval", {
         TSUtilities.loadWsapiRecords(config).then({
             scope: this,
             success: function(preferences) {
-                this.logger.log("Applying preferences", preferences);
+
                 var preferences_by_key = {};
                 
                 Ext.Array.each(preferences, function(pref){
@@ -339,7 +343,7 @@ Ext.define("TSTimeSheetApproval", {
                     preferences_by_key[pref_name_array.join('.')] = pref;
                 });
                 
-                this.logger.log('Preferences by Key', preferences_by_key);
+
                 
                 Ext.Array.each(timesheets, function(timesheet){
                     var key = timesheet.getShortPreferenceKey();
@@ -429,7 +433,7 @@ Ext.define("TSTimeSheetApproval", {
                                                 
                         var timesheet = timesheets_by_key[key];
                         if ( Ext.isEmpty(timesheet) ) { 
-                            me.logger.log('skip ', key);
+
                             return;
                         }
                                                 
@@ -464,7 +468,7 @@ Ext.define("TSTimeSheetApproval", {
     },
 
     _addGrid: function(container, timesheets) {
-        this.logger.log("_addGrid",timesheets);
+
         
         var store = Ext.create('Rally.data.custom.Store',{
             data:timesheets,
@@ -557,7 +561,7 @@ Ext.define("TSTimeSheetApproval", {
     _popup: function(record){
         var user_name = record.get('User')._refObjectName;
         var status = record.get('__Status');
-        this.logger.log("_popup", user_name, status, record);
+
                 
         Ext.create('Rally.technicalservices.ManagerDetailDialog', {
             id       : 'popup',
@@ -593,7 +597,7 @@ Ext.define("TSTimeSheetApproval", {
         
         if ( !grid ) { return; }
         
-        this.logger.log('_export',grid);
+
 
         var filename = 'manager-time-report.csv';
 
@@ -601,12 +605,12 @@ Ext.define("TSTimeSheetApproval", {
         
         var promises = [];
         
-        this.logger.log('before selected list');
+
         var selected = grid.getSelectionModel().getSelection();
-        this.logger.log('selected', selected);
+
         
         if ( !selected || selected.length == 0 ){
-            this.logger.log('export selected items');
+
             promises.push(function() {return Rally.technicalservices.FileUtilities.getCSVFromGrid(this,grid) });
         }
         
@@ -619,7 +623,7 @@ Ext.define("TSTimeSheetApproval", {
         Deft.Chain.sequence(promises).then({
             scope: this,
             success: function(results){
-                this.logger.log('got csv', results);
+
                 
                 var csv = results.join('\r\n');
                 
@@ -637,12 +641,12 @@ Ext.define("TSTimeSheetApproval", {
         var deferred = Ext.create('Deft.Deferred'),
             me = this;
 
-        this.logger.log('_getCSVFromTimesheet', timesheet, skip_headers);
+
         
         var status = timesheet.get('__Status');
                     
         var timetable = Ext.create('Rally.technicalservices.TimeTable',{
-            startDate: timesheet.get('WeekStartDate'),
+            localWeekStartDate: timesheet.get('WeekStartDate'),
             editable: false,
             timesheet_status: timesheet.get('__Status'),
             timesheet_user: timesheet.get('User'),
@@ -678,11 +682,11 @@ Ext.define("TSTimeSheetApproval", {
             color = yellow;
         }
         
-        console.log(record);
-        var record_week_start = TSDateUtils.getBeginningOfWeekISOForLocalDate(record.get('WeekStartDate'));
-        var current_week_start = TSDateUtils.getBeginningOfWeekISOForLocalDate(new Date());
         
-        console.log('comparing', record_week_start, current_week_start);
+        var record_week_start = TSDateUtils.getUtcIsoForLocalDate(record.get('WeekStartDate'));
+        var current_week_start = TSDateUtils.getUtcIsoForLocalDate(new Date());
+        
+        
         
         if ( record_week_start < current_week_start && value < 40 ) {
             color = red;
@@ -703,7 +707,7 @@ Ext.define("TSTimeSheetApproval", {
     
     _filterOutExceptStrings: function(store) {
         var app = Rally.getApp();
-        app.logger.log('_filterOutExceptChoices');
+
         
         store.filter([{
             filterFn:function(field){ 
@@ -788,7 +792,7 @@ Ext.define("TSTimeSheetApproval", {
     
     //onSettingsUpdate:  Override
     onSettingsUpdate: function (settings){
-        this.logger.log('onSettingsUpdate',settings);
+
         // Ext.apply(this, settings);
         this.launch();
     }

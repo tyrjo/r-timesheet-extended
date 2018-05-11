@@ -73,7 +73,7 @@ Ext.define('TSDefaultPreference',{
         
         var pinned_items = Ext.Array.filter(this.getPinnedItems(), function(item) {
             var oid = item.ObjectID;
-            console.log('comparing ', oid, target_record_oid);
+            
             
             return ( oid != target_record_oid );
         });
@@ -144,7 +144,7 @@ Ext.define('TSDefaultPreference',{
         var deferred = Ext.create('Deft.Deferred'),
             me = this;
             
-        console.log('createPreference', me.get('Name'));
+        
         
         Rally.data.ModelFactory.getModel({
             type: 'Preference',
@@ -161,7 +161,7 @@ Ext.define('TSDefaultPreference',{
                     callback: function(result, operation) {
                         if(operation.wasSuccessful()) {
                             me.set('__Preference', result);
-                            console.log('preference created', me.get('Name'));
+                            
                             deferred.resolve(me);
                         } else {
                             deferred.reject(operation.error.errors[0]);
