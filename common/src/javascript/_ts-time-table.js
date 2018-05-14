@@ -801,6 +801,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                     ObjectID: item.get('WorkProduct').ObjectID
                 };
             } else if ( item_type == 'defect' ) {
+                /*
                 var requirement = item.get('Requirement');
                 if ( requirement ) {
                     config.WorkProductDisplayString = requirement.FormattedID + ":" + requirement.Name;
@@ -811,6 +812,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                         ObjectID: requirement.ObjectID
                     };
                 }
+                */
             }
             
             if ( !this._isForCurrentUser() ) {
@@ -882,8 +884,13 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                         
                         if ( !Ext.isEmpty(workproduct) ) {
                             if ( workproduct[TSUtilities.lowestPortfolioItemTypeName] ) {
+                                // User stories have a direct reference to a portfolio item
                                 feature = workproduct[TSUtilities.lowestPortfolioItemTypeName];
                                 product = feature.Project;
+                            } else if (workproduct['Requirement']) {
+                                // For defects, first get the `Requirement` story, then use that to get the portfolio item.
+                                var requirement = workproduct['Requirement'];
+                                feature = requirement[TSUtilities.lowestPortfolioItemTypeName];
                             }
                             
                             if ( workproduct.Release ) {
@@ -915,8 +922,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                         
                         deferred.resolve(row);
                     },
-                    failure: function() {
-                        
+                    failure: function(operation) {
                         Ext.Msg.alert("Problem saving time:", operation.error.errors.join(' '));
                         deferred.reject();
                     }

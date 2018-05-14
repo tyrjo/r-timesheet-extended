@@ -309,13 +309,13 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
                     
                 });
                 
-                src = Ext.create(tev_model,{
+                var timeEntryValue = Ext.create(tev_model,{
                     Hours: value,
                     TimeEntryItem: { _ref: time_entry_item.get('_ref') },
                     DateVal: TSDateUtils.getUtcIsoForLocalDate(date_val,true)
                 });
 
-                src.save({
+                timeEntryValue.save({
                     callback: function(result, operation) {
                         
                         if(operation.wasSuccessful()) {
@@ -324,8 +324,7 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
                             deferred.resolve();    
                         } else {
                             row.set(src_field_name, null);
-                            
-                            throw 'Problem saving time entry value';
+                            console.error('Problem saving time entry value');
                             deferred.reject(operation.error && operation.error.errors.join('.'));
                         }
                     }
@@ -382,7 +381,9 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
                     if ( delta == -6 ) { delta = 1; } // shift to Sunday
                     date_val = Rally.util.DateTime.add(date_val, 'day', delta);
                     */
-                    promises.push(function() { return me._createTEV(src_field_name, row, time_entry_item, index, value, week_start, date_val); });
+                    promises.push(function() {
+                        return me._createTEV(src_field_name, row, time_entry_item, index, value, week_start, date_val);
+                    });
                 }
             }
         },this);
@@ -393,11 +394,18 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
         }
         
         this.process = Deft.Chain.sequence(promises).then({
+            scope: this,
             success: function(result) { 
                 deferred.resolve(result);
             },
             failures: function(msg) {
                 deferred.reject(msg);
+            },
+            progress: function(msg) {
+                console.log('Progress');
+            },
+            cancel: function(msg) {
+                console.log('Cancel');
             }
         });
         
@@ -524,7 +532,9 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
         
     },
     
-    _getTimeEntryForDayField: _.memoize(function(dayField) {
+    // CAUTION: Don't _.memoize() this function because it is used in a builder and won't use the
+    // correct 'this' value in the memoization
+    _getTimeEntryForDayField: function(dayField) {
         var dayName = Rally.technicalservices.TimeModelBuilder._getDayNameFromDayField(dayField.name);
         var daysOfWeek = TSDateUtils.getDaysOfWeek();
         var dayIndex = daysOfWeek.indexOf(dayName);
@@ -543,8 +553,5 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
         }
         
         return result;
-    }, function(dayField) {
-        // memoization resolver to allow for unit tests to modify the startDayOfWeek
-        return TSDateUtils.startDayOfWeek + dayField.name;
-    })
+    }
 });

@@ -124,6 +124,7 @@ Ext.define('CA.technicalservices.ColumnPickerDialog',{
             enableColumnMove: false,
             columnCfgs: this._getGridColumns(),
             showPagingToolbar: false,
+            showRowActionsColumn: false,
             store: store,
             listeners: {
                 viewready: function(grid) {
