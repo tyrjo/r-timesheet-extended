@@ -801,18 +801,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                     ObjectID: item.get('WorkProduct').ObjectID
                 };
             } else if ( item_type == 'defect' ) {
-                /*
-                var requirement = item.get('Requirement');
-                if ( requirement ) {
-                    config.WorkProductDisplayString = requirement.FormattedID + ":" + requirement.Name;
-                    
-                    config.WorkProduct = {
-                        _refObjectName: requirement.Name,
-                        _ref: requirement._ref,
-                        ObjectID: requirement.ObjectID
-                    };
-                }
-                */
+                // Defect is the work product, nothing else to do
             }
             
             if ( !this._isForCurrentUser() ) {
