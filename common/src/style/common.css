@@ -26,7 +26,7 @@ td.saturday {
     background-color: #B0E0E6 !important;
 }
 
-td.not-enough-hours {
+td.total.not-enough-hours {
      background-color: #fec6cd !important;;   
 }
 

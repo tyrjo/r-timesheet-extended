@@ -10,12 +10,67 @@ For open timesheets, the user can choose to absort or remove the change.
 
 ## Development Notes
 
-* Caution: "Feature"
 * Caution: Locking of rows depends on a custom boolean field on Release called "c_IsDeployed"  (note the capital I)
 * Override in the time grid in order to allow for variable selection of editor
 
 * On absorb, the preference representing the append/amend will be saved with .~archived appended to the name.
 
+## Test Plan
+* PASS - Create a sheet for a new week
+* PASS - Edit a sheet for an existing week
+* State Changes:
+   * PASS - Submit
+   * PASS - Unsubmit
+   * Approved
+   * Processed
+* PASS - Day picker
+   * PASS -all days in week reset picker to start of week
+* PASS - Add Items
+   * PASS - defects
+   * PASS - Add defect for story that already has a row
+   * PASS - task from defect
+   * PASS - story
+   * PASS - task
+   * PASS - Re-add defect, story or task that already exists
+* PASS - Remove Items
+   * PASS - Story, Defect, Task
+   * PASS - Removing item decreemnts total
+* View Comments
+* Test with renamed PortfolioItem (e.g. Feature renamed "Epic")
+* PASS - Set as default
+   * PASS - defects
+   * PASS - story
+   * PASS - task
+* PASS - "Add My Tasks" brings in default
+   * PASS - defects
+   * PASS - stories
+   * PASS - tasks
+* PASS - Column data
+   * PASS - Columns can be added / removed
+   * PASS - Columns selections persist across reloads
+   * PASS - Feature shown for stories with feature
+   * PASS - Feature blank for stories without feature
+   * PASS - Feature shown for tasks on stories with feature
+   * PASS - Feature blank for tasks on stories without feature
+   * PASS - Work Product shown for all stories, defects and tasks
+   * PASS - Work Product Estimate shown for all items with estimate
+   * PASS - Work Product Schedule State
+   * PASS - Task shown for tasks
+   * PASS - Task Estimate
+   * PASS - Task State
+   * PASS - Release
+   * PASS - Iteration
+* Days columns
+   * Order matches configured start day of week
+   * PASS - Weekends colored blue
+   * PASS - Totals colored grey
+   * PASS - 0-24 range, floating input only
+   * PASS - Adjusting day adjusts day total
+   * PASS - Adjusting day adjusts week total
+   * PASS - Total red if <40
+ * PASS - Data saving
+   * PASS - Entered data shown on browser refesh
+   * PASS - Entered data shown on change to different week and back
 
 ### First Load
 
