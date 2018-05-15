@@ -319,7 +319,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
             fetch: Ext.Array.merge(Rally.technicalservices.TimeModelBuilder.getFetchFields(), 
                 this.time_entry_item_fetch,
                 [this.manager_field],
-                TSUtilities.fetchManagerPortfolioItemFields
+                TSUtilities.getManagerPortfolioItemFetchFields()
             ),
             filters: this._getTimeEntryItemFilter()
         };
@@ -440,7 +440,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                 
         
         var me = this;
-        var isForModification = !this._isForCurrentUser();
+        var isForModification = TSUtilities.isManagerEditAllowed() && !this._isForCurrentUser();
         if ( this.week_locked ) {
             isForModification = false;
         }
@@ -1084,7 +1084,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                     return value._refObjectName
                 }
             }],
-            Ext.Array.map(TSUtilities.fetchManagerPortfolioItemFields, function( fieldName ) {
+            Ext.Array.map(TSUtilities.getManagerPortfolioItemFetchFields(), function( fieldName ) {
                 var displayName = fieldName;
                 if ( this.portfolio_item_model ) {
                     var modelField = this.portfolio_item_model.getField(fieldName);

@@ -23,32 +23,21 @@ Ext.define("TSTimeSheetApproval", {
         defaultSettings: {
             managerField: 'DisplayName',
             showAllForAdmins: true,
-            preferenceProjectRef: '/project/51712374295',
-            fetchManagerPortfolioItemFields: undefined
+            preferenceProjectRef: '/project/51712374295'
         }
     },
     
     launch: function() {
         var preference_project_ref = this.getSetting('preferenceProjectRef');
-        
-        var fetchManagerPortfolioItemFields = this.getSetting('fetchManagerPortfolioItemFields');
-        // this value is from a rallyfieldcombobox which doesn't behave predictably when multi-select enabled.
-        // Sometimes an array of strings, sometimes a CSV string. Normalize to array of strings
-        if ( Ext.typeOf(fetchManagerPortfolioItemFields) === 'string') {
-            TSUtilities.fetchManagerPortfolioItemFields = fetchManagerPortfolioItemFields != '' ? fetchManagerPortfolioItemFields.split(',') : []
-        } else if ( Ext.typeOf(fetchManagerPortfolioItemFields) === 'array') {
-            TSUtilities.fetchManagerPortfolioItemFields = fetchManagerPortfolioItemFields;
-        }
-        
-        TSUtilities.lowestPortfolioItemTypeName = this.getSetting('lowestPortfolioItemTypeName');
         if ( !  TSUtilities.isEditableProjectForCurrentUser(preference_project_ref,this) ) {
             Ext.Msg.alert('Contact your Administrator', 'This app requires editor access to the preference project.');
-        } else if ( !TSUtilities.lowestPortfolioItemTypeName ) {
-            Ext.Msg.alert('Contact your Administrator', 'This app requires the lowest level Portfolio Item Type to be set.');
         }
-        else {
-            this._addSelectors(this.down('#selector_box'));
-        }
+        TSUtilities.initLowestPortfolioItemTypeName().then({
+            scope: this,
+            success: function() {
+               this._addSelectors(this.down('#selector_box'));
+            }
+        });
     },
     
     _addSelectors: function(container) {
@@ -122,7 +111,6 @@ Ext.define("TSTimeSheetApproval", {
                 scope: this,
                 change: function(cb) {
                     this.stateFilterValue = cb.getValue();
-                    this._enableGoButton();
                 }
             }
         });
@@ -145,7 +133,7 @@ Ext.define("TSTimeSheetApproval", {
                     var weekStart = TSDateUtils.getBeginningOfWeekForLocalDate(newValue);
                     if ( Ext.Date.isEqual(weekStart, newValue) ) {
                         // Selected date is now aligned with week start
-                        this._enableGoButton();
+                        // nothing to do
                     } else {
                         cmp.setValue(weekStart);    // This will fire another change event
                     }
@@ -163,7 +151,7 @@ Ext.define("TSTimeSheetApproval", {
                     var weekStart = TSDateUtils.getBeginningOfWeekForLocalDate(newValue);
                     if ( Ext.Date.isEqual(weekStart, newValue) ) {
                         // Selected date is now aligned with week start
-                        this._enableGoButton();
+                        // nothing to do
                     } else {
                         cmp.setValue(weekStart);    // This will fire another change event
                     }
@@ -191,23 +179,9 @@ Ext.define("TSTimeSheetApproval", {
         
     },
     
-    _enableGoButton: function() {
-        var start_calendar = this.down('#from_date_selector');
-        var to_calendar    = this.down('#to_date_selector');
-        
-        var go_button = this.down('#go_button');
-        
-        go_button && go_button.setDisabled(true);
-        
-        if ( start_calendar && to_calendar ) {
-            go_button && go_button.setDisabled(false);
-        }
-    },
-    
     _updateData: function() {
         var me = this;
         this.down('#display_box').removeAll();
-        this.down('#go_button').setDisabled(true);
         
         this.startDate = this.down('#from_date_selector').getValue();
         this.endDate   = this.down('#to_date_selector').getValue();
@@ -739,7 +713,13 @@ Ext.define("TSTimeSheetApproval", {
             fieldLabel: '',
             margin: '0 0 25 10',
             boxLabel: 'Show All<br/><span style="color:#999999;"><i>Tick to show all timesheets regardless of manager for admins.</i></span>'
-        },{
+        },Ext.merge(
+            {
+                margin: '0 0 25 10',
+            },
+            TSUtilities.allowManagerEditSettingsField
+        ),
+        {
             name: 'preferenceProjectRef',
             xtype:'rallyprojectpicker',
             fieldLabel: 'Preference Project',
@@ -769,15 +749,6 @@ Ext.define("TSTimeSheetApproval", {
             },
             readyEvent: 'ready'
         },
-        Ext.merge(
-            {
-                labelWidth: 75,
-                labelAlign: 'left',
-                minWidth: 200,
-                margin: 10
-            },
-            TSUtilities.lowestPortfolioItemTypeNameSettingField
-        ),
         Ext.merge(
             {
                 labelWidth: 75,

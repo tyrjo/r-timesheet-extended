@@ -9,64 +9,76 @@ the week start and the user OID and the number of millisconds since 1970.
 and re-openings.
 
 ## Test Plan
+* State Filter
+   * PASS - loads only timesheets in desired state
+* Day picker
+   * PASS - all days in week reset picker to start of week
+   * PASS - default is prior month
+* Row Actions
+   * PASS - Empty for not submitted sheets
+   * PASS - Approve submitted sheets
+   * PASS - Unapprove approved sheets
+   * Multiple sheet actions
 
-### Timesheet po
-* PASS - Create a sheet for a new week
-* PASS - Edit a sheet for an existing week
+### Timesheet popup
+* Create a sheet for a new week
+* Edit a sheet for an existing week
 * State Changes:
-   * PASS - Submit
-   * PASS - Submitted data cannot be edited by user
-   * PASS - Unsubmit
+   * Submit
+   * Submitted data cannot be edited by user
+   * Unsubmit
    * Approved
    * Processed
-* PASS - Day picker
-   * PASS -all days in week reset picker to start of week
-* PASS - Add Items
-   * PASS - defects
-   * PASS - Add defect for story that already has a row
-   * PASS - task from defect
-   * PASS - story
-   * PASS - task
-   * PASS - Re-add defect, story or task that already exists
-* PASS - Remove Items
-   * PASS - Story, Defect, Task
-   * PASS - Removing item decreemnts total
+* Add Items
+   * defects
+   * Add defect for story that already has a row
+   * task from defect
+   * story
+   * task
+   * Re-add defect, story or task that already exists
+* Remove Items
+   * Story, Defect, Task
+   * Removing item decreemnts total
 * View Comments
 * Test with renamed PortfolioItem (e.g. Feature renamed "Epic")
-* PASS - Set as default
-   * PASS - defects
-   * PASS - story
-   * PASS - task
-* PASS - "Add My Tasks" brings in default
-   * PASS - defects
-   * PASS - stories
-   * PASS - tasks
-* PASS - Column data
-   * PASS - Columns can be added / removed
-   * PASS - Columns selections persist across reloads
-   * PASS - Feature shown for stories with feature
-   * PASS - Feature blank for stories without feature
-   * PASS - Feature shown for tasks on stories with feature
-   * PASS - Feature blank for tasks on stories without feature
-   * PASS - Work Product shown for all stories, defects and tasks
-   * PASS - Work Product Estimate shown for all items with estimate
-   * PASS - Work Product Schedule State
-   * PASS - Task shown for tasks
-   * PASS - Task Estimate
-   * PASS - Task State
-   * PASS - Release
-   * PASS - Iteration
+* Set as default
+   * defects
+   * story
+   * task
+* "Add My Tasks" brings in default
+   * defects
+   * stories
+   * tasks
+* Column data
+   * Sort (causes duplicate items)
+   * Columns can be added / removed
+   * Columns selections persist across reloads
+   * Feature shown for stories with feature
+   * Feature blank for stories without feature
+   * Feature shown for tasks on stories with feature
+   * Feature blank for tasks on stories without feature
+   * Work Product shown for all stories, defects and tasks
+   * Work Product Estimate shown for all items with estimate
+   * Work Product Schedule State
+   * Task shown for tasks
+   * Task Estimate
+   * Task State
+   * Release
+   * Iteration
 * Days columns
    * Order matches configured start day of week
-   * PASS - Weekends colored blue
-   * PASS - Totals colored grey
-   * PASS - 0-24 range, floating input only
-   * PASS - Adjusting day adjusts day total
-   * PASS - Adjusting day adjusts week total
-   * PASS - Total red if <40
- * PASS - Data saving
-   * PASS - Entered data shown on browser refesh
+   * Weekends colored blue
+   * Totals colored grey
+   * 0-24 range, floating input only
+   * Adjusting day adjusts day total
+   * Adjusting day adjusts week total
+   * Total red if <40
+ * Data saving
+   * Entered data shown on browser refesh
    * PASS - Entered data shown on change to different week and back
+* PASS - Comments
+   * PASS - Read comments
+   * PASS - Add comments
 
 ### First Load
 

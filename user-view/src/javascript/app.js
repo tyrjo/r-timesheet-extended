@@ -71,26 +71,26 @@ Ext.define("TSExtendedTimesheet", {
     launch: function() {
         TSDateUtils.getDaysOfWeek();
         var preference_project_ref = this.getSetting('preferenceProjectRef');
-        TSUtilities.lowestPortfolioItemTypeName = this.getSetting('lowestPortfolioItemTypeName');
         
-        // TODO (tj) 'WorkProduct' needed in these three? Seems only needed for time entry items
-        this.task_fetch_fields = ['ObjectID','Name','FormattedID','WorkProduct','Project', TSUtilities.lowestPortfolioItemTypeName, 'State', 'Iteration', 'Estimate'];
-        this.defect_fetch_fields = ['ObjectID','Name','FormattedID','Requirement','Project', TSUtilities.lowestPortfolioItemTypeName, 'State', 'Iteration', 'Estimate'];
-        this.story_fetch_fields = ['WorkProduct', TSUtilities.lowestPortfolioItemTypeName, 'Project', 'ObjectID', 'Name', 'Release', 'PlanEstimate', 'ScheduleState'];
-
-        this._absorbOldApprovedTimesheets().then({
+        TSUtilities.initLowestPortfolioItemTypeName().then({
             scope: this,
-            success: function(results) {
+            success: function() {
+               // TODO (tj) 'WorkProduct' needed in these three? Seems only needed for time entry items
+                this.task_fetch_fields = ['ObjectID','Name','FormattedID','WorkProduct','Project', TSUtilities.lowestPortfolioItemTypeName, 'State', 'Iteration', 'Estimate'];
+                this.defect_fetch_fields = ['ObjectID','Name','FormattedID','Requirement','Project', TSUtilities.lowestPortfolioItemTypeName, 'State', 'Iteration', 'Estimate'];
+                this.story_fetch_fields = ['WorkProduct', TSUtilities.lowestPortfolioItemTypeName, 'Project', 'ObjectID', 'Name', 'Release', 'PlanEstimate', 'ScheduleState'];
+                return this._absorbOldApprovedTimesheets();
+            },
+            failure: function() {
+                Ext.Msg.alert("Failed to load Portfolio Item Type Names");
+            }
+        }).then({
+            scope: this,
+            success: function() {
                 this.setLoading(false);
-                
-
-                
                 if ( !  TSUtilities.isEditableProjectForCurrentUser(preference_project_ref,this) ) {
                     Ext.Msg.alert('Contact your Administrator', 'This app requires editor access to the preference project.');
-                } else if ( !TSUtilities.lowestPortfolioItemTypeName ) {
-                    Ext.Msg.alert('Contact your Administrator', 'This app requires the lowest level Portfolio Item Type Name to be set.');
-                }
-                else {
+                } else {
                     this._addEventListeners();
                 }
             },
@@ -945,16 +945,7 @@ Ext.define("TSExtendedTimesheet", {
             labelAlign: 'left',
             minWidth: 200,
             margin: 10
-        },
-        Ext.merge(
-            {
-                labelWidth: 75,
-                labelAlign: 'left',
-                minWidth: 200,
-                margin: 10
-            },
-            TSUtilities.lowestPortfolioItemTypeNameSettingField
-        )];
+        }];
     },
     
 //    getOptions: function() {

@@ -47,6 +47,7 @@ For open timesheets, the user can choose to absort or remove the change.
    * PASS - stories
    * PASS - tasks
 * PASS - Column data
+   * FAIL - Sort (causes duplicate items)
    * PASS - Columns can be added / removed
    * PASS - Columns selections persist across reloads
    * PASS - Feature shown for stories with feature
@@ -72,6 +73,9 @@ For open timesheets, the user can choose to absort or remove the change.
  * PASS - Data saving
    * PASS - Entered data shown on browser refesh
    * PASS - Entered data shown on change to different week and back
+* PASS - Comments
+   * PASS - Read comments
+   * PASS - Add comments
 
 ### First Load
 
