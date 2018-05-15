@@ -20,6 +20,7 @@ For open timesheets, the user can choose to absort or remove the change.
 * PASS - Edit a sheet for an existing week
 * State Changes:
    * PASS - Submit
+   * PASS - Submitted data cannot be edited by user
    * PASS - Unsubmit
    * Approved
    * Processed

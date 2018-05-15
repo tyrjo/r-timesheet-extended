@@ -54,7 +54,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
             Ext.apply(this, state);
         }
     },
-    
+
     constructor: function (config) {
         this.time_entry_item_fetch = ['WeekStartDate','WorkProductDisplayString','WorkProduct','Requirement', 'Task',
         'TaskDisplayString', TSUtilities.lowestPortfolioItemTypeName, 'Project', 'ObjectID', 'Name', 'Release'];
@@ -440,13 +440,17 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                 
         
         var me = this;
-
+        var isForModification = !this._isForCurrentUser();
+        if ( this.week_locked ) {
+            isForModification = false;
+        }
         this.grid = this.add({ 
             xtype:'rallygrid', 
             store: table_store,
             columnCfgs: this.getColumns(),
             showPagingToolbar : false,
-            showRowActionsColumn : false,
+            showRowActionsColumn : this.editable || isForModification,
+            rowActionColumnConfig: this.getRowActionColumnConfig(isForModification),
             sortableColumns: true,
             disableSelection: true,
             enableColumnMove: false,
@@ -955,25 +959,18 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
         return hasRow;
     },
     
+    getRowActionColumnConfig: function(isForModification) {
+        return {
+            xtype: 'tstimetablerowactioncolumn',
+            forModification: isForModification,
+            _selectable: false,
+            _csvIgnoreRender: true
+        }
+    },
+    
     getColumns: function() {
         var me = this;
-
-
-        
         var columns = [];
-        var isForModification = ! this._isForCurrentUser();
-        
-        if ( this.week_locked ) {
-            isForModification = false;
-        }
-        
-        if ( this.editable ||  isForModification ) {
-            columns.push({
-                xtype: 'tstimetablerowactioncolumn',
-                forModification: isForModification,
-                _csvIgnoreRender: true
-            });
-        }
             
         Ext.Array.push(columns, [
             {
@@ -1303,7 +1300,6 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                 if ( cfg && cfg.editor ) {
                     column.editor = cfg.editor;
                 }
-                
                                 
                 if ( cfg && cfg.getEditor ) {
                     column.getEditor = cfg.getEditor;
