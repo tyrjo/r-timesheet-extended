@@ -18,64 +18,47 @@ and re-openings.
    * PASS - Empty for not submitted sheets
    * PASS - Approve submitted sheets
    * PASS - Unapprove approved sheets
+   * PASS - Icon blank for not-submitted sheets
+   * PASS - Icon gear for not-submitted sheets
    * Multiple sheet actions
+* PASS - Extra PI field configurable
+* PASS - Manager Edit of timesheets is configurable
 
 ### Timesheet popup
-* Create a sheet for a new week
 * Edit a sheet for an existing week
 * State Changes:
-   * Submit
-   * Submitted data cannot be edited by user
-   * Unsubmit
-   * Approved
-   * Processed
+   * PASS - Approve
+   * PASS - Unapprove
 * Add Items
-   * defects
-   * Add defect for story that already has a row
-   * task from defect
-   * story
-   * task
-   * Re-add defect, story or task that already exists
+   * NOT TESTED
 * Remove Items
-   * Story, Defect, Task
-   * Removing item decreemnts total
-* View Comments
+   * NOT TESTED
 * Test with renamed PortfolioItem (e.g. Feature renamed "Epic")
-* Set as default
-   * defects
-   * story
-   * task
-* "Add My Tasks" brings in default
-   * defects
-   * stories
-   * tasks
 * Column data
-   * Sort (causes duplicate items)
-   * Columns can be added / removed
-   * Columns selections persist across reloads
-   * Feature shown for stories with feature
-   * Feature blank for stories without feature
-   * Feature shown for tasks on stories with feature
-   * Feature blank for tasks on stories without feature
-   * Work Product shown for all stories, defects and tasks
-   * Work Product Estimate shown for all items with estimate
-   * Work Product Schedule State
-   * Task shown for tasks
-   * Task Estimate
-   * Task State
-   * Release
-   * Iteration
+   * PASS - Sort
+   * PASS - Feature shown for stories with feature
+   *PASS - Feature blank for stories without feature
+   * PASS - Feature shown for tasks on stories with feature
+   * PASS - Feature blank for tasks on stories without feature
+   * PASS - Work Product shown for all stories, defects and tasks
+   * PASS - Work Product Estimate shown for all items with estimate
+   * PASS - Work Product Schedule State
+   * PASS - Task shown for tasks
+   * PASS - Task Estimate
+   * PASS - Task State
+   * PASS - Release
+   * PASS - Iteration
 * Days columns
-   * Order matches configured start day of week
-   * Weekends colored blue
-   * Totals colored grey
-   * 0-24 range, floating input only
-   * Adjusting day adjusts day total
-   * Adjusting day adjusts week total
-   * Total red if <40
- * Data saving
+   * PASS - Order matches configured start day of week
+   * PASS - Weekends colored blue
+   * PASS - Totals colored grey
+   * NOT TESTED - 0-24 range, floating input only
+   * NOT TESTED - Adjusting day adjusts day total
+   * NOT TESTED - Adjusting day adjusts week total
+   * PASS - Total red if <40
+ * NOT TESTED - Data saving
    * Entered data shown on browser refesh
-   * PASS - Entered data shown on change to different week and back
+   * Entered data shown on change to different week and back
 * PASS - Comments
    * PASS - Read comments
    * PASS - Add comments

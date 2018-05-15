@@ -464,7 +464,10 @@ Ext.define("TSTimeSheetApproval", {
             store: store,
             columnCfgs: columns,
             enableEditing: false,
-            showRowActionsColumn: false,
+            showRowActionsColumn: true,
+            rowActionColumnConfig: {
+                xtype: 'tsrowactioncolumn'
+            },
             enableBulkEdit: true,
             showPagingToolbar: false,
             features: [{
@@ -495,40 +498,54 @@ Ext.define("TSTimeSheetApproval", {
     
     _getColumns: function() {
         var me = this;
-        var columns = [{
-            xtype: 'tsrowactioncolumn'
-        }];
-        
-        columns.push({
-            dataIndex:'User',
-            text:'User',
-            renderer: function(v) { return v._refObjectName || value.UserName; }
-        });
-        columns.push({dataIndex:'WeekStartDate',text:'Week Starting', align: 'center', renderer: function(v) { 
-            return TSDateUtils.formatShiftedDate(v, 'm/d/y'); 
-        }});
-        columns.push({
-            dataIndex:'__Hours',
-            text:'Hours', 
-            align: 'center',
-            renderer: me._renderColor
-        });
-        columns.push({dataIndex:'__Status',text:'Status', align: 'center'});
-        columns.push({dataIndex:'__LastUpdateBy',text:'Status Changed By', align: 'center'});
-        
-        columns.push({dataIndex:'User', text:'Manager', align: 'center',
-            renderer: function(v) { 
-                return v[me.getSetting('managerField')] || "none"; 
-            } 
-        });
-        
-        columns.push({dataIndex: '__Comments', text: "Comments", align: 'center',
-            renderer: function(v) {
-                if ( Ext.isEmpty(v) ) { return 0; }
-                if ( !Ext.isArray(v) ) { return 0; }
-                return v.length;
+        var columns = [
+            {
+                dataIndex:'User',
+                text:'User',
+                renderer: function(v) { return v._refObjectName || value.UserName; }
+            },
+            {
+                dataIndex:'WeekStartDate',
+                text:'Week Starting',
+                align: 'center',
+                renderer: function(v) { 
+                    return TSDateUtils.formatShiftedDate(v, 'm/d/y'); 
+                }
+            },{
+                dataIndex:'__Hours',
+                text:'Hours', 
+                align: 'center',
+                renderer: me._renderColor
+            },
+            {
+                dataIndex:'__Status',
+                text:'Status',
+                align: 'center'
+            },
+            {
+                dataIndex:'__LastUpdateBy',
+                text:'Status Changed By',
+                align: 'center'
+            },
+            {
+                dataIndex:'User',
+                text:'Manager',
+                align: 'center',
+                renderer: function(v) { 
+                    return v[me.getSetting('managerField')] || "none"; 
+                } 
+            },
+            {
+                dataIndex: '__Comments',
+                text: "Comments",
+                align: 'center',
+                renderer: function(v) {
+                    if ( Ext.isEmpty(v) ) { return 0; }
+                    if ( !Ext.isArray(v) ) { return 0; }
+                    return v.length;
+                }
             }
-        });
+        ];
         return columns;
     },
     
