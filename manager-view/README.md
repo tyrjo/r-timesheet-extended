@@ -8,6 +8,61 @@ the week start and the user OID and the number of millisconds since 1970.
 * A preference is saved for each approval/unapproval so that we can audit approvals
 and re-openings.
 
+## Test Plan
+* State Filter
+   * PASS - loads only timesheets in desired state
+* Day picker
+   * PASS - all days in week reset picker to start of week
+   * PASS - default is prior month
+* Row Actions
+   * PASS - Empty for not submitted sheets
+   * PASS - Approve submitted sheets
+   * PASS - Unapprove approved sheets
+   * PASS - Icon blank for not-submitted sheets
+   * PASS - Icon gear for not-submitted sheets
+   * Multiple sheet actions
+* PASS - Extra PI field configurable
+* PASS - Manager Edit of timesheets is configurable
+
+### Timesheet popup
+* Edit a sheet for an existing week
+* State Changes:
+   * PASS - Approve
+   * PASS - Unapprove
+* Add Items
+   * NOT TESTED
+* Remove Items
+   * NOT TESTED
+* Test with renamed PortfolioItem (e.g. Feature renamed "Epic")
+* Column data
+   * PASS - Sort
+   * PASS - Feature shown for stories with feature
+   *PASS - Feature blank for stories without feature
+   * PASS - Feature shown for tasks on stories with feature
+   * PASS - Feature blank for tasks on stories without feature
+   * PASS - Work Product shown for all stories, defects and tasks
+   * PASS - Work Product Estimate shown for all items with estimate
+   * PASS - Work Product Schedule State
+   * PASS - Task shown for tasks
+   * PASS - Task Estimate
+   * PASS - Task State
+   * PASS - Release
+   * PASS - Iteration
+* Days columns
+   * PASS - Order matches configured start day of week
+   * PASS - Weekends colored blue
+   * PASS - Totals colored grey
+   * NOT TESTED - 0-24 range, floating input only
+   * NOT TESTED - Adjusting day adjusts day total
+   * NOT TESTED - Adjusting day adjusts week total
+   * PASS - Total red if <40
+ * NOT TESTED - Data saving
+   * Entered data shown on browser refesh
+   * Entered data shown on change to different week and back
+* PASS - Comments
+   * PASS - Read comments
+   * PASS - Add comments
+
 ### First Load
 
 If you've just downloaded this from github and you want to do development, 

@@ -95,8 +95,12 @@ Ext.define('Rally.technicalservices.grid.RowActionColumn', {
      * @param record
      */
     _renderGearIcon: function(value, metaData, record) {
-        metaData.tdCls = Rally.util.Test.toBrowserTestCssClass('row-action', Rally.util.Ref.getOidFromRef(record.get('_ref')));
-        return '<div class="row-action-icon icon-gear"/>';
+        if ( record.get('__Status') && record.get('__Status') != TSTimesheet.STATUS.NOT_SUBMITTED ) {
+            metaData.tdCls = Rally.util.Test.toBrowserTestCssClass('row-action', Rally.util.Ref.getOidFromRef(record.get('_ref')));
+            return '<div class="row-action-icon icon-gear"/>';   
+        } else {
+            return '';
+        }
     },
 
     /**
