@@ -144,14 +144,11 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                     this.timePreference = Ext.create('TSDefaultPreference', { '__Preference': time_default_preference[0] });
                 }
 
-                
-                var groupedTimeEntryItems = time_entry_items;
-                
                 // If the configured start day of the week is not Sunday, 2 time entry items
                 // were used to save all the time data, build a collection of the pairs.
                 // Group time entry items by their workproduct or task object ID.
                 // For simplicity, group the elements even if only 1 time entry item is used (Sunday week start) 
-                groupedTimeEntryItems = TSUtilities.groupTimeEntryItemsByWorkProduct(time_entry_items);
+                var groupedTimeEntryItems = TSUtilities.groupTimeEntryItemsByWorkProduct(time_entry_items);
                                 
                 var rows = _.map(groupedTimeEntryItems, function(items){
                     // Use the first item as the base for the TSTableRow data since both have the same
@@ -161,7 +158,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                     // Sort the pair by start date. The first entry in __AllTimeEntryItems is always the
                     // earlier week date.
                     var sortedItems = _.sortBy(items, function(a) {
-                        return a.WeekStartDate;
+                        return a.get('WeekStartDate');
                     });
                     
                     var product = item.get('Project');
@@ -215,11 +212,6 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                 var rows = this._addTimeEntryValues(rows, time_entry_values);
                 var appended_rows = this._getAppendedRowsFromPreferences(time_entry_appends);
                 var amended_rows = this._getAmendedRowsFromPreferences(time_entry_amends);
-                
-
-
-
-
 
                 this.rows = Ext.Array.merge(rows,appended_rows,amended_rows);
                 this._makeGrid(this.rows);
@@ -268,14 +260,19 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
     },
     
     _addTimeEntryValues: function(rows, time_entry_values) {
-        var rows_by_oid = {};
-        
-        Ext.Array.each(rows, function(row) { rows_by_oid[row.get('ObjectID')] = row; });
-        
-        Ext.Array.each(time_entry_values, function(value){
-            var parent_oid = value.get('TimeEntryItem').ObjectID;
+        // First, built a hash of Time Entry Item Object Ids to the row object
+        // that contains the Time Entry Item. When week start is not on Sunday,
+        // each row will have 2 Time Entry Items.
+         var rowsByTimeEntryItemOid = _.reduce(rows, function(accumulator, row) {
+            _.each(row.get('__AllTimeEntryItems'), function(timeEntryItem) {
+               accumulator[timeEntryItem.get('ObjectID')] = row; 
+            });
+            return accumulator;
+        }, {});
 
-            var row = rows_by_oid[parent_oid];
+        _.each(time_entry_values, function(value){
+            var timeEntryItemOid = value.get('TimeEntryItem').ObjectID;
+            var row = rowsByTimeEntryItemOid[timeEntryItemOid];
             row.addTimeEntryValue(value);
         });
         

@@ -466,17 +466,16 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
         this.set('__Total', total);
     },
     
-    _addTimeEntryValue: function(value_item) {
-        var value_day = value_item.get('DateVal').getUTCDay();
-        var value_hours = value_item.get('Hours');
+    _addTimeEntryValue: function(timeEntryValue) {
+        var utcDay = timeEntryValue.get('DateVal').getUTCDay();
+        var dayName = TSDateUtils.getDayForSundayBasedIndex(utcDay);
+        var hours = timeEntryValue.get('Hours');
         
-        var value_day_name = TSDateUtils.getDaysOfWeek()[value_day];
+        var day_number_field_name = Rally.technicalservices.TimeModelBuilder._getDayNumberFieldName(dayName);
+        var day_record_field_name = Rally.technicalservices.TimeModelBuilder._getDayRecordFieldName(dayName);
         
-        var day_number_field_name = Rally.technicalservices.TimeModelBuilder._getDayNumberFieldName(value_day_name);
-        var day_record_field_name = Rally.technicalservices.TimeModelBuilder._getDayRecordFieldName(value_day_name);
-        
-        this.set(day_number_field_name, value_hours);
-        this.set(day_record_field_name, value_item);
+        this.set(day_number_field_name, hours);
+        this.set(day_record_field_name, timeEntryValue);
         
         this._updateTotal();
         

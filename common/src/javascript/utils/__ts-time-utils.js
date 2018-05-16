@@ -3,14 +3,13 @@ Ext.define('TSDateUtils', {
     singleton: true,
     
     startDayOfWeek: 'Saturday',
-    
+    daysOfWeek: ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'],
     /**
      * Return the days of the week, starting from the configured start day (e.g. Sat.).
      * Memoize because we don't need to recompute more than once.
      */
     getDaysOfWeek: _.memoize(function() {
-        var days = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
-        var startIndex = _.findIndex(days, function(day) {
+        var startIndex = _.findIndex(this.daysOfWeek, function(day) {
             return day === this.startDayOfWeek;
         }, this);
     
@@ -18,7 +17,7 @@ Ext.define('TSDateUtils', {
             startIndex = 0;
         }
         
-        return days.slice(startIndex).concat(days.slice(0,startIndex));
+        return this.daysOfWeek.slice(startIndex).concat(this.daysOfWeek.slice(0,startIndex));
     }, function() {
         // memoization resolver to allow for unit tests to modify the startDayOfWeek
         return this.startDayOfWeek;
@@ -28,8 +27,11 @@ Ext.define('TSDateUtils', {
      * Given a day name, return the offset in a Sunday-based week.
      */
     getSundayBasedIndexForDay: _.memoize(function(dayName) {
-        var days = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
-        return _.indexOf(days, dayName);
+        return _.indexOf(this.daysOfWeek, dayName);
+    }),
+    
+    getDayForSundayBasedIndex: _.memoize(function(index) {
+        return this.daysOfWeek[index]
     }),
         
     /**
