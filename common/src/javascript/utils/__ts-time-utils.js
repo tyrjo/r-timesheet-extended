@@ -2,7 +2,7 @@
 Ext.define('TSDateUtils', {
     singleton: true,
     
-    startDayOfWeek: 'Sunday',
+    startDayOfWeek: 'Saturday',
     
     /**
      * Return the days of the week, starting from the configured start day (e.g. Sat.).
@@ -22,6 +22,14 @@ Ext.define('TSDateUtils', {
     }, function() {
         // memoization resolver to allow for unit tests to modify the startDayOfWeek
         return this.startDayOfWeek;
+    }),
+    
+    /**
+     * Given a day name, return the offset in a Sunday-based week.
+     */
+    getSundayBasedIndexForDay: _.memoize(function(dayName) {
+        var days = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+        return _.indexOf(days, dayName);
     }),
         
     /**

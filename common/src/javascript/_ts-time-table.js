@@ -849,13 +849,14 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                 
                 var fetch = Ext.Array.merge(Rally.technicalservices.TimeModelBuilder.getFetchFields(), this.time_entry_item_fetch);
                 var savePromises = _.map(this.utcSundayWeekStartStrings, function(startDateString) {
-                    config.WeekStartDate = startDateString;
-                    var timeEntryItem = Ext.create(this.tei_model,config);
+                    var teiConfig = _.cloneDeep(config);
+                    teiConfig.WeekStartDate = startDateString;
+                    var timeEntryItem = Ext.create(this.tei_model,teiConfig);
                     return timeEntryItem.save({
                         fetch: fetch
                     }).then(function(result){
                         // save() has side effects on the item (particularly on 'updatable'). return the saved result AND the original
-                        // item from the promise so that we can use the item late
+                        // item from the promise so that we can use the item later
                         return {
                             savedTimeEntryItem: result,
                             origTimeEntryItem: timeEntryItem
@@ -1275,14 +1276,14 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
         
         return this.columns;
     },
-    
-    _applyUnsavableColumnAttributes: function(columns) {
+    /*
+    _applyUnsavableColumnAttributes: function(columnCfgs) {
         
         if ( !Ext.isEmpty(this.columns) ) {
             // columns saved as state lose their renderer functions
             var columns_by_index = {};
-            Ext.Array.each(columns, function(column) {
-                columns_by_index[column.dataIndex] = column;
+            Ext.Array.each(columnCfgs, function(columnCfg) {
+                columns_by_index[columnCfg.dataIndex] = columnCfg;
             });
             
             Ext.Array.each(this.columns, function(column){
@@ -1324,6 +1325,28 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
         }
         
         return columns;
+        
+    },
+    */
+    
+    _applyUnsavableColumnAttributes: function(columnCfgs) {
+        
+        if ( !Ext.isEmpty(this.columns) ) {
+            // We have restored column state into this.columns. However, that state
+            // won't have renderer functions. Merge that state
+            // with the columnCfgs. Use the columnCfgs ordering in case days of
+            // week has been reconfigured.
+            var columnsByText = {};
+            _.each(this.columns, function(column) {
+                columnsByText[column.text] = column;
+            });
+            _.each(columnCfgs, function(columnCfg) {
+                var column = columnsByText[columnCfg.text];
+                Ext.merge(columnCfg, column);
+            });
+        }
+        
+        return columnCfgs;
         
     },
     
