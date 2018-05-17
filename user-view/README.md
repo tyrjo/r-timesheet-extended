@@ -63,7 +63,7 @@ For open timesheets, the user can choose to absort or remove the change.
    * PASS - Release
    * PASS - Iteration
 * Days columns
-   * Order matches configured start day of week
+   * PASS - Order matches configured start day of week
    * PASS - Weekends colored blue
    * PASS - Totals colored grey
    * PASS - 0-24 range, floating input only
@@ -76,6 +76,15 @@ For open timesheets, the user can choose to absort or remove the change.
 * PASS - Comments
    * PASS - Read comments
    * PASS - Add comments
+* FAIL - Start day of week configurable
+* Non-Sunday Week Start
+   * PASS - Add hours when no prior week timesheet
+   * PASS - Add hours to current timesheet when no prior week timesheet (or prior week hours)
+   * PASS - Add hours when prior week has values from previous timesheet.
+   * Edit week when prior week submitted
+   * FAIL - Don't create row for time entry item from prior week
+   * FAIL - Don't create row for time entry item from next week
+   * FAIL - Clear and remove entries that show up because they are in next (or prior) week, doesn't clear values from next (or prior) week
 
 ### First Load
 

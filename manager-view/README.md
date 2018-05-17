@@ -23,6 +23,7 @@ and re-openings.
    * Multiple sheet actions
 * PASS - Extra PI field configurable
 * PASS - Manager Edit of timesheets is configurable
+* NOT TESTED - Amending / Appending Items
 
 ### Timesheet popup
 * Edit a sheet for an existing week

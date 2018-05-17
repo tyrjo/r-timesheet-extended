@@ -49,13 +49,15 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
                     { name: '__Amended', type: 'boolean', defaultValue: false },
                     { name: '__PrefID', type:'auto', defaultValue: -1 },
                     { name: '_ReleaseLockFieldName',  type:'string', defaultValue: Rally.technicalservices.TimeModelBuilder.deploy_field },
-                    { name: '__Pinned', type: 'boolean' }
+                    { name: '__Pinned', type: 'boolean' },
+                    { name: '__UserAdded', type: 'boolean', defaultValue: false}   // true when time entry item a result of user add (vs a time entry item for an overlapping week in the case of a non-Sunday week start)
                 ];
                 
                 var day_fields = this._getDayFields();
                 
                 var all_fields = Ext.Array.merge(base_fields, day_fields, related_fields);
                 
+                // TODO (tj) move functions into public / private
                 var new_model = Ext.define(newModelName, {
                     extend: 'Ext.data.Model',
                     fields: all_fields,
@@ -72,8 +74,10 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
                     isPinned: this._isPinned,
                     isDeleted: this._isDeleted,
                     _saveTEV: this._saveTEV,
-                    _createTEV: this._createTEV,
-                    _getTimeEntryForDayName: this._getTimeEntryForDayName
+                    _createTimeEntryValue: this._createTimeEntryValue,
+                    _getTimeEntryForDayName: this._getTimeEntryForDayName,
+                    initTimeEntryValues: this._initTimeEntryValues,
+                    hasTimeEntryValues: this.hasTimeEntryValues,
                 });
                 
                 this.model = new_model;
@@ -116,7 +120,7 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
         var timeEntryItems = this.get('__AllTimeEntryItems');
         
         var cells_to_clear = _.map(TSDateUtils.getDaysOfWeek(), function(day) {
-            return Ext.String.format('__{0}', day);
+            return Rally.technicalservices.TimeModelBuilder._getDayNumberFieldName(day)
         });
         cells_to_clear.push('__Total');
         var me = this;
@@ -131,9 +135,16 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
         var data = this.getData();
         
         delete data.__AllTimeEntryItems;
+        delete data.__FirstTimeEntryItem;
         
-        Ext.Array.each(cells_to_clear, function(cell_to_clear) {
-            delete data[cell_to_clear + "_record"];
+        // Clean up the time entry values
+        Ext.Array.each(TSDateUtils.getDaysOfWeek(), function(day) {
+            var timeEntryValueFieldName = Rally.technicalservices.TimeModelBuilder._getDayRecordFieldName(day)
+            var timeEntryValue = data[timeEntryValueFieldName];
+            if ( timeEntryValue ) {
+                timeEntryValue.destroy();   // TODO (tj) wait for callback?
+            }
+            delete data[timeEntryValueFieldName];
         });
 
         var value = Ext.JSON.encode(data);
@@ -176,12 +187,16 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
                                 });
                                 
                             } else {
-                                
+                                // TODO (tj) When can we safetly destroy a time entry item?
+                                // Likley if we fetched its values array and checked if it had
+                                // any values outside of the current week?
+                                /*
                                 _.each(timeEntryItems, function(item) {
                                     if ( ! Ext.isEmpty(item) && item.data.ObjectID > 0 ) {
                                         item.destroy();
                                     }
                                 });
+                                */
                             }
                             me.destroy();
                         } else {
@@ -276,9 +291,8 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
         return deferred.promise;
     },
     
-    _createTEV: function(row, dayName, value) {
-        var deferred = Ext.create('Deft.Deferred'),
-            me = this;
+    _createTimeEntryValue: function(dayName, value) {
+        var deferred = Ext.create('Deft.Deferred')
         
         Rally.data.ModelFactory.getModel({
             type: 'TimeEntryValue',
@@ -323,13 +337,14 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
 
                 var tevFieldName = Rally.technicalservices.TimeModelBuilder._getDayRecordFieldName(dayName);
                 timeEntryValue.save({
+                    scope: this,
                     callback: function(result, operation) {
                         if(operation.wasSuccessful()) {
-                            row.set(tevFieldName, result);
-                            me._updateTotal();
+                            this.set(tevFieldName, result);
+                            this._updateTotal();
                             deferred.resolve();
                         } else {
-                            row.set(tevFieldName, null);
+                            this.set(tevFieldName, null);
                             console.error('Problem saving time entry value');
                             deferred.reject(operation.error && operation.error.errors.join('.'));
                         }
@@ -342,6 +357,35 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
         return deferred.promise;
     },
     
+    /**
+     * Set each day of the week for this TSTableRow to a zero hour time entry value.
+     * When the week doesn't start on a Sunday, a TimeEntryItem with no TimeEntryValues
+     * for the days of its week means it was created to hold data for the subsequent week,
+     * and can be hidden until the user also decides to add it to the current week.
+     */
+    _initTimeEntryValues: function() {
+        // The create time entry value operations are asynchronous. Set a flag so we can
+        // know the user wants to see this row even before the time entry value creations
+        // have completed.
+        this.set('__UserAdded', true);
+        _.each(TSDateUtils.daysOfWeek, function(dayName) {
+            this._createTimeEntryValue(dayName, 0);
+        }, this);
+    },
+    
+    /**
+     * Returns true if there are any time entry values for any of the time entry items associated with
+     * this row's start date
+     */
+    hasTimeEntryValues: function() {
+        var userAdded = this.get('__UserAdded');
+        return userAdded || _.any(TSDateUtils.daysOfWeek, function(dayName) {
+            var tevFieldName = Rally.technicalservices.TimeModelBuilder._getDayRecordFieldName(dayName);
+            return this.get(tevFieldName);
+        }, this);
+        
+    },
+    
     _saveChangesWithPromise: function() {
         var deferred = Ext.create('Deft.Deferred'),
             me = this;
@@ -352,8 +396,7 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
         
         var promises = [];
         Ext.Object.each(changes, function(field_name, value) {
-            var row = this;
-            var field = row.getField(field_name);
+            var field = this.getField(field_name);
             var src_field_name = field.__src;
                         
             if ( ! Ext.isEmpty(src_field_name) ) {
@@ -371,7 +414,7 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
                 } else {
                     var dayName = Rally.technicalservices.TimeModelBuilder._getDayNameFromDayField(field_name);
                     promises.push(function() {
-                        return me._createTEV(row, dayName, value);
+                        return me._createTimeEntryValue(dayName, value);
                     });
                 }
             }
