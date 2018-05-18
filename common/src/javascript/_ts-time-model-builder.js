@@ -49,8 +49,7 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
                     { name: '__Amended', type: 'boolean', defaultValue: false },
                     { name: '__PrefID', type:'auto', defaultValue: -1 },
                     { name: '_ReleaseLockFieldName',  type:'string', defaultValue: Rally.technicalservices.TimeModelBuilder.deploy_field },
-                    { name: '__Pinned', type: 'boolean' },
-                    { name: '__UserAdded', type: 'boolean', defaultValue: false}   // true when time entry item a result of user add (vs a time entry item for an overlapping week in the case of a non-Sunday week start)
+                    { name: '__Pinned', type: 'boolean' }
                 ];
                 
                 var day_fields = this._getDayFields();
@@ -131,22 +130,23 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
             this.get('User').ObjectID,
             new Date().getTime()
         );
-                
-        var data = this.getData();
         
-        delete data.__AllTimeEntryItems;
-        delete data.__FirstTimeEntryItem;
-        
-        // Clean up the time entry values
+        // Clean up the time entry values, this will be enough to trigger a refresh of the grid which will cause
+        // the row to be filtered out
         Ext.Array.each(TSDateUtils.getDaysOfWeek(), function(day) {
             var timeEntryValueFieldName = Rally.technicalservices.TimeModelBuilder._getDayRecordFieldName(day)
-            var timeEntryValue = data[timeEntryValueFieldName];
+            var timeEntryValue = this.get(timeEntryValueFieldName);
             if ( timeEntryValue ) {
                 timeEntryValue.destroy();   // TODO (tj) wait for callback?
             }
-            delete data[timeEntryValueFieldName];
-        });
-
+            this.set(timeEntryValueFieldName, null);
+        }, this);
+        
+        var data = this.getData();
+        // Must delete the references to the time entry items before we can JSON encode the data.
+        // This is used for an audit trail of the time entry changes
+        delete data.__AllTimeEntryItems;
+        delete data.__FirstTimeEntryItem;
         var value = Ext.JSON.encode(data);
                 
         Rally.data.ModelFactory.getModel({
@@ -198,7 +198,9 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
                                 });
                                 */
                             }
-                            me.destroy();
+                            // Can't destroy the row because it has the existing time entry values which we will need to re-use
+                            // if user re-adds the item
+                            //me.destroy();
                         } else {
                             Ext.Msg.alert('Problem removing', operation.error.errors[0]);
                         }
@@ -367,10 +369,10 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
         // The create time entry value operations are asynchronous. Set a flag so we can
         // know the user wants to see this row even before the time entry value creations
         // have completed.
-        this.set('__UserAdded', true);
-        _.each(TSDateUtils.daysOfWeek, function(dayName) {
-            this._createTimeEntryValue(dayName, 0);
+        var promises = _.map(TSDateUtils.daysOfWeek, function(dayName) {
+            return this._createTimeEntryValue(dayName, 0);
         }, this);
+        return Deft.promise.Promise.all(promises);
     },
     
     /**
@@ -378,8 +380,7 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
      * this row's start date
      */
     hasTimeEntryValues: function() {
-        var userAdded = this.get('__UserAdded');
-        return userAdded || _.any(TSDateUtils.daysOfWeek, function(dayName) {
+        return _.any(TSDateUtils.daysOfWeek, function(dayName) {
             var tevFieldName = Rally.technicalservices.TimeModelBuilder._getDayRecordFieldName(dayName);
             return this.get(tevFieldName);
         }, this);

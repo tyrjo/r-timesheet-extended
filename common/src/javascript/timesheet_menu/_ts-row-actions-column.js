@@ -125,7 +125,13 @@ Ext.define('Rally.technicalservices.grid.TimeTableRowActionColumn', {
             owningEl: el.parentElement,
             popoverPlacement: ['bottom', 'top'],
             canUnlock: this.canUnlock,
-            forModification: this.forModification
+            forModification: this.forModification,
+            listeners: {
+                scope: this,
+                destroy: function() {
+                    grid.getStore().filter();  // Refilter the rows now that we've removed time entry values
+                }
+            }
         };
 
         if (this.rowActionsFn) {

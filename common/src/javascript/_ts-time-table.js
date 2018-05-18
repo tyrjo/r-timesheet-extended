@@ -792,53 +792,69 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
 
         var existingRows = this._getRowsForItem(item);
         if ( !force && existingRows.length ) {
-            // Set __UserAdded just in case this item has a time entry item from a prior or next week,
-            // but is only now being added to the current week (for non-Sunday week starts where multiple
-            // time entry items are needed to cover 1 "week")
+            /*
+            There are three cases where a row may exist
+            1) User adding duplication (already handled by force=true)
+            2) Next week has time entry item for same work product, and we are a non-Sunday week
+               start, so a time entry item was created that spans with the current week, however,
+               there won't be a second time entry item for the rest of the current week. We must
+               add time entry values to the time entry item we already have AND create a new
+               time entry item to cover the portion of this week not covered by the time entry item
+               from next week.
+            3) This week has time entry item for same work product (was added and cleared). In this
+               case, both time entry items will already exist.
+            */
             
-            // There are two cases where a row may exist
-            // 1) User adding duplication (already handled by force=true)
-            // 2) Next week has time entry item for same work product, and we are a non-Sunday week
-            //    start, so a time entry item was created that spans with the current week, however,
-            //    there won't be a second time entry item for the rest of the current week. We must
-            //    add time entry values to the time entry item we already have AND create a new
-            //    time entry item to cover the portion of this week not covered by the time entry item
-            //    from next week.
             existingRows.each(function(row) {
                 if ( row.hasTimeEntryValues() ) {
                     // user attempting to add duplicate entry for item, ignore it
                 } else {
                     // There is a row, but no time entry values for any of the days of this week.
                     // This means the row was created because we found a time entry item because of
-                    // this item in next week (non-Sunday week start).
-                    // Create the other time entry item needed by this week, then create zero time
+                    // this item in next week (non-Sunday week start), or because the item was previously
+                    // created and then cleared.
+                    
+                    // Create the other time entry item(s) needed by this week, then create zero time
                     // entry values for every day in this week.
-                    var config = this._getTimeEntryItemConfigFromItem(item);
-                    var existingTeiWeekStart = TSDateUtils.getUtcIsoForLocalDate(
-                        row.get('__FirstTimeEntryItem').get('WeekStartDate'),
-                        true
-                    );
-                    var fetch = Ext.Array.merge(Rally.technicalservices.TimeModelBuilder.getFetchFields(), this.time_entry_item_fetch);
-                    var savePromises = _.map(this.utcSundayWeekStartStrings, function(startDateString) {
-                        if ( existingTeiWeekStart === startDateString) {
-                            // already have a time entry item for this date
-                            return row.get('__FirstTimeEntryItem');
-                        } else {
-                            config.WeekStartDate = startDateString;
-                            var timeEntryItem = Ext.create(this.tei_model,config);
-                            return timeEntryItem.save({
-                                fetch: fetch
-                            });
-                        }
-                    }, this);
+                    
+                    var existingTimeEntryItems = row.get('__AllTimeEntryItems');
+                    var savePromises;
+                    if ( existingTimeEntryItems.length == 2 ) {
+                        // Both time entry items exist, simply reuse them
+                        savePromises = existingTimeEntryItems;
+                    } else {
+                        // The row exists, so we found at least one time entry item, must create
+                        // the other.
+                        var config = this._getTimeEntryItemConfigFromItem(item);
+                        var existingTeiWeekStart = TSDateUtils.getUtcIsoForLocalDate(
+                            row.get('__FirstTimeEntryItem').get('WeekStartDate'),
+                            true
+                        );
+                        var fetch = Ext.Array.merge(Rally.technicalservices.TimeModelBuilder.getFetchFields(), this.time_entry_item_fetch);
+                        var savePromises = _.map(this.utcSundayWeekStartStrings, function(startDateString) {
+                            if ( existingTeiWeekStart === startDateString) {
+                                // already have a time entry item for this date
+                                return row.get('__FirstTimeEntryItem');
+                            } else {
+                                config.WeekStartDate = startDateString;
+                                var timeEntryItem = Ext.create(this.tei_model,config);
+                                return timeEntryItem.save({
+                                    fetch: fetch
+                                });
+                            }
+                        }, this);
+                    }
                     Deft.promise.Promise
                     .all(savePromises)
                     .then({
                         scope: this,
                         success: function(results){
                             row.set('__AllTimeEntryItems', results);
-                            row.initTimeEntryValues();  // Set zero values for all days of this row's week
-                            this.grid.getStore().filter();  // Refilter the rows now that we've added time entry values
+                            // Set zero values for all days of this row's week
+                            row.initTimeEntryValues().always(function() {
+                                // Refilter the rows now that we've added time entry values 
+                                this.grid.getStore().filter();       
+                            }, this);
                         },
                         failure: function(operation) {
                             Ext.Msg.alert("Problem saving time:", operation.error.errors.join(' '));
@@ -864,7 +880,6 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                 });
                 
                 var data = {
-                    __UserAdded: true,
                     __WeekStartKey: this.utcWeekStartString,
                     __FirstTimeEntryItem: time_entry_items[0],
                     __AllTimeEntryItems: time_entry_items,
@@ -942,7 +957,6 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                         }
 
                         var data = {
-                            __UserAdded: true,
                             __WeekStartKey: this.utcWeekStartString,
                             __FirstTimeEntryItem: result,
                             __AllTimeEntryItems: _.pluck(results, 'savedTimeEntryItem'),
@@ -1372,7 +1386,12 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
             });
             _.each(columnCfgs, function(columnCfg) {
                 var column = columnsByText[columnCfg.text];
+                // always use the editor from the column config, not the saved state
+                var editor = columnCfg.getEditor;
                 Ext.merge(columnCfg, column);
+                if ( columnCfg.getEditor ) {
+                    columnCfg.getEditor = editor;
+                }
             });
         }
         

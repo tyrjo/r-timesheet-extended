@@ -78,14 +78,28 @@ For open timesheets, the user can choose to absort or remove the change.
    * PASS - Add comments
 * FAIL - Start day of week configurable
 * Non-Sunday Week Start
-   * PASS - Add hours when no prior week timesheet
-   * PASS - Add hours to current timesheet when no prior week timesheet (or prior week hours)
-   * PASS - Add hours when prior week has values from previous timesheet.
+   * No prior or next week sheet
+       * PASS - Add hours when no prior week timesheet
+       * PASS - Prior week timesheet has no visible entry for next week item
+       * PASS - Next week timesheet has no visible entry for prev week item
+       * PASS - Edit week hours don't affect prev or next week sheet
+       * PASS - Submit timesheet
+       * Clear and Remove hours don't affect prev or next week sheet
+       * FAIL - Re-add after Clear and Remove
+   * Prior week exists
+      * Add same item as prior week 
+      * Edit hours
+      * Clear and Remove hours
+   * Next week exists
+      * Add same item as next week 
+      * Edit hours
+      * Clear and Remove hours
+   * Prev and Next week exist
+      * Add same item as prev and next week 
+      * Edit hours
+      * Clear and Remove hours
    * Edit week when prior week submitted
-   * FAIL - Don't create row for time entry item from prior week
-   * FAIL - Don't create row for time entry item from next week
-   * FAIL - Clear and remove entries that show up because they are in next (or prior) week, doesn't clear values from next (or prior) week
-
+   * 
 ### First Load
 
 If you've just downloaded this from github and you want to do development, 
