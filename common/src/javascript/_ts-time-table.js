@@ -57,7 +57,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
 
     constructor: function (config) {
         this.time_entry_item_fetch = ['WeekStartDate','WorkProductDisplayString','WorkProduct','Requirement', 'Task',
-        'TaskDisplayString', TSUtilities.lowestPortfolioItemTypeName, 'Project', 'ObjectID', 'Name', 'Release'];
+        'TaskDisplayString', TSCommonSettings.getLowestPortfolioItemTypeName(), 'Project', 'ObjectID', 'Name', 'Release'];
         
         this.mergeConfig(config);
         
@@ -172,13 +172,13 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                         product = workproduct.Project;
                         
                         var portfolioItem;
-                        if ( workproduct[TSUtilities.lowestPortfolioItemTypeName] ) {
+                        if ( workproduct[TSCommonSettings.getLowestPortfolioItemTypeName()] ) {
                             // User stories have a direct reference to a portfolio item
-                            portfolioItem = workproduct[TSUtilities.lowestPortfolioItemTypeName];
+                            portfolioItem = workproduct[TSCommonSettings.getLowestPortfolioItemTypeName()];
                         } else if (workproduct['Requirement']) {
                             // For defects, first get the `Requirement` story, then use that to get the portfolio item.
                             var requirement = workproduct['Requirement'];
-                            portfolioItem = requirement[TSUtilities.lowestPortfolioItemTypeName];
+                            portfolioItem = requirement[TSCommonSettings.getLowestPortfolioItemTypeName()];
                         }
                         
                         if ( portfolioItem ) {
@@ -224,7 +224,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
     
     _loadPortfolioItemModel: function() {
         return Rally.data.ModelFactory.getModel({
-            type: 'PortfolioItem/' + TSUtilities.lowestPortfolioItemTypeName,
+            type: 'PortfolioItem/' + TSCommonSettings.getLowestPortfolioItemTypeName(),
             success: function(model) {
                 this.portfolio_item_model = model;
             },
@@ -338,7 +338,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
             fetch: Ext.Array.merge(Rally.technicalservices.TimeModelBuilder.getFetchFields(), 
                 this.time_entry_item_fetch,
                 [this.manager_field],
-                TSUtilities.getManagerPortfolioItemFetchFields()
+                TSCommonSettings.getManagerPortfolioItemFetchFields()
             ),
             filters: this._getTimeEntryItemFilter()
         };
@@ -464,7 +464,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                 
         
         var me = this;
-        var isForModification = TSUtilities.isManagerEditAllowed() && !this._isForCurrentUser();
+        var isForModification = TSCommonSettings.isManagerEditAllowed() && !this._isForCurrentUser();
         if ( this.week_locked ) {
             isForModification = false;
         }
@@ -740,7 +740,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
             type: type,
             success: function(model) {
                 model.load(objectid, {
-                    fetch: ['Name', 'FormattedID', 'Project','ObjectID','WorkProduct',TSUtilities.lowestPortfolioItemTypeName],
+                    fetch: ['Name', 'FormattedID', 'Project','ObjectID','WorkProduct',TSCommonSettings.getLowestPortfolioItemTypeName()],
                     callback: function(result, operation) {
                         if(operation.wasSuccessful()) {
                             result.set('__Amended', true);
@@ -786,10 +786,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
     
     // use force=true to ignore the fact that there's already a row (for appending)
     addRowForItem: function(item,force) {
-        var me = this,
-            deferred = Ext.create('Deft.Deferred');
-
-
+        var deferred = Ext.create('Deft.Deferred');
         var existingRows = this._getRowsForItem(item);
         if ( !force && existingRows.length ) {
             /*
@@ -853,7 +850,8 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                             // Set zero values for all days of this row's week
                             row.initTimeEntryValues().always(function() {
                                 // Refilter the rows now that we've added time entry values 
-                                this.grid.getStore().filter();       
+                                this.grid.getStore().filter();
+                                deferred.resolve(row);
                             }, this);
                         },
                         failure: function(operation) {
@@ -899,12 +897,13 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                 var row = Ext.create('TSTableRow',Ext.Object.merge(data, config));
                 row.save();
                 row.set('updatable', true); // so we can add values to the week
-                row.initTimeEntryValues();  // Set zero values for all days of this row's week
-
-                me.grid.getStore().loadRecords([row], { addRecords: true });
-
-                me.rows.push(row);
-                return row;
+                this.grid.getStore().loadRecords([row], { addRecords: true });
+                this.rows.push(row);
+                row.initTimeEntryValues().always(function() {
+                    // Refilter the rows now that we've added time entry values 
+                    this.grid.getStore().filter();
+                    deferred.resolve(row);
+                }, this);
             } else {
                 
                 var fetch = Ext.Array.merge(Rally.technicalservices.TimeModelBuilder.getFetchFields(), this.time_entry_item_fetch);
@@ -937,14 +936,14 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                         var iteration = null;
                         
                         if ( !Ext.isEmpty(workproduct) ) {
-                            if ( workproduct[TSUtilities.lowestPortfolioItemTypeName] ) {
+                            if ( workproduct[TSCommonSettings.getLowestPortfolioItemTypeName()] ) {
                                 // User stories have a direct reference to a portfolio item
-                                feature = workproduct[TSUtilities.lowestPortfolioItemTypeName];
+                                feature = workproduct[TSCommonSettings.getLowestPortfolioItemTypeName()];
                                 product = feature.Project;
                             } else if (workproduct['Requirement']) {
                                 // For defects, first get the `Requirement` story, then use that to get the portfolio item.
                                 var requirement = workproduct['Requirement'];
-                                feature = requirement[TSUtilities.lowestPortfolioItemTypeName];
+                                feature = requirement[TSCommonSettings.getLowestPortfolioItemTypeName()];
                             }
                             
                             if ( workproduct.Release ) {
@@ -964,17 +963,18 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                             __Iteration: iteration,
                             __Product: product,
                             __Release: release,
-                            __Pinned: me._isItemPinned(result) || false
+                            __Pinned: this._isItemPinned(result) || false
                         };
 
                         // TODO (tj) get State, Iteration and Estimate here?
                         var row = Ext.create('TSTableRow',Ext.Object.merge(data, results[0].origTimeEntryItem.getData()));
-                        row.initTimeEntryValues();  // Set zero values for all days of this row's week
-                        // TODO (tj) race condition that user might edit values before TEV save's complete...
-                        // TODO (tj) is row.save() needed here?
-                        me.grid.getStore().loadRecords([row], { addRecords: true });
-                        me.rows.push(row);
-                        deferred.resolve(row);
+                        this.grid.getStore().loadRecords([row], { addRecords: true });
+                        this.rows.push(row);
+                        row.initTimeEntryValues().always(function() {
+                            // Refilter the rows now that we've added time entry values 
+                            this.grid.getStore().filter(); 
+                            deferred.resolve(row);
+                        }, this);
                     },
                     failure: function(operation) {
                         Ext.Msg.alert("Problem saving time:", operation.error.errors.join(' '));
@@ -1164,7 +1164,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
             },
             {
                 dataIndex: '__Feature',
-                text:  TSUtilities.lowestPortfolioItemTypeName,
+                text:  TSCommonSettings.getLowestPortfolioItemTypeName(),
                 flex: 1,
                 editor: null,
                 _selectable: true,
@@ -1181,7 +1181,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                     return value._refObjectName
                 }
             }],
-            Ext.Array.map(TSUtilities.getManagerPortfolioItemFetchFields(), function( fieldName ) {
+            Ext.Array.map(TSCommonSettings.getManagerPortfolioItemFetchFields(), function( fieldName ) {
                 var displayName = fieldName;
                 if ( this.portfolio_item_model ) {
                     var modelField = this.portfolio_item_model.getField(fieldName);
@@ -1191,7 +1191,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                 }
 
                 return {
-                    text: TSUtilities.lowestPortfolioItemTypeName + ' ' + displayName,
+                    text: TSCommonSettings.getLowestPortfolioItemTypeName() + ' ' + displayName,
                     xtype: 'templatecolumn',
                     sortable: false,
                     tpl: '{__Feature.' + fieldName + '}',

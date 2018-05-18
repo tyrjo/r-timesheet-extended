@@ -18,7 +18,7 @@ describe("Rally.technicalservices.TimeModelBuilder", function() {
             var dayFields;
             
             beforeAll(function() {
-                TSDateUtils.startDayOfWeek = 'Sunday';
+                TSCommonSettings.getStartDayOfWeek() = 'Sunday';
                 dayFields = timeModelBuilder._getDayFields();
             });
             
@@ -36,7 +36,7 @@ describe("Rally.technicalservices.TimeModelBuilder", function() {
             var dayFields;
             
             beforeAll(function() {
-                TSDateUtils.startDayOfWeek = 'Saturday';
+                TSCommonSettings.getStartDayOfWeek() = 'Saturday';
                 dayFields = timeModelBuilder._getDayFields();
             });
             
@@ -63,7 +63,7 @@ describe("Rally.technicalservices.TimeModelBuilder", function() {
             var dayFields;
             
             beforeAll(function() {
-                TSDateUtils.startDayOfWeek = 'Monday';
+                TSCommonSettings.getStartDayOfWeek() = 'Monday';
                 dayFields = timeModelBuilder._getDayFields();
             });
             
@@ -90,7 +90,7 @@ describe("Rally.technicalservices.TimeModelBuilder", function() {
             var dayFields;
             
             beforeAll(function() {
-                TSDateUtils.startDayOfWeek = 'Wednesday';
+                TSCommonSettings.getStartDayOfWeek() = 'Wednesday';
                 dayFields = timeModelBuilder._getDayFields();
             });
             

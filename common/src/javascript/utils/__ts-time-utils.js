@@ -2,7 +2,6 @@
 Ext.define('TSDateUtils', {
     singleton: true,
     
-    startDayOfWeek: 'Saturday',
     daysOfWeek: ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'],
     /**
      * Return the days of the week, starting from the configured start day (e.g. Sat.).
@@ -10,7 +9,7 @@ Ext.define('TSDateUtils', {
      */
     getDaysOfWeek: _.memoize(function() {
         var startIndex = _.findIndex(this.daysOfWeek, function(day) {
-            return day === this.startDayOfWeek;
+            return day === TSCommonSettings.getStartDayOfWeek();
         }, this);
     
         if ( startIndex === -1 ) {
@@ -20,7 +19,7 @@ Ext.define('TSDateUtils', {
         return this.daysOfWeek.slice(startIndex).concat(this.daysOfWeek.slice(0,startIndex));
     }, function() {
         // memoization resolver to allow for unit tests to modify the startDayOfWeek
-        return this.startDayOfWeek;
+        return TSCommonSettings.getStartDayOfWeek();
     }),
     
     /**
@@ -38,15 +37,15 @@ Ext.define('TSDateUtils', {
      * Given a start date, return an array of strings that represent the week(s) that contain
      * the start date.
      * 
-     * If the configured 'startDayOfWeek' is 'Sunday', then this will return
+     * If the configured 'TSCommonSettings.getStartDayOfWeek()' is 'Sunday', then this will return
      * and array containing one string, the Sunday immediately prior to the startDate.
      * 
-     * Translate the requested startDate to the date of the immediately preceeding 'startDayOfWeek'.
+     * Translate the requested startDate to the date of the immediately preceeding 'TSCommonSettings.getStartDayOfWeek()'.
      * 
      * If that day is a Sunday, we are done as that aligns with the native TimeEntryItem week start.
      * 
      * Otherwise, we must use two TimeEntryItems to hold the data. One for the Sunday week before
-     * the 'startDayOfWeek', another for the Sunday week after the 'startDayOfWeek'.
+     * the 'TSCommonSettings.getStartDayOfWeek()', another for the Sunday week after the 'TSCommonSettings.getStartDayOfWeek()'.
      */
     getUtcSundayWeekStartStrings: function(localStartDate) {
         // First convert to date in UTC. This is important to make sure that we get the UTC day name

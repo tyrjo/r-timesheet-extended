@@ -72,13 +72,13 @@ Ext.define("TSExtendedTimesheet", {
         TSDateUtils.getDaysOfWeek();
         var preference_project_ref = this.getSetting('preferenceProjectRef');
         
-        TSUtilities.initLowestPortfolioItemTypeName().then({
+        TSCommonSettings.initLowestPortfolioItemTypeName().then({
             scope: this,
             success: function() {
                // TODO (tj) 'WorkProduct' needed in these three? Seems only needed for time entry items
-                this.task_fetch_fields = ['ObjectID','Name','FormattedID','WorkProduct','Project', TSUtilities.lowestPortfolioItemTypeName, 'State', 'Iteration', 'Estimate'];
-                this.defect_fetch_fields = ['ObjectID','Name','FormattedID','Requirement','Project', TSUtilities.lowestPortfolioItemTypeName, 'State', 'Iteration', 'Estimate'];
-                this.story_fetch_fields = ['WorkProduct', TSUtilities.lowestPortfolioItemTypeName, 'Project', 'ObjectID', 'Name', 'Release', 'PlanEstimate', 'ScheduleState'];
+                this.task_fetch_fields = ['ObjectID','Name','FormattedID','WorkProduct','Project', TSCommonSettings.getLowestPortfolioItemTypeName(), 'State', 'Iteration', 'Estimate'];
+                this.defect_fetch_fields = ['ObjectID','Name','FormattedID','Requirement','Project', TSCommonSettings.getLowestPortfolioItemTypeName(), 'State', 'Iteration', 'Estimate'];
+                this.story_fetch_fields = ['WorkProduct', TSCommonSettings.getLowestPortfolioItemTypeName(), 'Project', 'ObjectID', 'Name', 'Release', 'PlanEstimate', 'ScheduleState'];
                 return this._absorbOldApprovedTimesheets();
             },
             failure: function() {
@@ -867,12 +867,12 @@ Ext.define("TSExtendedTimesheet", {
                         attributeName: 'Name'
                     },
                     {
-                        displayName: TSUtilities.lowestPortfolioItemTypeName,
-                        attributeName: TSUtilities.lowestPortfolioItemTypeName + '.Name'
+                        displayName: TSCommonSettings.getLowestPortfolioItemTypeName(),
+                        attributeName: TSCommonSettings.getLowestPortfolioItemTypeName() + '.Name'
                     },
                     {
-                        displayName: TSUtilities.lowestPortfolioItemTypeName + ' Project',
-                        attributeName: TSUtilities.lowestPortfolioItemTypeName + '.Project.Name'
+                        displayName: TSCommonSettings.getLowestPortfolioItemTypeName() + ' Project',
+                        attributeName: TSCommonSettings.getLowestPortfolioItemTypeName() + '.Project.Name'
                     },
                     {
                         displayName:'Release',
@@ -934,18 +934,26 @@ Ext.define("TSExtendedTimesheet", {
     getSettingsFields: function() {
         var me = this;
         
-        return [{
-            name: 'preferenceProjectRef',
-            xtype:'rallyprojectpicker',
-            fieldLabel: 'Preference Project',
-            workspace: this.getContext().getWorkspaceRef(),
-            showMostRecentlyUsedProjects : false,
-            autoExpand: true,
-            labelWidth: 75,
-            labelAlign: 'left',
-            minWidth: 200,
-            margin: 10
-        }];
+        return [
+            {
+                name: 'preferenceProjectRef',
+                xtype:'rallyprojectpicker',
+                fieldLabel: 'Preference Project',
+                workspace: this.getContext().getWorkspaceRef(),
+                showMostRecentlyUsedProjects : false,
+                autoExpand: true,
+                labelWidth: 75,
+                labelAlign: 'left',
+                minWidth: 200,
+                margin: 10
+            },
+            Ext.merge({
+                labelWidth: 75,
+                labelAlign: 'left',
+                minWidth: 200,
+                margin: 10
+            },TSCommonSettings.getStartDayOfWeekSettingField())
+        ];
     },
     
 //    getOptions: function() {

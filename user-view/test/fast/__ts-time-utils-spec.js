@@ -5,7 +5,7 @@ describe("TSDateUtils", function() {
             var dayFields;
             
             beforeAll(function() {
-                TSDateUtils.startDayOfWeek = 'Sunday';
+                TSCommonSettings.getStartDayOfWeek() = 'Sunday';
             });
             
             it('returns days starting with Sunday', function() {
@@ -19,7 +19,7 @@ describe("TSDateUtils", function() {
             var dayFields;
             
             beforeAll(function() {
-                TSDateUtils.startDayOfWeek = 'Saturday';
+                TSCommonSettings.getStartDayOfWeek() = 'Saturday';
             });
             
             it('returns days starting with Saturday', function() {
@@ -33,7 +33,7 @@ describe("TSDateUtils", function() {
             var dayFields;
             
             beforeAll(function() {
-                TSDateUtils.startDayOfWeek = 'Monday';
+                TSCommonSettings.getStartDayOfWeek() = 'Monday';
             });
             
             it('returns days starting with Monday', function() {
@@ -49,7 +49,7 @@ describe("TSDateUtils", function() {
         
         describe('Sunday week start', function() {
             beforeAll(function() {
-                TSDateUtils.startDayOfWeek = 'Sunday';
+                TSCommonSettings.getStartDayOfWeek() = 'Sunday';
             });
             
             it('Every day of week returns 1 week start string', function() {
@@ -63,7 +63,7 @@ describe("TSDateUtils", function() {
         
         describe('Saturday week start', function() {
             beforeAll(function() {
-                TSDateUtils.startDayOfWeek = 'Saturday';
+                TSCommonSettings.getStartDayOfWeek() = 'Saturday';
             });
             
             it('Every day of week returns 2 week start strings', function() {
@@ -77,7 +77,7 @@ describe("TSDateUtils", function() {
         
         describe('Monday week start', function() {
             beforeAll(function() {
-                TSDateUtils.startDayOfWeek = 'Monday';
+                TSCommonSettings.getStartDayOfWeek() = 'Monday';
             });
             
             it('Every day of week returns 2 week start strings', function() {
@@ -95,7 +95,7 @@ describe("TSDateUtils", function() {
             var dayFields;
             
             beforeAll(function() {
-                TSDateUtils.startDayOfWeek = 'Sunday';
+                TSCommonSettings.getStartDayOfWeek() = 'Sunday';
             });
             
             it('Saturday returns prior Sunday', function() {
@@ -121,7 +121,7 @@ describe("TSDateUtils", function() {
             var dayFields;
             
             beforeAll(function() {
-                TSDateUtils.startDayOfWeek = 'Saturday';
+                TSCommonSettings.getStartDayOfWeek() = 'Saturday';
             });
             
             it('Friday returns prior Saturday', function() {
@@ -147,7 +147,7 @@ describe("TSDateUtils", function() {
             var dayFields;
             
             beforeAll(function() {
-                TSDateUtils.startDayOfWeek = 'Monday';
+                TSCommonSettings.getStartDayOfWeek() = 'Monday';
             });
             
             it('Sunday returns prior Monday', function() {

@@ -32,7 +32,7 @@ Ext.define("TSTimeSheetApproval", {
         if ( !  TSUtilities.isEditableProjectForCurrentUser(preference_project_ref,this) ) {
             Ext.Msg.alert('Contact your Administrator', 'This app requires editor access to the preference project.');
         }
-        TSUtilities.initLowestPortfolioItemTypeName().then({
+        TSCommonSettings.initLowestPortfolioItemTypeName().then({
             scope: this,
             success: function() {
                this._addSelectors(this.down('#selector_box'));
@@ -734,7 +734,7 @@ Ext.define("TSTimeSheetApproval", {
             {
                 margin: '0 0 25 10',
             },
-            TSUtilities.allowManagerEditSettingsField
+            TSCommonSettings.allowManagerEditSettingsField
         ),
         {
             name: 'preferenceProjectRef',
@@ -772,10 +772,17 @@ Ext.define("TSTimeSheetApproval", {
                 labelAlign: 'left',
                 minWidth: 200,
                 margin: 10,
-                model: 'PortfolioItem/' + TSUtilities.lowestPortfolioItemTypeName
+                model: 'PortfolioItem/' + TSCommonSettings.getLowestPortfolioItemTypeName()
             },
-            TSUtilities.fetchManagerPortfolioItemFieldsSettingField
-        )];
+            TSCommonSettings.fetchManagerPortfolioItemFieldsSettingField
+        ),
+        Ext.merge({
+                labelWidth: 75,
+                labelAlign: 'left',
+                minWidth: 200,
+                margin: 10,
+            },TSCommonSettings.getStartDayOfWeekSettingField())
+        ]
     },
     
     //onSettingsUpdate:  Override
