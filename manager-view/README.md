@@ -24,65 +24,65 @@ and re-openings.
 
 ## Test Plan
 * State Filter
-   * PASS - loads only timesheets in desired state
+   * RETEST - loads only timesheets in desired state
 * Day picker
-   * PASS - all days in week reset picker to start of week
-   * PASS - default is prior month
+   * RETEST - all days in week reset picker to start of week
+   * RETEST - default is prior month
 * Row Actions
-   * PASS - Empty for not submitted sheets
-   * PASS - Approve submitted sheets
-   * PASS - Unapprove approved sheets
-   * PASS - Icon blank for not-submitted sheets
-   * PASS - Icon gear for not-submitted sheets
+   * RETEST - Empty for not submitted sheets
+   * RETEST - Approve submitted sheets
+   * RETEST - Unapprove approved sheets
+   * RETEST - Icon blank for not-submitted sheets
+   * RETEST - Icon gear for not-submitted sheets
    * Multiple sheet actions
-* PASS - Extra PI field configurable
-* PASS - Manager Edit of timesheets is configurable
+* RETEST - Extra PI field configurable
+* RETEST - Manager Edit of timesheets is configurable
 * NOT TESTED - Amending / Appending Items
 
 ### Timesheet popup
-* PASS - State Changes:
-   * PASS - Approve
-   * PASS - Unapprove
+* RETEST - State Changes:
+   * RETEST - Approve
+   * RETEST - Unapprove
 * Add Items
    * NOT TESTED
 * Remove Items
    * NOT TESTED
 * Test with renamed PortfolioItem (e.g. Feature renamed "Epic")
-* PASS - Column data
-   * PASS - Sort
-   * PASS - Feature shown for stories with feature
-   * PASS - Feature blank for stories without feature
-   * PASS - Feature shown for tasks on stories with feature
-   * PASS - Feature blank for tasks on stories without feature
-   * PASS - Work Product shown for all stories, defects and tasks
-   * PASS - Work Product Estimate shown for all items with estimate
-   * PASS - Work Product Schedule State
-   * PASS - Task shown for tasks
-   * PASS - Task Estimate
-   * PASS - Task State
-   * PASS - Release
-   * PASS - Iteration
-* PASS - Days columns
-   * PASS - Order matches configured start day of week
-   * PASS - Weekends colored blue
-   * PASS - Totals colored grey
+* RETEST - Column data
+   * RETEST - Sort
+   * RETEST - Feature shown for stories with feature
+   * RETEST - Feature blank for stories without feature
+   * RETEST - Feature shown for tasks on stories with feature
+   * RETEST - Feature blank for tasks on stories without feature
+   * RETEST - Work Product shown for all stories, defects and tasks
+   * RETEST - Work Product Estimate shown for all items with estimate
+   * RETEST - Work Product Schedule State
+   * RETEST - Task shown for tasks
+   * RETEST - Task Estimate
+   * RETEST - Task State
+   * RETEST - Release
+   * RETEST - Iteration
+* RETEST - Days columns
+   * RETEST - Order matches configured start day of week
+   * RETEST - Weekends colored blue
+   * RETEST - Totals colored grey
    * NOT TESTED - 0-24 range, floating input only
    * NOT TESTED - Adjusting day adjusts day total
    * NOT TESTED - Adjusting day adjusts week total
-   * PASS - Total red if <40
+   * RETEST - Total red if <40
  * NOT TESTED - Data saving
    * Entered data shown on browser refesh
    * Entered data shown on change to different week and back
-* PASS - Comments
-   * PASS - Read comments
-   * PASS - Add comments
-* PASS - Start day of week configurable
-* PASS - Non-Sunday Week Start
-   * PASS -  starts show appropriate start dates
-   * PASS - From/Through week pickers adjust to non-Sunday dates
-   * PASS - Hours column totals correct
-   * PASS - State changes work
-   * PASS - Comments work
+* RETEST - Comments
+   * RETEST - Read comments
+   * RETEST - Add comments
+* RETEST - Start day of week configurable
+* RETEST - Non-Sunday Week Start
+   * RETEST -  starts show appropriate start dates
+   * RETEST - From/Through week pickers adjust to non-Sunday dates
+   * RETEST - Hours column totals correct
+   * RETEST - State changes work
+   * RETEST - Comments work
 * FAIL - Manager app has day totals and overall totals
 
 ### First Load

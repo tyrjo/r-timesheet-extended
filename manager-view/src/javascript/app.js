@@ -227,10 +227,10 @@ Ext.define("TSTimeSheetApproval", {
         queries.push({
             property: 'DateVal',
             operator: '>=',
-            value: TSDateUtils.getUtcIsoForLocalDate(this.startWeekDate) // This is app week start date (not sunday based)
+            value: TSDateUtils.getUtcIsoForLocalDate(this.startWeekDate, true) // This is app week start date (not sunday based)
         });
         // Find first date of week start AFTER the end date week start to include values in the end week
-        var endDate = TSDateUtils.getUtcIsoForLocalDate(Ext.Date.add(this.endWeekDate, Ext.Date.DAY, 7));
+        var endDate = TSDateUtils.getUtcIsoForLocalDate(Ext.Date.add(this.endWeekDate, Ext.Date.DAY, 7), true);
         queries.push({
             property: 'DateVal',
             operator: '<',

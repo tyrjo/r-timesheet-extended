@@ -23,15 +23,16 @@ timesheet users.
 ## Test Plan
 * PASS - Create a sheet for a new week
 * PASS - Edit a sheet for an existing week
-* State Changes:
+* PASS - State Changes:
    * PASS - Submit
    * PASS - Submitted data cannot be edited by user
    * PASS - Unsubmit
-   * Approved
+   * PASS - Approved
+   * PASS - Unapproved
    * Processed
 * PASS - Day picker
-   * PASS -all days in week reset picker to start of week
-* PASS - Add Items
+   * PASS - all days in week reset picker to start of week
+* Add Items
    * PASS - defects
    * PASS - Add defect for story that already has a row
    * PASS - task from defect
@@ -42,7 +43,7 @@ timesheet users.
    * PASS - Story, Defect, Task
    * PASS - Removing item decreemnts total
 * PASS - View Comments
-* Test with renamed PortfolioItem (e.g. Feature renamed "Epic")
+* PASS - Test with renamed PortfolioItem (e.g. Feature renamed "Epic")
 * PASS - Set as default
    * PASS - defects
    * PASS - story
@@ -52,7 +53,7 @@ timesheet users.
    * PASS - stories
    * PASS - tasks
 * PASS - Column data
-   * FAIL - Sort (causes duplicate items)
+   * PASS - Sort
    * PASS - Columns can be added / removed
    * PASS - Columns selections persist across reloads
    * PASS - Feature shown for stories with feature
@@ -78,12 +79,14 @@ timesheet users.
 * PASS - Data saving
    * PASS - Entered data shown on browser refesh
    * PASS - Entered data shown on change to different week and back
+   * PASS - Add, Clear and Re-Add item
+   * PASS - Clear and Re-Add existing item
 * PASS - Comments
    * PASS - Read comments
    * PASS - Add comments
 * PASS - Start day of week configurable
-* PASS - Non-Sunday Week Start
-   * PASS - No prior or next week sheet
+* Non-Sunday Week Start
+   * No prior or next week sheet
        * PASS - Add item 
        * PASS - Add hours
        * PASS - Prior week timesheet has no visible entry for next week item
@@ -92,27 +95,27 @@ timesheet users.
        * PASS - Submited timesheet no longer editable and doesn't affect next or prior weeks
        * PASS - Clear and Remove hours don't affect prev or next week sheet
        * PASS - Re-add after Clear and Remove without changing weeks
-   * PASS - Next week exists
+   * Next week exists
        * PASS - Add same item as next week
        * PASS - Add different item as next week
        * PASS - Add hours
        * PASS - Prior week timesheet has no visible entry for next week item
-       * PASS - Next week timesheet has no visible entry for prev week item
+       * FAIL - week timesheet has no visible entry for prev week item
        * PASS - Edit week hours don't affect prev or next week sheet
        * PASS - Submited timesheet no longer editable and doesn't affect next or prior weeks
-       * PASS - Clear and Remove hours don't affect prev or next week sheet
+       * PASS -  and Remove hours don't affect prev or next week sheet
        * PASS - Re-add after Clear and Remove without changing weeks
-  * PASS - Prior week exists
+  * Prior week exists
        * PASS - Add same item as prior week
        * PASS - Add different item as prior week
        * PASS - Add hours
        * PASS - Prior week timesheet has no visible entry for next week item
        * PASS - Next week timesheet has no visible entry for prev week item
        * PASS - Edit week hours don't affect prev or next week sheet
-       * PASS - Submited timesheet no longer editable and doesn't affect next or prior weeks
+       * PASS -  timesheet no longer editable and doesn't affect next or prior weeks
        * PASS - Clear and Remove hours don't affect prev or next week sheet
        * PASS - Re-add after Clear and Remove without changing weeks
-   * PASS - Prev and Next week exist
+   * Prev and Next week exist
        * PASS - Add same item as prior and next week
        * PASS - Add different item as prior and next week
        * PASS - Add hours
