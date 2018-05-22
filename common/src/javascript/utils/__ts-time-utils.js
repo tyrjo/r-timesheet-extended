@@ -75,6 +75,12 @@ Ext.define('TSDateUtils', {
         return start_of_week_here;
     },
     
+    getUtcStartOfWeekForLocalDate: function(date) {
+        // First convert to date in UTC. This is important to make sure that we get the UTC day name
+        var utc = Ext.Date.add(date, Ext.Date.MINUTE, date.getTimezoneOffset());
+        return this.getUtcIsoForLocalDate(this.getBeginningOfWeekForLocalDate(utc));
+    },
+    
     getUtcIsoForLocalDate: function(date, showTimestamp) {
         // Add the timezone offset to get to UTC
         var utc = Ext.Date.add(date, Ext.Date.MINUTE, date.getTimezoneOffset());
@@ -93,6 +99,18 @@ Ext.define('TSDateUtils', {
         }
 
         return Ext.util.Format.date(jsdate,format);
+    },
+    
+    getWeekStartDates: function(startDate, endDate) {
+        var weekStartDates = [];
+        if ( startDate && endDate && endDate >= startDate ) {
+            var weekStartDate = startDate;
+            do {
+                weekStartDates.push(weekStartDate);
+                weekStartDate = Ext.Date.add(weekStartDate, Ext.Date.DAY, 7);
+            } while (weekStartDate <= endDate);
+        }
+        return weekStartDates;
     },
     
     // returns a promise, fulfills with a boolean

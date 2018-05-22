@@ -27,6 +27,8 @@ Ext.define("TSTimeSheetApproval", {
         }
     },
     
+    timesheets: undefined,
+    
     launch: function() {
         var preference_project_ref = this.getSetting('preferenceProjectRef');
         if ( !  TSUtilities.isEditableProjectForCurrentUser(preference_project_ref,this) ) {
@@ -183,8 +185,9 @@ Ext.define("TSTimeSheetApproval", {
         var me = this;
         this.down('#display_box').removeAll();
         
-        this.startDate = this.down('#from_date_selector').getValue();
-        this.endDate   = this.down('#to_date_selector').getValue();
+        // UTC dates of app start of week day (not Sunday based)
+        this.startWeekDate = this.down('#from_date_selector').getValue();
+        this.endWeekDate   = this.down('#to_date_selector').getValue();
         
         if ( this.pipeline && this.pipeline.getState() === 'pending' ) {
             this.pipeline.cancel();
@@ -207,83 +210,88 @@ Ext.define("TSTimeSheetApproval", {
         }).always(function() { me.setLoading(false); });
     },
     
+    // Resolves to an Array of TSTimesheet objects
     _loadTimesheets: function() {
-        var deferred = Ext.create('Deft.Deferred');
-        this.setLoading("Loading timesheets...");
+        this.timesheets = {};
         
-        var filters = [
+        // First load the time entry values for the requested date range.
+        var queries = [
             // TODO (tj) disabling until required --> {property:'User.NoTimesheet', value: false },
-            {property:'User.Disabled', value: false }
+            {property:'TimeEntryItem.User.Disabled', value: false }
         ];
-        
-        if (this.down('#from_date_selector') ) {
-            var start_date = TSDateUtils.getUtcIsoForLocalDate(this.startDate,true);
-            filters.push({property:'WeekStartDate', operator: '>=', value:start_date});
-        }
-        
-        if (this.down('#to_date_selector') ) {
-            var start_date = TSDateUtils.getUtcIsoForLocalDate(this.endDate,true);
-            filters.push({property:'WeekStartDate', operator: '<=', value:start_date});
-        }
-        
-        
-        
         if ( ! this.getSetting('showAllForAdmins') || !TSUtilities.currentUserIsAdmin() ){
             var current_user_name = this.getContext().getUser().UserName;
-            filters.push({
-                property:'User.' + this.getSetting('managerField'),
+            queries.push({
+                property:'TimeEntryItem.User.' + this.getSetting('managerField'),
                 operator: 'contains',
                 value: current_user_name}
             );
         }
-        
-        var config = {
-            model:'TimeEntryItem',
-            limit: 'Infinity',
-            filters: filters,
+        queries.push({
+            property: 'DateVal',
+            operator: '>=',
+            value: TSDateUtils.getUtcIsoForLocalDate(this.startWeekDate) // This is app week start date (not sunday based)
+        });
+        // Find first date of week start AFTER the end date week start to include values in the end week
+        var endDate = TSDateUtils.getUtcIsoForLocalDate(Ext.Date.add(this.endWeekDate, Ext.Date.DAY, 7));
+        queries.push({
+            property: 'DateVal',
+            operator: '<',
+            value: endDate
+        });
+        var store = Ext.create('Rally.data.wsapi.Store', {
+            model: 'TimeEntryValue',
+            autoLoad: false,
+            filters: queries,
             context: {
-                project: null
+                project: null,
             },
-            fetch: ['User','WeekStartDate','ObjectID', 'UserName','Values:summary[Hours]', this.getSetting('managerField')]
-        };
-        
-        TSUtilities.loadWsapiRecords(config).then({
+            fetch: ['DateVal', 'Hours', 'TimeEntryItem', 'User', 'ObjectID', 'WeekStartDate', 'UserName', this.getSetting('managerField')]
+        });
+        return this._getTimeEntryValues(store, 0, {})
+    },
+    
+    _getTimeEntryValues: function(store, startIndex, timesheets) {
+        return store.load().then({
             scope: this,
             success: function(results) {
-                var timesheets = {};
-                
-                Ext.Array.each(results, function(item){
-                    var key = Ext.String.format("{0}_{1}",
-                        item.get('User').ObjectID,
-                        Rally.util.DateTime.toIsoString(item.get('WeekStartDate'))
-                    );
-                    
-                    if ( ! timesheets[key] ) {
-                        timesheets[key] = Ext.Object.merge( item.getData(), { 
-                            __UserName: item.get('User').UserName,
-                            __Hours: 0,
-                            __Status: TSTimesheet.STATUS.UNKNOWN
-                        });
-                    }
-                    
-                    var hours = timesheets[key].__Hours || 0;
-                    
-                    timesheets[key].__Hours = this._addHoursFromTimeEntryItem(hours,item);
-                    
-                },this);
-                
-                deferred.resolve( Ext.Array.map(Ext.Object.getValues(timesheets), function(timesheet){
-                    return Ext.create('TSTimesheet',timesheet);
-                }));
-                
-                this.setLoading(false);
-                
+                this._processTimeEntryValues(timesheets, results);
+                var valuesProcessed = results.length + startIndex;
+                if ( valuesProcessed < store.getTotalCount() ) {
+                    // do it again with next page of data
+                    return this._getTimeEntryValues(store, valuesProcessed-1, timesheets);
+                } else {
+                    return _.map(timesheets, function(timesheetConfig) {
+                        return Ext.create('TSTimesheet', timesheetConfig);  
+                    });
+                }
             },
-            failure: function(msg){
-                deferred.reject(msg);
+            failure: function(msg) {
+                Ext.Msg.alert('Problem loading users with timesheets', msg);
             }
+        }); 
+    },
+    
+    _processTimeEntryValues: function(timesheets, timeEntryValues) {
+        _.each(timeEntryValues, function(timeEntryValue) {
+            var timeEntryItem = timeEntryValue.get('TimeEntryItem');
+            var userOid = timeEntryItem.User.ObjectID;
+            // Convert the time entry value date value to the app start of week date
+            var tevWeekStart = TSDateUtils.getUtcStartOfWeekForLocalDate(timeEntryValue.get('DateVal'));
+            var key = Ext.String.format('{0}-{1}', userOid, tevWeekStart);
+            
+            if ( !timesheets[key] ) {
+                timesheets[key] = {
+                    User: timeEntryItem.User,
+                    WeekStartDate: new Date(tevWeekStart),
+                    __UserName: timeEntryItem.User.UserName,
+                    __Status: TSTimesheet.STATUS.UNKNOWN,
+                    __Hours: 0
+                };
+            }
+            timesheets[key].__Hours += timeEntryValue.get('Hours');
         });
-        return deferred.promise;
+        return;
     },
     
     _loadPreferences: function(timesheets) {
