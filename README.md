@@ -5,13 +5,29 @@ A collection of timesheet management applications including:
 * `audit-view` - __(1.x only)__ description TBD
 * `common` - Utilities shared by two or more of the apps
 * `finance-view` - __(1.x only)__ description TBD
-* `manager-view` - Managers can 'approve' or commend on user timesheets.
+* `manager-view` - Managers can 'approve' or commend on user timesheets. See [README](./manager-view/README.md)
 * `user-view` - Similar to the built-in timesheet application. Normal users enter time spent information for stories and tasks.
+See [README](./user-view/README.md)
 
 ## User View
-![user-view](./user-view.png "This is an example of the user view")
+![user-view](./user-view/screenshot.png "This is an example of the user view")
 ## Manager View
-![manager-view](./manager-view.png "This is an example of the manager view")
+![manager-view](./manager-view/screenshot.png "This is an example of the manager view")
+
+## Key Features
+* Start day of week is configurable
+* User can add user stories, tasks and defects and input times for each.
+* User stories, tasks and defects can be set as `default` per-user to allow common items to be easily
+added to new timesheets.
+* User's can submit timesheets for management review.
+* A user `manager(s)` is configurable by an app setting that indicates which field on the User object contains
+a comma-separated list of manager user names. Only these managers (or admins) will be allowed to see
+a that user's timesheets.
+* Managers see a summary of all users, and their hour totals per-week.
+* Managers can approve, unapprove or comment on user timesheets.
+
+## Limitations
+* Manager edit of user timesheets is explicitly not tested or supported.
 
 ## Versions
 * `1.x` branch- The original `r-timesheet-extended` set of applications. On April 12, 2018, this was moved into its own branch and tagged with `v1.0.0`
@@ -37,6 +53,3 @@ This is used to store timesheet approval information.
 * As a user, go to the `user-view` app. Select tasks and stories.  If needed, set "overhead" stories as defaults using the Gear icon. Enter time values.
 * As a manager, go to the `manager-view` app. Review timesheets from users that have you as a manager. Approve, Unapprove, Comment on user timesheets.
 Click on a user timesheet row to view the detailed timesheet.  You can the timesheet summary or detailed timesheet as a CSV file.
-
-## Possible Enhancements
-* Make manager field a comma separated list of user names
