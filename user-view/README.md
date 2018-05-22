@@ -1,4 +1,4 @@
-#Extended Timesheet
+# User View
 
 An app to replace the Rally timesheet.
 
@@ -7,6 +7,11 @@ the app will look back for appends/amends to past timesheets, check if each is a
 absort the change.
 
 For open timesheets, the user can choose to absort or remove the change.
+
+## Available Settings
+* Preference Project - the shared project used to save timesheet data. Must be available to all
+timesheet users.
+* Week starts on - Select the day of week that the timesheet week will start (Sunday default)
 
 ## Development Notes
 
@@ -36,7 +41,7 @@ For open timesheets, the user can choose to absort or remove the change.
 * PASS - Remove Items
    * PASS - Story, Defect, Task
    * PASS - Removing item decreemnts total
-* View Comments
+* PASS - View Comments
 * Test with renamed PortfolioItem (e.g. Feature renamed "Epic")
 * PASS - Set as default
    * PASS - defects
@@ -62,7 +67,7 @@ For open timesheets, the user can choose to absort or remove the change.
    * PASS - Task State
    * PASS - Release
    * PASS - Iteration
-* Days columns
+* PASS - Days columns
    * PASS - Order matches configured start day of week
    * PASS - Weekends colored blue
    * PASS - Totals colored grey
@@ -70,15 +75,15 @@ For open timesheets, the user can choose to absort or remove the change.
    * PASS - Adjusting day adjusts day total
    * PASS - Adjusting day adjusts week total
    * PASS - Total red if <40
- * PASS - Data saving
+* PASS - Data saving
    * PASS - Entered data shown on browser refesh
    * PASS - Entered data shown on change to different week and back
 * PASS - Comments
    * PASS - Read comments
    * PASS - Add comments
-* FAIL - Start day of week configurable
-* Non-Sunday Week Start
-   * No prior or next week sheet
+* PASS - Start day of week configurable
+* PASS - Non-Sunday Week Start
+   * PASS - No prior or next week sheet
        * PASS - Add item 
        * PASS - Add hours
        * PASS - Prior week timesheet has no visible entry for next week item
@@ -87,7 +92,7 @@ For open timesheets, the user can choose to absort or remove the change.
        * PASS - Submited timesheet no longer editable and doesn't affect next or prior weeks
        * PASS - Clear and Remove hours don't affect prev or next week sheet
        * PASS - Re-add after Clear and Remove without changing weeks
-   * Next week exists
+   * PASS - Next week exists
        * PASS - Add same item as next week
        * PASS - Add different item as next week
        * PASS - Add hours
@@ -97,7 +102,7 @@ For open timesheets, the user can choose to absort or remove the change.
        * PASS - Submited timesheet no longer editable and doesn't affect next or prior weeks
        * PASS - Clear and Remove hours don't affect prev or next week sheet
        * PASS - Re-add after Clear and Remove without changing weeks
-  * Prior week exists
+  * PASS - Prior week exists
        * PASS - Add same item as prior week
        * PASS - Add different item as prior week
        * PASS - Add hours
@@ -107,7 +112,7 @@ For open timesheets, the user can choose to absort or remove the change.
        * PASS - Submited timesheet no longer editable and doesn't affect next or prior weeks
        * PASS - Clear and Remove hours don't affect prev or next week sheet
        * PASS - Re-add after Clear and Remove without changing weeks
-   * Prev and Next week exist
+   * PASS - Prev and Next week exist
        * PASS - Add same item as prior and next week
        * PASS - Add different item as prior and next week
        * PASS - Add hours

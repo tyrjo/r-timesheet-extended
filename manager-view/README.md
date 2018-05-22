@@ -1,4 +1,18 @@
-# Time Sheet Approval
+# Manager View
+
+Allows user `managers` and admins to view and approve timesheets created by the `User View` app.
+
+## Available Settings
+* Show All - show all user timesheets to admins, regardless of the user manager
+* Allow Edit - allow managers to edit user timesheets
+* Preference Project - the shared project used to save timesheet data. Must be available to all
+timesheet users.
+* User Manager Field - field on the User object to use as the `manager`. The field can be a comma
+separated list of login names. These users will be considered the manager of a user and will be allowed
+to view those user's timesheets.
+* Extra Portfolio Item Fields - Select one additional field from the PortfolioItem associated with
+each timesheet entry to include that field data in the CSV output.
+* Week starts on - Select the day of week that the timesheet week will start (Sunday default)
 
 ## Development Notes
 
@@ -26,8 +40,7 @@ and re-openings.
 * NOT TESTED - Amending / Appending Items
 
 ### Timesheet popup
-* Edit a sheet for an existing week
-* State Changes:
+* PASS - State Changes:
    * PASS - Approve
    * PASS - Unapprove
 * Add Items
@@ -35,7 +48,7 @@ and re-openings.
 * Remove Items
    * NOT TESTED
 * Test with renamed PortfolioItem (e.g. Feature renamed "Epic")
-* Column data
+* PASS - Column data
    * PASS - Sort
    * PASS - Feature shown for stories with feature
    * PASS - Feature blank for stories without feature
@@ -49,7 +62,7 @@ and re-openings.
    * PASS - Task State
    * PASS - Release
    * PASS - Iteration
-* Days columns
+* PASS - Days columns
    * PASS - Order matches configured start day of week
    * PASS - Weekends colored blue
    * PASS - Totals colored grey
@@ -63,6 +76,14 @@ and re-openings.
 * PASS - Comments
    * PASS - Read comments
    * PASS - Add comments
+* PASS - Start day of week configurable
+* PASS - Non-Sunday Week Start
+   * PASS -  starts show appropriate start dates
+   * PASS - From/Through week pickers adjust to non-Sunday dates
+   * PASS - Hours column totals correct
+   * PASS - State changes work
+   * PASS - Comments work
+* FAIL - Manager app has day totals and overall totals
 
 ### First Load
 
