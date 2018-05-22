@@ -1,11 +1,63 @@
 describe("TSDateUtils", function() {
+    var startDay;
+    
+    beforeAll(function() {
+        spyOn(Rally, 'getApp').and.returnValue({
+           getSetting: function() {
+               return startDay;
+           } 
+        });
+    });
+    
+    describe('getWeekStartDates', function() {
+        it('is defined', function() {
+            expect(TSDateUtils.getWeekStartDates).toBeDefined();
+        });
+        
+        it('returns no items if end < start', function() {
+            var today = new Date('2018-05-02');
+            var yesterday = new Date('2018-05-01');
+            expect(TSDateUtils.getWeekStartDates(today, yesterday).length).toEqual(0);
+        });
+        
+        it('returns no items if missing start or end', function() {
+            expect(TSDateUtils.getWeekStartDates(new Date(), undefined).length).toEqual(0);
+            expect(TSDateUtils.getWeekStartDates(undefined, new Date()).length).toEqual(0);
+        });
+        
+        it('returns one item when start and end are the same', function() {
+            var today = new Date();
+            expect(TSDateUtils.getWeekStartDates(today, today).length).toEqual(1);
+        });
+        
+        it('returns one item when start and end are less than one week apart', function() {
+            var today = new Date('2018-05-06');
+            var nextWeek = new Date('2018-05-12');
+            expect(TSDateUtils.getWeekStartDates(today, nextWeek).length).toEqual(1);
+        });
+        it('returns two items when start and end are one week apart', function() {
+            var today = new Date('2018-05-06');
+            var nextWeek = new Date('2018-05-13');
+            expect(TSDateUtils.getWeekStartDates(today, nextWeek).length).toEqual(2);
+        });
+        it('returns two items when start and end are less than two weeks apart', function() {
+            var today = new Date('2018-05-06');
+            var nextWeek = new Date('2018-05-14');
+            expect(TSDateUtils.getWeekStartDates(today, nextWeek).length).toEqual(2);
+        });
+        it('returns three items when start and end are three weeks apart', function() {
+            var today = new Date('2018-05-06');
+            var nextWeek = new Date('2018-05-20');
+            expect(TSDateUtils.getWeekStartDates(today, nextWeek).length).toEqual(3);
+        });
+    });
+    
     describe("getDaysOfWeek", function() {
         
         describe('Sunday week start', function() {
             var dayFields;
-            
             beforeAll(function() {
-                TSDateUtils.startDayOfWeek = 'Sunday';
+                startDay = 'Sunday';
             });
             
             it('returns days starting with Sunday', function() {
@@ -19,7 +71,7 @@ describe("TSDateUtils", function() {
             var dayFields;
             
             beforeAll(function() {
-                TSDateUtils.startDayOfWeek = 'Saturday';
+                startDay= 'Saturday';
             });
             
             it('returns days starting with Saturday', function() {
@@ -33,7 +85,7 @@ describe("TSDateUtils", function() {
             var dayFields;
             
             beforeAll(function() {
-                TSDateUtils.startDayOfWeek = 'Monday';
+                startDay = 'Monday';
             });
             
             it('returns days starting with Monday', function() {
@@ -49,7 +101,7 @@ describe("TSDateUtils", function() {
         
         describe('Sunday week start', function() {
             beforeAll(function() {
-                TSDateUtils.startDayOfWeek = 'Sunday';
+                startDay = 'Sunday';
             });
             
             it('Every day of week returns 1 week start string', function() {
@@ -63,7 +115,7 @@ describe("TSDateUtils", function() {
         
         describe('Saturday week start', function() {
             beforeAll(function() {
-                TSDateUtils.startDayOfWeek = 'Saturday';
+                startDay = 'Saturday';
             });
             
             it('Every day of week returns 2 week start strings', function() {
@@ -77,7 +129,7 @@ describe("TSDateUtils", function() {
         
         describe('Monday week start', function() {
             beforeAll(function() {
-                TSDateUtils.startDayOfWeek = 'Monday';
+                startDay = 'Monday';
             });
             
             it('Every day of week returns 2 week start strings', function() {
@@ -95,7 +147,7 @@ describe("TSDateUtils", function() {
             var dayFields;
             
             beforeAll(function() {
-                TSDateUtils.startDayOfWeek = 'Sunday';
+                startDay = 'Sunday';
             });
             
             it('Saturday returns prior Sunday', function() {
@@ -121,7 +173,7 @@ describe("TSDateUtils", function() {
             var dayFields;
             
             beforeAll(function() {
-                TSDateUtils.startDayOfWeek = 'Saturday';
+                startDay = 'Saturday';
             });
             
             it('Friday returns prior Saturday', function() {
@@ -147,7 +199,7 @@ describe("TSDateUtils", function() {
             var dayFields;
             
             beforeAll(function() {
-                TSDateUtils.startDayOfWeek = 'Monday';
+                startDay = 'Monday';
             });
             
             it('Sunday returns prior Monday', function() {

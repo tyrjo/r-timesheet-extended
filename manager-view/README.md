@@ -1,4 +1,4 @@
-#Time Sheet Approval
+# Time Sheet Approval
 
 ## Development Notes
 
@@ -23,6 +23,7 @@ and re-openings.
    * Multiple sheet actions
 * PASS - Extra PI field configurable
 * PASS - Manager Edit of timesheets is configurable
+* NOT TESTED - Amending / Appending Items
 
 ### Timesheet popup
 * Edit a sheet for an existing week
@@ -37,7 +38,7 @@ and re-openings.
 * Column data
    * PASS - Sort
    * PASS - Feature shown for stories with feature
-   *PASS - Feature blank for stories without feature
+   * PASS - Feature blank for stories without feature
    * PASS - Feature shown for tasks on stories with feature
    * PASS - Feature blank for tasks on stories without feature
    * PASS - Work Product shown for all stories, defects and tasks

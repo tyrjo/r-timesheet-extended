@@ -63,7 +63,7 @@ For open timesheets, the user can choose to absort or remove the change.
    * PASS - Release
    * PASS - Iteration
 * Days columns
-   * Order matches configured start day of week
+   * PASS - Order matches configured start day of week
    * PASS - Weekends colored blue
    * PASS - Totals colored grey
    * PASS - 0-24 range, floating input only
@@ -76,6 +76,47 @@ For open timesheets, the user can choose to absort or remove the change.
 * PASS - Comments
    * PASS - Read comments
    * PASS - Add comments
+* FAIL - Start day of week configurable
+* Non-Sunday Week Start
+   * No prior or next week sheet
+       * PASS - Add item 
+       * PASS - Add hours
+       * PASS - Prior week timesheet has no visible entry for next week item
+       * PASS - Next week timesheet has no visible entry for prev week item
+       * PASS - Edit week hours don't affect prev or next week sheet
+       * PASS - Submited timesheet no longer editable and doesn't affect next or prior weeks
+       * PASS - Clear and Remove hours don't affect prev or next week sheet
+       * PASS - Re-add after Clear and Remove without changing weeks
+   * Next week exists
+       * PASS - Add same item as next week
+       * PASS - Add different item as next week
+       * PASS - Add hours
+       * PASS - Prior week timesheet has no visible entry for next week item
+       * PASS - Next week timesheet has no visible entry for prev week item
+       * PASS - Edit week hours don't affect prev or next week sheet
+       * PASS - Submited timesheet no longer editable and doesn't affect next or prior weeks
+       * PASS - Clear and Remove hours don't affect prev or next week sheet
+       * PASS - Re-add after Clear and Remove without changing weeks
+  * Prior week exists
+       * PASS - Add same item as prior week
+       * PASS - Add different item as prior week
+       * PASS - Add hours
+       * PASS - Prior week timesheet has no visible entry for next week item
+       * PASS - Next week timesheet has no visible entry for prev week item
+       * PASS - Edit week hours don't affect prev or next week sheet
+       * PASS - Submited timesheet no longer editable and doesn't affect next or prior weeks
+       * PASS - Clear and Remove hours don't affect prev or next week sheet
+       * PASS - Re-add after Clear and Remove without changing weeks
+   * Prev and Next week exist
+       * PASS - Add same item as prior and next week
+       * PASS - Add different item as prior and next week
+       * PASS - Add hours
+       * PASS - Prior week timesheet has no visible entry for next week item
+       * PASS - Next week timesheet has no visible entry for prev week item
+       * PASS - Edit week hours don't affect prev or next week sheet
+       * PASS - Submited timesheet no longer editable and doesn't affect next or prior weeks
+       * PASS - Clear and Remove hours don't affect prev or next week sheet
+       * PASS - Re-add after Clear and Remove without changing weeks
 
 ### First Load
 

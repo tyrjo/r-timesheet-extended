@@ -1,4 +1,15 @@
 describe("Rally.technicalservices.TimeModelBuilder", function() {
+    var startDay;
+    var toDayName = Rally.technicalservices.TimeModelBuilder._getDayNameFromDayField;
+    
+    beforeAll(function() {
+        spyOn(Rally, 'getApp').and.returnValue({
+           getSetting: function() {
+               return startDay;
+           } 
+        });
+    });
+    
     describe("_getTimeEntryForDayField", function() {
         var timeModelBuilder;
         
@@ -18,7 +29,7 @@ describe("Rally.technicalservices.TimeModelBuilder", function() {
             var dayFields;
             
             beforeAll(function() {
-                TSDateUtils.startDayOfWeek = 'Sunday';
+                startDay = 'Sunday';
                 dayFields = timeModelBuilder._getDayFields();
             });
             
@@ -26,7 +37,8 @@ describe("Rally.technicalservices.TimeModelBuilder", function() {
                 _.each(dayFields, function(dayField) {
                     // Only test the __Monday, etc fields, not the __Monday_record fields
                     if ( dayField.__src ) {
-                        expect(timeModelBuilder._getTimeEntryForDayField(dayField)).toEqual('1');
+                        var dayName = toDayName(dayField.name);
+                        expect(timeModelBuilder._getTimeEntryForDayName(dayName)).toEqual('1');
                     }
                 });
             });
@@ -36,7 +48,7 @@ describe("Rally.technicalservices.TimeModelBuilder", function() {
             var dayFields;
             
             beforeAll(function() {
-                TSDateUtils.startDayOfWeek = 'Saturday';
+                startDay = 'Saturday';
                 dayFields = timeModelBuilder._getDayFields();
             });
             
@@ -44,7 +56,8 @@ describe("Rally.technicalservices.TimeModelBuilder", function() {
                 _.each(dayFields, function(dayField) {
                     // Only test the __Monday, etc fields, not the __Monday_record fields
                     if ( dayField.__src && dayField.name === '__Saturday') {
-                        expect(timeModelBuilder._getTimeEntryForDayField(dayField)).toEqual('1');
+                        var dayName = toDayName(dayField.name);
+                        expect(timeModelBuilder._getTimeEntryForDayName(dayName)).toEqual('1');
                     }
                 });
             });
@@ -53,7 +66,8 @@ describe("Rally.technicalservices.TimeModelBuilder", function() {
                 _.each(dayFields, function(dayField) {
                     // Only test the __Monday, etc fields, not the __Monday_record fields
                     if ( dayField.__src  && dayField.name != '__Saturday') {
-                        expect(timeModelBuilder._getTimeEntryForDayField(dayField)).toEqual('2');
+                        var dayName = toDayName(dayField.name);
+                        expect(timeModelBuilder._getTimeEntryForDayName(dayName)).toEqual('2');
                     }
                 });
             });
@@ -63,7 +77,7 @@ describe("Rally.technicalservices.TimeModelBuilder", function() {
             var dayFields;
             
             beforeAll(function() {
-                TSDateUtils.startDayOfWeek = 'Monday';
+                startDay = 'Monday';
                 dayFields = timeModelBuilder._getDayFields();
             });
             
@@ -71,7 +85,8 @@ describe("Rally.technicalservices.TimeModelBuilder", function() {
                 _.each(dayFields, function(dayField) {
                     // Only test the __Monday, etc fields, not the __Monday_record fields
                     if ( dayField.__src && dayField.name === '__Sunday') {
-                        expect(timeModelBuilder._getTimeEntryForDayField(dayField)).toEqual('2');
+                        var dayName = toDayName(dayField.name);
+                        expect(timeModelBuilder._getTimeEntryForDayName(dayName)).toEqual('2');
                     }
                 });
             });
@@ -80,7 +95,8 @@ describe("Rally.technicalservices.TimeModelBuilder", function() {
                 _.each(dayFields, function(dayField) {
                     // Only test the __Monday, etc fields, not the __Monday_record fields
                     if ( dayField.__src  && dayField.name != '__Sunday') {
-                        expect(timeModelBuilder._getTimeEntryForDayField(dayField)).toEqual('1');
+                        var dayName = toDayName(dayField.name);
+                        expect(timeModelBuilder._getTimeEntryForDayName(dayName)).toEqual('1');
                     }
                 });
             });
@@ -90,7 +106,7 @@ describe("Rally.technicalservices.TimeModelBuilder", function() {
             var dayFields;
             
             beforeAll(function() {
-                TSDateUtils.startDayOfWeek = 'Wednesday';
+                startDay = 'Wednesday';
                 dayFields = timeModelBuilder._getDayFields();
             });
             
@@ -98,7 +114,8 @@ describe("Rally.technicalservices.TimeModelBuilder", function() {
                 _.each(dayFields, function(dayField) {
                     // Only test the __Monday, etc fields, not the __Monday_record fields
                     if ( dayField.__src && dayField.name === '__Wednesday') {
-                        expect(timeModelBuilder._getTimeEntryForDayField(dayField)).toEqual('1');
+                        var dayName = toDayName(dayField.name);
+                        expect(timeModelBuilder._getTimeEntryForDayName(dayName)).toEqual('1');
                     }
                 });
             });
@@ -107,7 +124,8 @@ describe("Rally.technicalservices.TimeModelBuilder", function() {
                 _.each(dayFields, function(dayField) {
                     // Only test the __Monday, etc fields, not the __Monday_record fields
                     if ( dayField.__src  && dayField.name === '__Tuesday') {
-                        expect(timeModelBuilder._getTimeEntryForDayField(dayField)).toEqual('2');
+                        var dayName = toDayName(dayField.name);
+                        expect(timeModelBuilder._getTimeEntryForDayName(dayName)).toEqual('2');
                     }
                 });
             });

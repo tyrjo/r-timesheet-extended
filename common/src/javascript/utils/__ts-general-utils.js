@@ -7,64 +7,6 @@ Ext.define('TSUtilities', {
     pinKeyPrefix     : 'rally.technicalservices.timesheet.pin',
     archiveSuffix: '~archived',
     
-    fetchManagerPortfolioItemFieldsSettingField: {
-        name: 'fetchManagerPortfolioItemFields',
-        xtype: 'rallyfieldcombobox',
-        //multiSelect: true,    // This is buggy if enabled, when 2 or more values selected, setting control shows blank value
-        //allowClear: true,
-        allowBlank: true,
-        allowNoEntry: true,
-        //model: null, // Set to TSUtilities lowestPortfolioItemTypeName once it is known
-        fieldLabel: "Extra Portfolio Item Fields",
-    },
-    getManagerPortfolioItemFetchFields: function() {
-        var fetchManagerPortfolioItemFields = Rally.getApp().getSetting('fetchManagerPortfolioItemFields');
-        // this value is from a rallyfieldcombobox which doesn't behave predictably when multi-select enabled.
-        // Sometimes an array of strings, sometimes a CSV string. Normalize to array of strings
-        if ( Ext.typeOf(fetchManagerPortfolioItemFields) === 'string') {
-            fetchManagerPortfolioItemFields = fetchManagerPortfolioItemFields != '' ? fetchManagerPortfolioItemFields.split(',') : []
-        }
-        return fetchManagerPortfolioItemFields || [];
-    },
-    allowManagerEditSettingsField: {
-        name: 'allowManagerEdit',
-        xtype: 'rallycheckboxfield',
-        boxLabelAlign: 'after',
-        fieldLabel: '',
-        boxLabel: 'Allow Edit<br/><span style="color:#999999;"><i>Tick to allow manager to edit user timesheets.</i></span>'
-    },
-    isManagerEditAllowed: function() {
-        return Rally.getApp().getSetting('allowManagerEdit') === true;
-    },
-    
-    initLowestPortfolioItemTypeName: function() {
-        return Ext.create('Rally.data.wsapi.Store', {
-            model: Ext.identityFn('TypeDefinition'),
-            fetch: ['Name', 'Ordinal', 'TypePath'],
-            sorters: {
-                property: 'Ordinal',
-                direction: 'ASC'
-            },
-            filters: [
-                {
-                    property: 'Creatable',
-                    operator: '=',
-                    value: 'true'
-                },
-                {
-                    property: 'Parent.Name',
-                    operator: '=',
-                    value: 'Portfolio Item'
-                }
-            ]
-        }).load().then({
-            scope: this,
-            success: function(results) {
-                return this.lowestPortfolioItemTypeName = results[0].get('Name');
-            }
-        });
-    },
-    
     loadWsapiRecords: function(config,returnOperation){
         var deferred = Ext.create('Deft.Deferred');
         var me = this;

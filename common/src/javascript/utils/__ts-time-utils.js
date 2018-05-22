@@ -2,41 +2,50 @@
 Ext.define('TSDateUtils', {
     singleton: true,
     
-    startDayOfWeek: 'Sunday',
-    
+    daysOfWeek: ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'],
     /**
      * Return the days of the week, starting from the configured start day (e.g. Sat.).
      * Memoize because we don't need to recompute more than once.
      */
     getDaysOfWeek: _.memoize(function() {
-        var days = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
-        var startIndex = _.findIndex(days, function(day) {
-            return day === this.startDayOfWeek;
+        var startIndex = _.findIndex(this.daysOfWeek, function(day) {
+            return day === TSCommonSettings.getStartDayOfWeek();
         }, this);
     
         if ( startIndex === -1 ) {
             startIndex = 0;
         }
         
-        return days.slice(startIndex).concat(days.slice(0,startIndex));
+        return this.daysOfWeek.slice(startIndex).concat(this.daysOfWeek.slice(0,startIndex));
     }, function() {
         // memoization resolver to allow for unit tests to modify the startDayOfWeek
-        return this.startDayOfWeek;
+        return TSCommonSettings.getStartDayOfWeek();
+    }),
+    
+    /**
+     * Given a day name, return the offset in a Sunday-based week.
+     */
+    getSundayBasedIndexForDay: _.memoize(function(dayName) {
+        return _.indexOf(this.daysOfWeek, dayName);
+    }),
+    
+    getDayForSundayBasedIndex: _.memoize(function(index) {
+        return this.daysOfWeek[index]
     }),
         
     /**
      * Given a start date, return an array of strings that represent the week(s) that contain
      * the start date.
      * 
-     * If the configured 'startDayOfWeek' is 'Sunday', then this will return
+     * If the configured 'TSCommonSettings.getStartDayOfWeek()' is 'Sunday', then this will return
      * and array containing one string, the Sunday immediately prior to the startDate.
      * 
-     * Translate the requested startDate to the date of the immediately preceeding 'startDayOfWeek'.
+     * Translate the requested startDate to the date of the immediately preceeding 'TSCommonSettings.getStartDayOfWeek()'.
      * 
      * If that day is a Sunday, we are done as that aligns with the native TimeEntryItem week start.
      * 
      * Otherwise, we must use two TimeEntryItems to hold the data. One for the Sunday week before
-     * the 'startDayOfWeek', another for the Sunday week after the 'startDayOfWeek'.
+     * the 'TSCommonSettings.getStartDayOfWeek()', another for the Sunday week after the 'TSCommonSettings.getStartDayOfWeek()'.
      */
     getUtcSundayWeekStartStrings: function(localStartDate) {
         // First convert to date in UTC. This is important to make sure that we get the UTC day name
@@ -66,6 +75,12 @@ Ext.define('TSDateUtils', {
         return start_of_week_here;
     },
     
+    getUtcStartOfWeekForLocalDate: function(date) {
+        // First convert to date in UTC. This is important to make sure that we get the UTC day name
+        var utc = Ext.Date.add(date, Ext.Date.MINUTE, date.getTimezoneOffset());
+        return this.getUtcIsoForLocalDate(this.getBeginningOfWeekForLocalDate(utc));
+    },
+    
     getUtcIsoForLocalDate: function(date, showTimestamp) {
         // Add the timezone offset to get to UTC
         var utc = Ext.Date.add(date, Ext.Date.MINUTE, date.getTimezoneOffset());
@@ -84,6 +99,18 @@ Ext.define('TSDateUtils', {
         }
 
         return Ext.util.Format.date(jsdate,format);
+    },
+    
+    getWeekStartDates: function(startDate, endDate) {
+        var weekStartDates = [];
+        if ( startDate && endDate && endDate >= startDate ) {
+            var weekStartDate = startDate;
+            do {
+                weekStartDates.push(weekStartDate);
+                weekStartDate = Ext.Date.add(weekStartDate, Ext.Date.DAY, 7);
+            } while (weekStartDate <= endDate);
+        }
+        return weekStartDates;
     },
     
     // returns a promise, fulfills with a boolean

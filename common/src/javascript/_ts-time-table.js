@@ -57,7 +57,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
 
     constructor: function (config) {
         this.time_entry_item_fetch = ['WeekStartDate','WorkProductDisplayString','WorkProduct','Requirement', 'Task',
-        'TaskDisplayString', TSUtilities.lowestPortfolioItemTypeName, 'Project', 'ObjectID', 'Name', 'Release'];
+        'TaskDisplayString', TSCommonSettings.getLowestPortfolioItemTypeName(), 'Project', 'ObjectID', 'Name', 'Release'];
         
         this.mergeConfig(config);
         
@@ -144,14 +144,11 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                     this.timePreference = Ext.create('TSDefaultPreference', { '__Preference': time_default_preference[0] });
                 }
 
-                
-                var groupedTimeEntryItems = time_entry_items;
-                
                 // If the configured start day of the week is not Sunday, 2 time entry items
                 // were used to save all the time data, build a collection of the pairs.
                 // Group time entry items by their workproduct or task object ID.
                 // For simplicity, group the elements even if only 1 time entry item is used (Sunday week start) 
-                groupedTimeEntryItems = TSUtilities.groupTimeEntryItemsByWorkProduct(time_entry_items);
+                var groupedTimeEntryItems = TSUtilities.groupTimeEntryItemsByWorkProduct(time_entry_items);
                                 
                 var rows = _.map(groupedTimeEntryItems, function(items){
                     // Use the first item as the base for the TSTableRow data since both have the same
@@ -161,7 +158,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                     // Sort the pair by start date. The first entry in __AllTimeEntryItems is always the
                     // earlier week date.
                     var sortedItems = _.sortBy(items, function(a) {
-                        return a.WeekStartDate;
+                        return a.get('WeekStartDate');
                     });
                     
                     var product = item.get('Project');
@@ -175,13 +172,13 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                         product = workproduct.Project;
                         
                         var portfolioItem;
-                        if ( workproduct[TSUtilities.lowestPortfolioItemTypeName] ) {
+                        if ( workproduct[TSCommonSettings.getLowestPortfolioItemTypeName()] ) {
                             // User stories have a direct reference to a portfolio item
-                            portfolioItem = workproduct[TSUtilities.lowestPortfolioItemTypeName];
+                            portfolioItem = workproduct[TSCommonSettings.getLowestPortfolioItemTypeName()];
                         } else if (workproduct['Requirement']) {
                             // For defects, first get the `Requirement` story, then use that to get the portfolio item.
                             var requirement = workproduct['Requirement'];
-                            portfolioItem = requirement[TSUtilities.lowestPortfolioItemTypeName];
+                            portfolioItem = requirement[TSCommonSettings.getLowestPortfolioItemTypeName()];
                         }
                         
                         if ( portfolioItem ) {
@@ -200,6 +197,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                     
                     var data = {
                         __WeekStartKey: this.utcWeekStartString,
+                        __FirstTimeEntryItem: sortedItems[0],
                         __AllTimeEntryItems:sortedItems,
                         __Feature: feature,
                         __Iteration: iteration,
@@ -215,11 +213,6 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                 var rows = this._addTimeEntryValues(rows, time_entry_values);
                 var appended_rows = this._getAppendedRowsFromPreferences(time_entry_appends);
                 var amended_rows = this._getAmendedRowsFromPreferences(time_entry_amends);
-                
-
-
-
-
 
                 this.rows = Ext.Array.merge(rows,appended_rows,amended_rows);
                 this._makeGrid(this.rows);
@@ -231,7 +224,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
     
     _loadPortfolioItemModel: function() {
         return Rally.data.ModelFactory.getModel({
-            type: 'PortfolioItem/' + TSUtilities.lowestPortfolioItemTypeName,
+            type: 'PortfolioItem/' + TSCommonSettings.getLowestPortfolioItemTypeName(),
             success: function(model) {
                 this.portfolio_item_model = model;
             },
@@ -268,14 +261,19 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
     },
     
     _addTimeEntryValues: function(rows, time_entry_values) {
-        var rows_by_oid = {};
-        
-        Ext.Array.each(rows, function(row) { rows_by_oid[row.get('ObjectID')] = row; });
-        
-        Ext.Array.each(time_entry_values, function(value){
-            var parent_oid = value.get('TimeEntryItem').ObjectID;
+        // First, built a hash of Time Entry Item Object Ids to the row object
+        // that contains the Time Entry Item. When week start is not on Sunday,
+        // each row will have 2 Time Entry Items.
+         var rowsByTimeEntryItemOid = _.reduce(rows, function(accumulator, row) {
+            _.each(row.get('__AllTimeEntryItems'), function(timeEntryItem) {
+               accumulator[timeEntryItem.get('ObjectID')] = row; 
+            });
+            return accumulator;
+        }, {});
 
-            var row = rows_by_oid[parent_oid];
+        _.each(time_entry_values, function(value){
+            var timeEntryItemOid = value.get('TimeEntryItem').ObjectID;
+            var row = rowsByTimeEntryItemOid[timeEntryItemOid];
             row.addTimeEntryValue(value);
         });
         
@@ -300,12 +298,33 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
         if ( !Ext.isEmpty(this.timesheet_user) ) {
             user_oid = this.timesheet_user.ObjectID;
         }
-        
-        var weekStartFilter = Rally.data.wsapi.Filter.or(_.map(this.utcSundayWeekStartStrings, function(startString){
-            return {property:'TimeEntryItem.WeekStartDate',value:startString}
+        /*
+        var timeEntryItemFilter = Rally.data.wsapi.Filter.or(_.map(this.utcSundayWeekStartStrings, function(startString){
+            return {
+                property:'TimeEntryItem.WeekStartDate',
+                value:startString
+            }
         }));
-        var userFilter = new Rally.data.wsapi.Filter({property:'TimeEntryItem.User.ObjectID',value:user_oid});
-        return userFilter.and(weekStartFilter);
+        */
+        // Only interested in Time Entry Values between the week start and week end.
+        // When the week starts on a non-Sunday, a Time Entry Item will contain values
+        // for the current and prior or next non-Sunday weeks.
+        var localNextWeekStartDate = Ext.Date.add(this.localWeekStartDate, Ext.Date.DAY, 7);
+        var utcNextWeekStartString = TSDateUtils.getUtcIsoForLocalDate(localNextWeekStartDate);
+        var dateValFilter = Rally.data.wsapi.Filter.and([{
+            property: 'DateVal',
+            operator: '>=',
+            value: this.utcWeekStartString
+        },{
+            property: 'DateVal',
+            operator: '<',
+            value: utcNextWeekStartString
+        }]);
+        var userFilter = new Rally.data.wsapi.Filter({
+            property:'TimeEntryItem.User.ObjectID',
+            value:user_oid
+        });
+        return userFilter.and(dateValFilter);
     },
     
     _loadTimeEntryItems: function() {
@@ -319,7 +338,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
             fetch: Ext.Array.merge(Rally.technicalservices.TimeModelBuilder.getFetchFields(), 
                 this.time_entry_item_fetch,
                 [this.manager_field],
-                TSUtilities.getManagerPortfolioItemFetchFields()
+                TSCommonSettings.getManagerPortfolioItemFetchFields()
             ),
             filters: this._getTimeEntryItemFilter()
         };
@@ -433,14 +452,19 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
 
         var table_store = Ext.create('Rally.data.custom.Store',{
             model: 'TSTableRow',
-            groupField: '__SecretKey',
+            //groupField: '__SecretKey',
             data: rows,
+            filters: [
+                function(row) {
+                    return row.hasTimeEntryValues()
+                }
+            ],
             pageSize: 100
         });
                 
         
         var me = this;
-        var isForModification = TSUtilities.isManagerEditAllowed() && !this._isForCurrentUser();
+        var isForModification = TSCommonSettings.isManagerEditAllowed() && !this._isForCurrentUser();
         if ( this.week_locked ) {
             isForModification = false;
         }
@@ -716,7 +740,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
             type: type,
             success: function(model) {
                 model.load(objectid, {
-                    fetch: ['Name', 'FormattedID', 'Project','ObjectID','WorkProduct',TSUtilities.lowestPortfolioItemTypeName],
+                    fetch: ['Name', 'FormattedID', 'Project','ObjectID','WorkProduct',TSCommonSettings.getLowestPortfolioItemTypeName()],
                     callback: function(result, operation) {
                         if(operation.wasSuccessful()) {
                             result.set('__Amended', true);
@@ -762,51 +786,84 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
     
     // use force=true to ignore the fact that there's already a row (for appending)
     addRowForItem: function(item,force) {
-        var me = this,
-            deferred = Ext.create('Deft.Deferred');
-
-
-        
-        if ( !force && this._hasRowForItem(item) ) {
-
+        var deferred = Ext.create('Deft.Deferred');
+        var existingRows = this._getRowsForItem(item);
+        if ( !force && existingRows.length ) {
+            /*
+            There are three cases where a row may exist
+            1) User adding duplication (already handled by force=true)
+            2) Next week has time entry item for same work product, and we are a non-Sunday week
+               start, so a time entry item was created that spans with the current week, however,
+               there won't be a second time entry item for the rest of the current week. We must
+               add time entry values to the time entry item we already have AND create a new
+               time entry item to cover the portion of this week not covered by the time entry item
+               from next week.
+            3) This week has time entry item for same work product (was added and cleared). In this
+               case, both time entry items will already exist.
+            */
+            
+            existingRows.each(function(row) {
+                if ( row.hasTimeEntryValues() ) {
+                    // user attempting to add duplicate entry for item, ignore it
+                } else {
+                    // There is a row, but no time entry values for any of the days of this week.
+                    // This means the row was created because we found a time entry item because of
+                    // this item in next week (non-Sunday week start), or because the item was previously
+                    // created and then cleared.
+                    
+                    // Create the other time entry item(s) needed by this week, then create zero time
+                    // entry values for every day in this week.
+                    
+                    var existingTimeEntryItems = row.get('__AllTimeEntryItems');
+                    var savePromises;
+                    if ( existingTimeEntryItems.length == 2 ) {
+                        // Both time entry items exist, simply reuse them
+                        savePromises = existingTimeEntryItems;
+                    } else {
+                        // The row exists, so we found at least one time entry item, must create
+                        // the other.
+                        var config = this._getTimeEntryItemConfigFromItem(item);
+                        var existingTeiWeekStart = TSDateUtils.getUtcIsoForLocalDate(
+                            row.get('__FirstTimeEntryItem').get('WeekStartDate'),
+                            true
+                        );
+                        var fetch = Ext.Array.merge(Rally.technicalservices.TimeModelBuilder.getFetchFields(), this.time_entry_item_fetch);
+                        var savePromises = _.map(this.utcSundayWeekStartStrings, function(startDateString) {
+                            if ( existingTeiWeekStart === startDateString) {
+                                // already have a time entry item for this date
+                                return row.get('__FirstTimeEntryItem');
+                            } else {
+                                config.WeekStartDate = startDateString;
+                                var timeEntryItem = Ext.create(this.tei_model,config);
+                                return timeEntryItem.save({
+                                    fetch: fetch
+                                });
+                            }
+                        }, this);
+                    }
+                    Deft.promise.Promise
+                    .all(savePromises)
+                    .then({
+                        scope: this,
+                        success: function(results){
+                            row.set('__AllTimeEntryItems', results);
+                            // Set zero values for all days of this row's week
+                            row.initTimeEntryValues().always(function() {
+                                // Refilter the rows now that we've added time entry values 
+                                this.grid.getStore().filter();
+                                deferred.resolve(row);
+                            }, this);
+                        },
+                        failure: function(operation) {
+                            Ext.Msg.alert("Problem saving time:", operation.error.errors.join(' '));
+                            deferred.reject();
+                        }
+                    });
+                }
+                
+            }, this);
         } else {
-            var item_type = item.get('_type');
-            
-            var config = {
-                WorkProductDisplayString: item.get('FormattedID') + ":" + item.get('Name'),
-                WorkProduct: {
-                    _refObjectName: item.get('Name'),
-                    _ref: item.get('_ref'),
-                    ObjectID: item.get('ObjectID')
-                },
-                User: { 
-                    _ref: '/user/' + this.timesheet_user.ObjectID,
-                    ObjectID: this.timesheet_user.ObjectID
-                },
-            };
-            
-            if ( item.get('Project') ) {
-                config.Project = item.get('Project');
-            }
-            
-            if ( item_type == "task" ) {
-                config.TaskDisplayString = item.get('FormattedID') + ":" + item.get('Name');
-                config.Task = { 
-                    _ref: item.get('_ref'),
-                    _refObjectName: config.TaskDisplayString,
-                    ObjectID: item.get('ObjectID')
-                };
-                
-                config.WorkProductDisplayString = item.get('WorkProduct').FormattedID + ":" + item.get('WorkProduct').Name;
-                
-                config.WorkProduct = {
-                    _refObjectName: item.get('WorkProduct').Name,
-                    _ref: item.get('WorkProduct')._ref,
-                    ObjectID: item.get('WorkProduct').ObjectID
-                };
-            } else if ( item_type == 'defect' ) {
-                // Defect is the work product, nothing else to do
-            }
+            var config = this._getTimeEntryItemConfigFromItem(item);
             
             if ( !this._isForCurrentUser() ) {
                 // create a shadow item
@@ -839,23 +896,26 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                 
                 var row = Ext.create('TSTableRow',Ext.Object.merge(data, config));
                 row.save();
-                row.set('updatable', true); // so we can add values to the week 
-
-                me.grid.getStore().loadRecords([row], { addRecords: true });
-
-                me.rows.push(row);
-                return row;
+                row.set('updatable', true); // so we can add values to the week
+                this.grid.getStore().loadRecords([row], { addRecords: true });
+                this.rows.push(row);
+                row.initTimeEntryValues().always(function() {
+                    // Refilter the rows now that we've added time entry values 
+                    this.grid.getStore().filter();
+                    deferred.resolve(row);
+                }, this);
             } else {
                 
                 var fetch = Ext.Array.merge(Rally.technicalservices.TimeModelBuilder.getFetchFields(), this.time_entry_item_fetch);
                 var savePromises = _.map(this.utcSundayWeekStartStrings, function(startDateString) {
-                    config.WeekStartDate = startDateString;
-                    var timeEntryItem = Ext.create(this.tei_model,config);
+                    var teiConfig = _.cloneDeep(config);
+                    teiConfig.WeekStartDate = startDateString;
+                    var timeEntryItem = Ext.create(this.tei_model,teiConfig);
                     return timeEntryItem.save({
                         fetch: fetch
                     }).then(function(result){
                         // save() has side effects on the item (particularly on 'updatable'). return the saved result AND the original
-                        // item from the promise so that we can use the item late
+                        // item from the promise so that we can use the item later
                         return {
                             savedTimeEntryItem: result,
                             origTimeEntryItem: timeEntryItem
@@ -876,14 +936,14 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                         var iteration = null;
                         
                         if ( !Ext.isEmpty(workproduct) ) {
-                            if ( workproduct[TSUtilities.lowestPortfolioItemTypeName] ) {
+                            if ( workproduct[TSCommonSettings.getLowestPortfolioItemTypeName()] ) {
                                 // User stories have a direct reference to a portfolio item
-                                feature = workproduct[TSUtilities.lowestPortfolioItemTypeName];
+                                feature = workproduct[TSCommonSettings.getLowestPortfolioItemTypeName()];
                                 product = feature.Project;
                             } else if (workproduct['Requirement']) {
                                 // For defects, first get the `Requirement` story, then use that to get the portfolio item.
                                 var requirement = workproduct['Requirement'];
-                                feature = requirement[TSUtilities.lowestPortfolioItemTypeName];
+                                feature = requirement[TSCommonSettings.getLowestPortfolioItemTypeName()];
                             }
                             
                             if ( workproduct.Release ) {
@@ -903,17 +963,18 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                             __Iteration: iteration,
                             __Product: product,
                             __Release: release,
-                            __Pinned: me._isItemPinned(result) || false
+                            __Pinned: this._isItemPinned(result) || false
                         };
 
                         // TODO (tj) get State, Iteration and Estimate here?
                         var row = Ext.create('TSTableRow',Ext.Object.merge(data, results[0].origTimeEntryItem.getData()));
-
-                        
-                        me.grid.getStore().loadRecords([row], { addRecords: true });
-                        me.rows.push(row);
-                        
-                        deferred.resolve(row);
+                        this.grid.getStore().loadRecords([row], { addRecords: true });
+                        this.rows.push(row);
+                        row.initTimeEntryValues().always(function() {
+                            // Refilter the rows now that we've added time entry values 
+                            this.grid.getStore().filter(); 
+                            deferred.resolve(row);
+                        }, this);
                     },
                     failure: function(operation) {
                         Ext.Msg.alert("Problem saving time:", operation.error.errors.join(' '));
@@ -926,37 +987,73 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
         return deferred.promise;
     },
     
-    _hasRowForItem: function(item) {
+    _getTimeEntryItemConfigFromItem: function(item) {
         var item_type = item.get('_type');
-        var amender = item.get('__Amended');
+        var config = {
+            WorkProductDisplayString: item.get('FormattedID') + ":" + item.get('Name'),
+            WorkProduct: {
+                _refObjectName: item.get('Name'),
+                _ref: item.get('_ref'),
+                ObjectID: item.get('ObjectID')
+            },
+            User: { 
+                _ref: '/user/' + this.timesheet_user.ObjectID,
+                ObjectID: this.timesheet_user.ObjectID
+            },
+        };
         
-        var hasRow = false;
-        var rows = [];
-        var store_count = this.grid.getStore().data.items.length;
-                
-        for ( var i=0; i<store_count; i++ ) {
-            rows.push(this.grid.getStore().getAt(i));
+        if ( item.get('Project') ) {
+            config.Project = item.get('Project');
         }
         
-        Ext.Array.each(rows, function(row) {
+        if ( item_type == "task" ) {
+            config.TaskDisplayString = item.get('FormattedID') + ":" + item.get('Name');
+            config.Task = { 
+                _ref: item.get('_ref'),
+                _refObjectName: config.TaskDisplayString,
+                ObjectID: item.get('ObjectID')
+            };
+            
+            config.WorkProductDisplayString = item.get('WorkProduct').FormattedID + ":" + item.get('WorkProduct').Name;
+            
+            config.WorkProduct = {
+                _refObjectName: item.get('WorkProduct').Name,
+                _ref: item.get('WorkProduct')._ref,
+                ObjectID: item.get('WorkProduct').ObjectID
+            };
+        } else if ( item_type == 'defect' ) {
+            // Defect is the work product, nothing else to do
+        }
+        return config;
+    },
+    
+    /**
+     * Return a MixedCollection of the the TSTableRow(s) for the give work product.
+     */
+    _getRowsForItem: function(item) {
+        var result;
+        var item_type = item.get('_type');
+        var amender = item.get('__Amended');
+        var rows = [];
+        var store = this.grid.getStore();
+        var results = store.queryBy(function(row) {
             if ( row ) { // when clear and remove, we get an undefined row
                 if ( item_type == "task" ) {
                     if ( row.get('Task') && row.get('Task')._ref == item.get('_ref') ) {
                         if ( amender && row.get('__Amended') || !amender ) {
-                            hasRow = true;
+                            return true;
                         }
                     }
                 } else {
                     if ( Ext.isEmpty(row.get('Task')) && row.get('WorkProduct') && row.get('WorkProduct')._ref == item.get('_ref') ) {
                         if ( amender && row.get('__Amended') || !amender ) {
-                            hasRow = true;
+                            return true;
                         }
                     }
                 }
             }
         });
-        
-        return hasRow;
+        return results;
     },
     
     getRowActionColumnConfig: function(isForModification) {
@@ -1067,7 +1164,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
             },
             {
                 dataIndex: '__Feature',
-                text:  TSUtilities.lowestPortfolioItemTypeName,
+                text:  TSCommonSettings.getLowestPortfolioItemTypeName(),
                 flex: 1,
                 editor: null,
                 _selectable: true,
@@ -1084,7 +1181,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                     return value._refObjectName
                 }
             }],
-            Ext.Array.map(TSUtilities.getManagerPortfolioItemFetchFields(), function( fieldName ) {
+            Ext.Array.map(TSCommonSettings.getManagerPortfolioItemFetchFields(), function( fieldName ) {
                 var displayName = fieldName;
                 if ( this.portfolio_item_model ) {
                     var modelField = this.portfolio_item_model.getField(fieldName);
@@ -1094,7 +1191,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                 }
 
                 return {
-                    text: TSUtilities.lowestPortfolioItemTypeName + ' ' + displayName,
+                    text: TSCommonSettings.getLowestPortfolioItemTypeName() + ' ' + displayName,
                     xtype: 'templatecolumn',
                     sortable: false,
                     tpl: '{__Feature.' + fieldName + '}',
@@ -1276,54 +1373,29 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
         return this.columns;
     },
     
-    _applyUnsavableColumnAttributes: function(columns) {
+    _applyUnsavableColumnAttributes: function(columnCfgs) {
         
         if ( !Ext.isEmpty(this.columns) ) {
-            // columns saved as state lose their renderer functions
-            var columns_by_index = {};
-            Ext.Array.each(columns, function(column) {
-                columns_by_index[column.dataIndex] = column;
+            // We have restored column state into this.columns. However, that state
+            // won't have renderer functions. Merge that state
+            // with the columnCfgs. Use the columnCfgs ordering in case days of
+            // week has been reconfigured.
+            var columnsByText = {};
+            _.each(this.columns, function(column) {
+                columnsByText[column.text] = column;
             });
-            
-            Ext.Array.each(this.columns, function(column){
-                var cfg = columns_by_index[column.dataIndex];
-                if ( column.width && column.width > 0 ) {
-                    column.flex = null;
+            _.each(columnCfgs, function(columnCfg) {
+                var column = columnsByText[columnCfg.text];
+                // always use the editor from the column config, not the saved state
+                var editor = columnCfg.getEditor;
+                Ext.merge(columnCfg, column);
+                if ( columnCfg.getEditor ) {
+                    columnCfg.getEditor = editor;
                 }
-                if ( cfg && cfg.renderer ) {
-                    column.renderer = cfg.renderer;
-                }
-                if ( cfg && cfg.summaryRenderer ) {
-                    column.summaryRenderer = cfg.summaryRenderer;
-                }
-                
-                if ( cfg && cfg.editor ) {
-                    column.editor = cfg.editor;
-                }
-                                
-                if ( cfg && cfg.getEditor ) {
-                    column.getEditor = cfg.getEditor;
-                }
-                
-                if ( cfg && cfg.summaryType ) {
-                    column.summaryType = cfg.summaryType;
-                }
-                
-                if ( cfg && cfg.exportRenderer ) {
-                    column.exportRenderer = cfg.exportRenderer;
-                }
-                
-                if ( cfg && cfg._selectable ) {
-                    column._selectable = cfg._selectable;
-                }
-            
             });
-            
-            
-            return this.columns;
         }
         
-        return columns;
+        return columnCfgs;
         
     },
     
