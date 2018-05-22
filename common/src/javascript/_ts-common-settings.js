@@ -60,6 +60,10 @@ Ext.define('TSCommonSettings',{
         });
     },
     
+    getLowestPortfolioItemTypeName: function() {
+        return this.lowestPortfolioItemTypeName || 'Feature'
+    },
+    
     getStartDayOfWeekSettingField: function() {
         return {
             xtype: 'rallycombobox',
@@ -79,9 +83,5 @@ Ext.define('TSCommonSettings',{
     
     getStartDayOfWeek: function() {
         return Rally.getApp().getSetting('startDayOfWeek') || 'Sunday';  
-    },
-    
-    getLowestPortfolioItemTypeName: function() {
-        return this.lowestPortfolioItemTypeName || 'Feature'
     }
 });

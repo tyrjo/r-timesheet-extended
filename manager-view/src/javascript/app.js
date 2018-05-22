@@ -27,8 +27,6 @@ Ext.define("TSTimeSheetApproval", {
         }
     },
     
-    timesheets: undefined,
-    
     launch: function() {
         var preference_project_ref = this.getSetting('preferenceProjectRef');
         if ( !  TSUtilities.isEditableProjectForCurrentUser(preference_project_ref,this) ) {
@@ -212,7 +210,6 @@ Ext.define("TSTimeSheetApproval", {
     
     // Resolves to an Array of TSTimesheet objects
     _loadTimesheets: function() {
-        this.timesheets = {};
         
         // First load the time entry values for the requested date range.
         var queries = [

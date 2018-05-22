@@ -119,7 +119,7 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
         var timeEntryItems = this.get('__AllTimeEntryItems');
         
         var cells_to_clear = _.map(TSDateUtils.getDaysOfWeek(), function(day) {
-            return Rally.technicalservices.TimeModelBuilder._getDayNumberFieldName(day)
+            return Rally.technicalservices.TimeModelBuilder._getDayFieldName(day)
         });
         cells_to_clear.push('__Total');
         var me = this;
@@ -515,7 +515,7 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
         var dayName = TSDateUtils.getDayForSundayBasedIndex(utcDay);
         var hours = timeEntryValue.get('Hours');
         
-        var day_number_field_name = Rally.technicalservices.TimeModelBuilder._getDayNumberFieldName(dayName);
+        var day_number_field_name = Rally.technicalservices.TimeModelBuilder._getDayFieldName(dayName);
         var day_record_field_name = Rally.technicalservices.TimeModelBuilder._getDayRecordFieldName(dayName);
         
         this.set(day_number_field_name, hours);
@@ -528,7 +528,7 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
         this.modified = [];
     },
     
-    _getDayNumberFieldName: function(day_name) {
+    _getDayFieldName: function(day_name) {
         return Ext.String.format('__{0}',day_name);
     },
     
@@ -546,7 +546,7 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
         Ext.Array.each(daysOfWeek, function(day,idx) {
             // This field stores the hour value entered for a day
             result.push({
-                name: Rally.technicalservices.TimeModelBuilder._getDayNumberFieldName(day),
+                name: Rally.technicalservices.TimeModelBuilder._getDayFieldName(day),
                 type: 'auto',
                 defaultValue: 0,
                 __src: Rally.technicalservices.TimeModelBuilder._getDayRecordFieldName(day),
