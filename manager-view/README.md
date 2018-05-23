@@ -1,6 +1,16 @@
 # Manager View
 
 Allows user `managers` and admins to view and approve timesheets created by the `User View` app.
+A summary of all user's timesheet totals can be exported, or (by selecting an individual summary)
+one or more detailed timesheets for each user can be exported.
+
+## Limitations
+* Manager edit of user timesheets is NOT SUPPORTED. Some of this functionality is in place but it
+was not required for current customer and likely will not work.
+* If the app is configured with a non-Sunday week start, timsheet export CSV data may contain
+rows that have zero hours for every day. This is normal and reflects how the app has to work around
+the Sunday week start used by the Agile Central data model.  It occurs when a user removes
+a work item from their timesheet.
 
 ## Available Settings
 * Show All - show all user timesheets to admins, regardless of the user manager
@@ -24,66 +34,70 @@ and re-openings.
 
 ## Test Plan
 * State Filter
-   * RETEST - loads only timesheets in desired state
+   * PASS - loads only timesheets in desired state
 * Day picker
-   * RETEST - all days in week reset picker to start of week
-   * RETEST - default is prior month
+   * PASS - all days in week reset picker to start of week
+   * FAIL - default is prior month
 * Row Actions
-   * RETEST - Empty for not submitted sheets
-   * RETEST - Approve submitted sheets
-   * RETEST - Unapprove approved sheets
-   * RETEST - Icon blank for not-submitted sheets
-   * RETEST - Icon gear for not-submitted sheets
-   * Multiple sheet actions
+   * PASS - Empty for not submitted sheets
+   * PASS - Approve submitted sheets
+   * PASS - Unapprove approved sheets
+   * PASS - Icon blank for not-submitted sheets
+   * PASS - Icon gear for not-submitted sheets
+   * PASS - Multiple sheet actions
 * RETEST - Extra PI field configurable
 * RETEST - Manager Edit of timesheets is configurable
 * NOT TESTED - Amending / Appending Items
+* PASS - Loading indicator after clicking "Go"
+* PASS - CSV Export of all summary rows
+* PASS - CSV Export of selected summary rows exports detailed timesheet
+* PASS - CSV Export of timesheet (and includes extra field) (rows may have zero hours for items removed from timesheet)
 
 ### Timesheet popup
-* RETEST - State Changes:
-   * RETEST - Approve
-   * RETEST - Unapprove
+* PASS - State Changes:
+   * PASS - Approve
+   * PASS - Unapprove
 * Add Items
    * NOT TESTED
 * Remove Items
    * NOT TESTED
-* Test with renamed PortfolioItem (e.g. Feature renamed "Epic")
+* PASS - Test with renamed PortfolioItem (e.g. Feature renamed "Epic")
 * RETEST - Column data
-   * RETEST - Sort
-   * RETEST - Feature shown for stories with feature
-   * RETEST - Feature blank for stories without feature
-   * RETEST - Feature shown for tasks on stories with feature
-   * RETEST - Feature blank for tasks on stories without feature
-   * RETEST - Work Product shown for all stories, defects and tasks
-   * RETEST - Work Product Estimate shown for all items with estimate
-   * RETEST - Work Product Schedule State
-   * RETEST - Task shown for tasks
-   * RETEST - Task Estimate
-   * RETEST - Task State
-   * RETEST - Release
-   * RETEST - Iteration
+   * FAIL - Sort [can't sort Task State]
+   * PASS - Feature shown for stories with feature
+   * PASS - Feature blank for stories without feature
+   * PASS - Feature shown for tasks on stories with feature
+   * PASS - Feature blank for tasks on stories without feature
+   * PASS - Work Product shown for all stories, defects and tasks
+   * PASS - Work Product Estimate shown for all items with estimate
+   * PASS - Work Product Schedule State
+   * PASS - Task shown for tasks
+   * PASS - Task Estimate
+   * PASS - Task State
+   * PASS - Release
+   * PASS - Iteration
+   * PASS - Week and Day Totals
 * RETEST - Days columns
-   * RETEST - Order matches configured start day of week
-   * RETEST - Weekends colored blue
-   * RETEST - Totals colored grey
+   * PASS - Order matches configured start day of week
+   * PASS - Weekends colored blue
+   * PASS - Totals colored grey
    * NOT TESTED - 0-24 range, floating input only
    * NOT TESTED - Adjusting day adjusts day total
    * NOT TESTED - Adjusting day adjusts week total
-   * RETEST - Total red if <40
+   * PASS - Total red if <40
  * NOT TESTED - Data saving
    * Entered data shown on browser refesh
    * Entered data shown on change to different week and back
 * RETEST - Comments
-   * RETEST - Read comments
-   * RETEST - Add comments
-* RETEST - Start day of week configurable
+   * PASS - Read comments
+   * PASS - Add comments
+* PASS - Start day of week configurable
 * RETEST - Non-Sunday Week Start
-   * RETEST -  starts show appropriate start dates
-   * RETEST - From/Through week pickers adjust to non-Sunday dates
-   * RETEST - Hours column totals correct
-   * RETEST - State changes work
-   * RETEST - Comments work
-* FAIL - Manager app has day totals and overall totals
+   * PASS -  starts show appropriate start dates
+   * PASS - From/Through week pickers adjust to non-Sunday dates
+   * PASS - Hours column totals correct
+   * PASS - State changes work
+   * PASS - Comments work
 
 ### First Load
 
