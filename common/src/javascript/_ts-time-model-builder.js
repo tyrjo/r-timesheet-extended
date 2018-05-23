@@ -137,7 +137,7 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
             var timeEntryValueFieldName = Rally.technicalservices.TimeModelBuilder._getDayRecordFieldName(day)
             var timeEntryValue = this.get(timeEntryValueFieldName);
             if ( timeEntryValue ) {
-                timeEntryValue.destroy();   // TODO (tj) wait for callback?
+                timeEntryValue.destroy();
             }
             this.set(timeEntryValueFieldName, null);
         }, this);

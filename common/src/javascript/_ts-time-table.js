@@ -132,10 +132,10 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
         ],this).then({
             scope: this,
             success: function(results) {
-                var time_entry_items  = results[0]; // TODO (tj) must merge TEI results
-                var time_entry_values = results[1]; // TODO (tj) must merge TEV results?
-                var time_entry_appends = results[2];    // TODO (tj) must merge TEAp results?
-                var time_entry_amends = results[3]; // TODO (tj) must merge TEAm results?
+                var time_entry_items  = results[0];
+                var time_entry_values = results[1];
+                var time_entry_appends = results[2];
+                var time_entry_amends = results[3];
                 var time_default_preference = results[4];
                 
                 this.timePreference = Ext.create('TSDefaultPreference');
@@ -206,7 +206,6 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                         __Pinned: me._isItemPinned(item)
                     };
                     
-                    // TODO (tj) extra columns State, Estimate, Iteration
                     return Ext.create('TSTableRow',Ext.Object.merge(data, item.getData()));
                 }, this);
                 
@@ -233,7 +232,6 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
     },
     
     _getAppendedRowsFromPreferences: function(prefs) {
-        // TODO (tj) extra columns from preferences?
         return Ext.Array.map(prefs, function(pref){
             var value = Ext.JSON.decode(pref.get('Value'));
             value.ObjectID = pref.get('ObjectID');
@@ -247,7 +245,6 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
     },
     
     _getAmendedRowsFromPreferences: function(prefs) {
-        // TODO (tj) extra columns from preferences?
         return Ext.Array.map(prefs, function(pref){
             var value = Ext.JSON.decode(pref.get('Value'));
             value.ObjectID = pref.get('ObjectID');
@@ -878,7 +875,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                     __FirstTimeEntryItem: time_entry_items[0],
                     __AllTimeEntryItems: time_entry_items,
                     __Feature: null,
-                    __Iteration: config.WorkProduct.Iteration,  // TODO (tj) is Iteration available here?
+                    __Iteration: config.WorkProduct.Iteration,
                     __Product: config.Project,
                     __Release: config.WorkProduct.Release
                 };

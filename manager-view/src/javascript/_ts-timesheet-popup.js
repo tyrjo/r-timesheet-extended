@@ -15,7 +15,6 @@ Ext.define('Rally.technicalservices.ManagerDetailDialog', {
 
         this.callParent([this.config]);
         
-        // TODO (tj) 'WorkProduct' needed in these three? Seems only needed for time entry items
         this.task_fetch_fields = ['ObjectID','Name','FormattedID','WorkProduct','Project', TSCommonSettings.getLowestPortfolioItemTypeName(), 'State', 'Iteration', 'Estimate'];
         this.defect_fetch_fields = ['ObjectID','Name','FormattedID','Requirement','Project', TSCommonSettings.getLowestPortfolioItemTypeName(), 'State', 'Iteration', 'Estimate'];
         this.story_fetch_fields = ['WorkProduct', TSCommonSettings.getLowestPortfolioItemTypeName(), 'Project', 'ObjectID', 'Name', 'Release', 'PlanEstimate', 'ScheduleState'];
