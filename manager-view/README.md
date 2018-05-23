@@ -37,7 +37,7 @@ and re-openings.
    * PASS - loads only timesheets in desired state
 * Day picker
    * PASS - all days in week reset picker to start of week
-   * FAIL - default is prior month
+   * PASS - default is prior month
 * Row Actions
    * PASS - Empty for not submitted sheets
    * PASS - Approve submitted sheets
@@ -45,8 +45,9 @@ and re-openings.
    * PASS - Icon blank for not-submitted sheets
    * PASS - Icon gear for not-submitted sheets
    * PASS - Multiple sheet actions
-* RETEST - Extra PI field configurable
-* RETEST - Manager Edit of timesheets is configurable
+* PASS - Extra PI field configurable
+* PASS - Manager Edit of timesheets is configurable
+* PASS - Manager Edit disabled hides add task/story/defect controls on timesheet details
 * NOT TESTED - Amending / Appending Items
 * PASS - Loading indicator after clicking "Go"
 * PASS - CSV Export of all summary rows
@@ -62,7 +63,7 @@ and re-openings.
 * Remove Items
    * NOT TESTED
 * PASS - Test with renamed PortfolioItem (e.g. Feature renamed "Epic")
-* RETEST - Column data
+* PASS - Column data
    * FAIL - Sort [can't sort Task State]
    * PASS - Feature shown for stories with feature
    * PASS - Feature blank for stories without feature
@@ -77,7 +78,7 @@ and re-openings.
    * PASS - Release
    * PASS - Iteration
    * PASS - Week and Day Totals
-* RETEST - Days columns
+* PASS - Days columns
    * PASS - Order matches configured start day of week
    * PASS - Weekends colored blue
    * PASS - Totals colored grey
@@ -88,11 +89,11 @@ and re-openings.
  * NOT TESTED - Data saving
    * Entered data shown on browser refesh
    * Entered data shown on change to different week and back
-* RETEST - Comments
+* PASS - Comments
    * PASS - Read comments
    * PASS - Add comments
 * PASS - Start day of week configurable
-* RETEST - Non-Sunday Week Start
+* PASS - Non-Sunday Week Start
    * PASS -  starts show appropriate start dates
    * PASS - From/Through week pickers adjust to non-Sunday dates
    * PASS - Hours column totals correct

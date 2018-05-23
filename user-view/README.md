@@ -100,7 +100,7 @@ timesheet users.
        * PASS - Add different item as next week
        * PASS - Add hours
        * PASS - Prior week timesheet has no visible entry for next week item
-       * FAIL - week timesheet has no visible entry for prev week item
+       * PASS - week timesheet has no visible entry for prev week item
        * PASS - Edit week hours don't affect prev or next week sheet
        * PASS - Submited timesheet no longer editable and doesn't affect next or prior weeks
        * PASS -  and Remove hours don't affect prev or next week sheet

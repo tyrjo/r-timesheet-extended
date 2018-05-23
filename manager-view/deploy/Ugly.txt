@@ -3,13 +3,13 @@
 <head>
     <title>CATS-timesheet-with-approval (manager-view)-2.0.4</title>
     <!--  (c) 2017 CA Technologies.  All Rights Reserved. -->
-    <!--  Build Date: Wed May 23 2018 20:02:02 GMT+0000 (UTC) -->
+    <!--  Build Date: Wed May 23 2018 20:09:41 GMT+0000 (UTC) -->
 
     <script type="text/javascript">
-        var APP_BUILD_DATE = "Wed May 23 2018 20:02:02 GMT+0000 (UTC)";
+        var APP_BUILD_DATE = "Wed May 23 2018 20:09:41 GMT+0000 (UTC)";
         var ARTIFACT = "";
         var BUILDER  = "ec2-user";
-        var CHECKSUM = 476298659428;
+        var CHECKSUM = 476298663608;
     </script>
 
     <script type="text/javascript" src="/apps/2.1/sdk.js"></script>
