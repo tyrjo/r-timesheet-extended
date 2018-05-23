@@ -84,7 +84,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
         // If the localWeekStartDate is not a Sunday (which is Agile Central's start day of week (and required
         // by TimeEntryItem models), then we must create two TimeEntryItems. One is for the Sunday
         // prior to this start date, and one is for the Sunday after this start date.
-        this.utcWeekStartString = TSDateUtils.getUtcIsoForLocalDate(this.localWeekStartDate);
+        this.utcWeekStartString = TSDateUtils.getUtcIsoForLocalDate(this.localWeekStartDate, true);
         this.utcSundayWeekStartStrings = TSDateUtils.getUtcSundayWeekStartStrings(this.localWeekStartDate);
 
         if ( Ext.isEmpty(this.timesheet_user) ) {
@@ -132,10 +132,10 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
         ],this).then({
             scope: this,
             success: function(results) {
-                var time_entry_items  = results[0]; // TODO (tj) must merge TEI results
-                var time_entry_values = results[1]; // TODO (tj) must merge TEV results?
-                var time_entry_appends = results[2];    // TODO (tj) must merge TEAp results?
-                var time_entry_amends = results[3]; // TODO (tj) must merge TEAm results?
+                var time_entry_items  = results[0];
+                var time_entry_values = results[1];
+                var time_entry_appends = results[2];
+                var time_entry_amends = results[3];
                 var time_default_preference = results[4];
                 
                 this.timePreference = Ext.create('TSDefaultPreference');
@@ -206,7 +206,6 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                         __Pinned: me._isItemPinned(item)
                     };
                     
-                    // TODO (tj) extra columns State, Estimate, Iteration
                     return Ext.create('TSTableRow',Ext.Object.merge(data, item.getData()));
                 }, this);
                 
@@ -233,7 +232,6 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
     },
     
     _getAppendedRowsFromPreferences: function(prefs) {
-        // TODO (tj) extra columns from preferences?
         return Ext.Array.map(prefs, function(pref){
             var value = Ext.JSON.decode(pref.get('Value'));
             value.ObjectID = pref.get('ObjectID');
@@ -247,7 +245,6 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
     },
     
     _getAmendedRowsFromPreferences: function(prefs) {
-        // TODO (tj) extra columns from preferences?
         return Ext.Array.map(prefs, function(pref){
             var value = Ext.JSON.decode(pref.get('Value'));
             value.ObjectID = pref.get('ObjectID');
@@ -298,19 +295,12 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
         if ( !Ext.isEmpty(this.timesheet_user) ) {
             user_oid = this.timesheet_user.ObjectID;
         }
-        /*
-        var timeEntryItemFilter = Rally.data.wsapi.Filter.or(_.map(this.utcSundayWeekStartStrings, function(startString){
-            return {
-                property:'TimeEntryItem.WeekStartDate',
-                value:startString
-            }
-        }));
-        */
+
         // Only interested in Time Entry Values between the week start and week end.
         // When the week starts on a non-Sunday, a Time Entry Item will contain values
         // for the current and prior or next non-Sunday weeks.
         var localNextWeekStartDate = Ext.Date.add(this.localWeekStartDate, Ext.Date.DAY, 7);
-        var utcNextWeekStartString = TSDateUtils.getUtcIsoForLocalDate(localNextWeekStartDate);
+        var utcNextWeekStartString = TSDateUtils.getUtcIsoForLocalDate(localNextWeekStartDate, true);
         var dateValFilter = Rally.data.wsapi.Filter.and([{
             property: 'DateVal',
             operator: '>=',
@@ -452,7 +442,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
 
         var table_store = Ext.create('Rally.data.custom.Store',{
             model: 'TSTableRow',
-            //groupField: '__SecretKey',
+            groupField: '__SecretKey',
             data: rows,
             filters: [
                 function(row) {
@@ -846,11 +836,14 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                     .then({
                         scope: this,
                         success: function(results){
+                            row.beginEdit();
                             row.set('__AllTimeEntryItems', results);
+                            row.set('__FirstTimeEntryItem', results[0]);
                             // Set zero values for all days of this row's week
                             row.initTimeEntryValues().always(function() {
                                 // Refilter the rows now that we've added time entry values 
                                 this.grid.getStore().filter();
+                                row.endEdit();  // Must filter before ending the edit to ensure there are groups in the store
                                 deferred.resolve(row);
                             }, this);
                         },
@@ -882,7 +875,7 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                     __FirstTimeEntryItem: time_entry_items[0],
                     __AllTimeEntryItems: time_entry_items,
                     __Feature: null,
-                    __Iteration: config.WorkProduct.Iteration,  // TODO (tj) is Iteration available here?
+                    __Iteration: config.WorkProduct.Iteration,
                     __Product: config.Project,
                     __Release: config.WorkProduct.Release
                 };
@@ -895,15 +888,19 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                 }
                 
                 var row = Ext.create('TSTableRow',Ext.Object.merge(data, config));
-                row.save();
-                row.set('updatable', true); // so we can add values to the week
-                this.grid.getStore().loadRecords([row], { addRecords: true });
-                this.rows.push(row);
-                row.initTimeEntryValues().always(function() {
-                    // Refilter the rows now that we've added time entry values 
-                    this.grid.getStore().filter();
-                    deferred.resolve(row);
-                }, this);
+                row.save().then({
+                    scope: this,
+                    success: function(savedRow) {
+                        savedRow.set('updatable', true); // so we can add values to the week
+                        savedRow.initTimeEntryValues().always(function() {
+                            this.grid.getStore().loadRecords([savedRow], { addRecords: true });
+                            deferred.resolve(savedRow);
+                        }, this);
+                    },
+                    failure: function(operation) {
+                        Ext.Msg.alert("Problem saving Time Entry Item:", operation.error.errors.join(' '));
+                    }
+                });
             } else {
                 
                 var fetch = Ext.Array.merge(Rally.technicalservices.TimeModelBuilder.getFetchFields(), this.time_entry_item_fetch);
@@ -965,16 +962,22 @@ Ext.override(Rally.ui.grid.plugin.Validation,{
                             __Release: release,
                             __Pinned: this._isItemPinned(result) || false
                         };
-
-                        // TODO (tj) get State, Iteration and Estimate here?
+                        
                         var row = Ext.create('TSTableRow',Ext.Object.merge(data, results[0].origTimeEntryItem.getData()));
-                        this.grid.getStore().loadRecords([row], { addRecords: true });
-                        this.rows.push(row);
-                        row.initTimeEntryValues().always(function() {
-                            // Refilter the rows now that we've added time entry values 
-                            this.grid.getStore().filter(); 
-                            deferred.resolve(row);
-                        }, this);
+                        row.save().then({
+                            scope: this,
+                            success: function(savedRow){
+                                savedRow.set('updatable', true); // so we can add values to the week
+                                savedRow.initTimeEntryValues().always(function() {
+                                    this.grid.getStore().loadRecords([savedRow], { addRecords: true });
+                                    this.rows.push(savedRow);
+                                    deferred.resolve(savedRow);
+                                }, this);
+                            },
+                            failure: function(operation) {
+                                Ext.Msg.alert("Problem saving Time Entry Item:", operation.error.errors.join(' '));
+                            }
+                        });
                     },
                     failure: function(operation) {
                         Ext.Msg.alert("Problem saving time:", operation.error.errors.join(' '));

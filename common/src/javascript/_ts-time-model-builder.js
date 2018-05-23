@@ -44,7 +44,7 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
                     { name: '__Iteration', type: 'object', sortType: name_sort},    // Added to allow sorting
                     { name: '__Product',   type: 'object', sortType: name_sort },
                     { name: '__Total',     type: 'float', defaultValue: 0 },
-                    { name: '__SecretKey', type:'auto', defaultValue: 1 },
+                    { name: '__SecretKey', type:'auto', defaultValue: 1 },  // Used to support `groupingsummary` feature in grid
                     { name: '__Appended', type: 'boolean', defaultValue: false },
                     { name: '__Amended', type: 'boolean', defaultValue: false },
                     { name: '__PrefID', type:'auto', defaultValue: -1 },
@@ -75,7 +75,7 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
                     _saveTEV: this._saveTEV,
                     _createTimeEntryValue: this._createTimeEntryValue,
                     _getTimeEntryForDayName: this._getTimeEntryForDayName,
-                    initTimeEntryValues: this._initTimeEntryValues,
+                    initTimeEntryValues: this.initTimeEntryValues,
                     hasTimeEntryValues: this.hasTimeEntryValues,
                 });
                 
@@ -137,7 +137,7 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
             var timeEntryValueFieldName = Rally.technicalservices.TimeModelBuilder._getDayRecordFieldName(day)
             var timeEntryValue = this.get(timeEntryValueFieldName);
             if ( timeEntryValue ) {
-                timeEntryValue.destroy();   // TODO (tj) wait for callback?
+                timeEntryValue.destroy();
             }
             this.set(timeEntryValueFieldName, null);
         }, this);
@@ -365,7 +365,7 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
      * for the days of its week means it was created to hold data for the subsequent week,
      * and can be hidden until the user also decides to add it to the current week.
      */
-    _initTimeEntryValues: function() {
+    initTimeEntryValues: function() {
         // The create time entry value operations are asynchronous. Set a flag so we can
         // know the user wants to see this row even before the time entry value creations
         // have completed.
@@ -422,14 +422,14 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
         },this);
                 
         if ( promises.length === 0 ) { 
-            deferred.resolve(); 
+            deferred.resolve(this); 
             return deferred;
         }
         
         this.process = Deft.Chain.sequence(promises).then({
             scope: this,
             success: function(result) { 
-                deferred.resolve(result);
+                deferred.resolve(this);
             },
             failures: function(msg) {
                 deferred.reject(msg);
@@ -477,7 +477,7 @@ Ext.define('Rally.technicalservices.TimeModelBuilder',{
             this._saveChangesWithPromise().then({
                 scope: this,
                 success: function(result) {
-                    deferred.resolve(result);
+                    deferred.resolve(this); // Return a reference to the TSTableRow
                 },
                 failure: function(msg) {
                     deferred.reject(msg);

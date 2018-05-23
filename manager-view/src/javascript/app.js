@@ -180,7 +180,8 @@ Ext.define("TSTimeSheetApproval", {
     },
     
     _updateData: function() {
-        var me = this;
+        this.setLoading('Loading timesheets...');
+        
         this.down('#display_box').removeAll();
         
         // UTC dates of app start of week day (not Sunday based)
@@ -205,7 +206,9 @@ Ext.define("TSTimeSheetApproval", {
             failure: function(msg) {
                 Ext.Msg.alert('Problem loading users with timesheets', msg);
             }
-        }).always(function() { me.setLoading(false); });
+        }).always(function() {
+            this.setLoading(false);
+        }, this);
     },
     
     // Resolves to an Array of TSTimesheet objects
@@ -227,10 +230,10 @@ Ext.define("TSTimeSheetApproval", {
         queries.push({
             property: 'DateVal',
             operator: '>=',
-            value: TSDateUtils.getUtcIsoForLocalDate(this.startWeekDate) // This is app week start date (not sunday based)
+            value: TSDateUtils.getUtcIsoForLocalDate(this.startWeekDate, true) // This is app week start date (not sunday based)
         });
         // Find first date of week start AFTER the end date week start to include values in the end week
-        var endDate = TSDateUtils.getUtcIsoForLocalDate(Ext.Date.add(this.endWeekDate, Ext.Date.DAY, 7));
+        var endDate = TSDateUtils.getUtcIsoForLocalDate(Ext.Date.add(this.endWeekDate, Ext.Date.DAY, 7), true);
         queries.push({
             property: 'DateVal',
             operator: '<',
@@ -589,38 +592,24 @@ Ext.define("TSTimeSheetApproval", {
     
     _export: function(){
         var grid = this.down('rallygrid');
-        var me = this;
         
         if ( !grid ) { return; }
         
-
-
         var filename = 'manager-time-report.csv';
-
         this.setLoading("Generating CSV");
-        
         var promises = [];
-        
-
         var selected = grid.getSelectionModel().getSelection();
-
-        
         if ( !selected || selected.length == 0 ){
-
-            promises.push(function() {return Rally.technicalservices.FileUtilities.getCSVFromGrid(this,grid) });
+            promises.push(Rally.technicalservices.FileUtilities.getCSVFromGrid(this,grid));
+        } else {
+            promises = _.map(selected, function(item, index) {
+                return this._getCSVFromTimesheet(item,(index > 0) );
+            }, this);
         }
-        
-        Ext.Array.each(selected, function(item, idx){
-            promises.push(function(){ 
-                return me._getCSVFromTimesheet(item,(idx > 0) ); 
-            });
-        });
                 
-        Deft.Chain.sequence(promises).then({
+        Deft.promise.Promise.all(promises).then({
             scope: this,
             success: function(results){
-
-                
                 var csv = results.join('\r\n');
                 
                 if (csv && csv.length > 0){
@@ -630,14 +619,14 @@ Ext.define("TSTimeSheetApproval", {
                 }
                 
             }
-        }).always(function() { me.setLoading(false); });
+        }).always(function() {
+            this.setLoading(false);
+        }, this);
     },
     
     _getCSVFromTimesheet: function(timesheet,skip_headers) {
         var deferred = Ext.create('Deft.Deferred'),
             me = this;
-
-
         
         var status = timesheet.get('__Status');
                     
@@ -651,10 +640,16 @@ Ext.define("TSTimeSheetApproval", {
                 gridReady: function(timetable, grid) {
                     if ( grid.getStore().isLoading() ) {
                         grid.getStore().on('load', function() {
-                            deferred.resolve(Rally.technicalservices.FileUtilities.getCSVFromGrid(me,grid,skip_headers));
+                            Rally.technicalservices.FileUtilities.getCSVFromGrid(me,grid,skip_headers)
+                            .then(function(result){
+                                deferred.resolve(result);  
+                            });
                         }, this, { single: true });
                     } else {
-                        deferred.resolve(Rally.technicalservices.FileUtilities.getCSVFromGrid(this,grid,skip_headers));
+                        Rally.technicalservices.FileUtilities.getCSVFromGrid(this,grid,skip_headers)
+                        .then(function(result){
+                            deferred.resolve(result);  
+                        });
                     }
                 }
             }

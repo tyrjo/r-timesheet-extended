@@ -9,6 +9,7 @@
         "src/style/*.css"
     ],
     "javascript": [
+        "../common/src/javascript/overrides/*.js",
         "../common/src/javascript/utils/*.js",
         "../common/src/javascript/timesheet_menu/*.js",
         "../common/src/javascript/*.js",

@@ -1,6 +1,16 @@
 # Manager View
 
 Allows user `managers` and admins to view and approve timesheets created by the `User View` app.
+A summary of all user's timesheet totals can be exported, or (by selecting an individual summary)
+one or more detailed timesheets for each user can be exported.
+
+## Limitations
+* Manager edit of user timesheets is NOT SUPPORTED. Some of this functionality is in place but it
+was not required for current customer and likely will not work.
+* If the app is configured with a non-Sunday week start, timsheet export CSV data may contain
+rows that have zero hours for every day. This is normal and reflects how the app has to work around
+the Sunday week start used by the Agile Central data model.  It occurs when a user removes
+a work item from their timesheet.
 
 ## Available Settings
 * Show All - show all user timesheets to admins, regardless of the user manager
@@ -34,10 +44,15 @@ and re-openings.
    * PASS - Unapprove approved sheets
    * PASS - Icon blank for not-submitted sheets
    * PASS - Icon gear for not-submitted sheets
-   * Multiple sheet actions
+   * PASS - Multiple sheet actions
 * PASS - Extra PI field configurable
 * PASS - Manager Edit of timesheets is configurable
+* PASS - Manager Edit disabled hides add task/story/defect controls on timesheet details
 * NOT TESTED - Amending / Appending Items
+* PASS - Loading indicator after clicking "Go"
+* PASS - CSV Export of all summary rows
+* PASS - CSV Export of selected summary rows exports detailed timesheet
+* PASS - CSV Export of timesheet (and includes extra field) (rows may have zero hours for items removed from timesheet)
 
 ### Timesheet popup
 * PASS - State Changes:
@@ -47,9 +62,9 @@ and re-openings.
    * NOT TESTED
 * Remove Items
    * NOT TESTED
-* Test with renamed PortfolioItem (e.g. Feature renamed "Epic")
+* PASS - Test with renamed PortfolioItem (e.g. Feature renamed "Epic")
 * PASS - Column data
-   * PASS - Sort
+   * FAIL - Sort [can't sort Task State]
    * PASS - Feature shown for stories with feature
    * PASS - Feature blank for stories without feature
    * PASS - Feature shown for tasks on stories with feature
@@ -62,6 +77,7 @@ and re-openings.
    * PASS - Task State
    * PASS - Release
    * PASS - Iteration
+   * PASS - Week and Day Totals
 * PASS - Days columns
    * PASS - Order matches configured start day of week
    * PASS - Weekends colored blue
@@ -83,7 +99,6 @@ and re-openings.
    * PASS - Hours column totals correct
    * PASS - State changes work
    * PASS - Comments work
-* FAIL - Manager app has day totals and overall totals
 
 ### First Load
 

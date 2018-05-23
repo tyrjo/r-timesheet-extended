@@ -15,7 +15,6 @@ Ext.define('Rally.technicalservices.ManagerDetailDialog', {
 
         this.callParent([this.config]);
         
-        // TODO (tj) 'WorkProduct' needed in these three? Seems only needed for time entry items
         this.task_fetch_fields = ['ObjectID','Name','FormattedID','WorkProduct','Project', TSCommonSettings.getLowestPortfolioItemTypeName(), 'State', 'Iteration', 'Estimate'];
         this.defect_fetch_fields = ['ObjectID','Name','FormattedID','Requirement','Project', TSCommonSettings.getLowestPortfolioItemTypeName(), 'State', 'Iteration', 'Estimate'];
         this.story_fetch_fields = ['WorkProduct', TSCommonSettings.getLowestPortfolioItemTypeName(), 'Project', 'ObjectID', 'Name', 'Release', 'PlanEstimate', 'ScheduleState'];
@@ -88,38 +87,40 @@ Ext.define('Rally.technicalservices.ManagerDetailDialog', {
         
         var left_box = this.down('#popup_left_box');
         
-        left_box.add({
-            xtype:'rallybutton',
-            text: '+<span class="icon-task"> </span>',
-            disabled: (status == TSTimesheet.STATUS.APPROVED || locked),
-            toolTipText: "Search and add Tasks",
-            listeners: {
-                scope: this,
-                click: this._findAndAddTask
-            }
-        });
-        
-        left_box.add({
-            xtype:'rallybutton',
-            text: '+<span class="icon-defect"> </span>',
-            disabled: (status == TSTimesheet.STATUS.APPROVED || locked),
-            toolTipText: "Search and add Defects",
-            listeners: {
-                scope: this,
-                click: this._findAndAddDefect
-            }
-        });
-        
-        left_box.add({
-            xtype:'rallybutton',
-            text: '+<span class="icon-story"> </span>',
-            toolTipText: "Search and add User Stories",
-            disabled: (status == TSTimesheet.STATUS.APPROVED || locked),
-            listeners: {
-                scope: this,
-                click: this._findAndAddStory
-            }
-        });
+        if ( TSCommonSettings.isManagerEditAllowed() ) {
+            left_box.add({
+                xtype:'rallybutton',
+                text: '+<span class="icon-task"> </span>',
+                disabled: (status == TSTimesheet.STATUS.APPROVED || locked),
+                toolTipText: "Search and add Tasks",
+                listeners: {
+                    scope: this,
+                    click: this._findAndAddTask
+                }
+            });
+            
+            left_box.add({
+                xtype:'rallybutton',
+                text: '+<span class="icon-defect"> </span>',
+                disabled: (status == TSTimesheet.STATUS.APPROVED || locked),
+                toolTipText: "Search and add Defects",
+                listeners: {
+                    scope: this,
+                    click: this._findAndAddDefect
+                }
+            });
+            
+            left_box.add({
+                xtype:'rallybutton',
+                text: '+<span class="icon-story"> </span>',
+                toolTipText: "Search and add User Stories",
+                disabled: (status == TSTimesheet.STATUS.APPROVED || locked),
+                listeners: {
+                    scope: this,
+                    click: this._findAndAddStory
+                }
+            });
+        }
         
         left_box.add({
             xtype:'tscommentbutton',
